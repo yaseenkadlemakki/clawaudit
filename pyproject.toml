@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "clawaudit-tests"
+version = "1.0.0"
+description = "Test suite for the ClawAudit OpenClaw security compliance skill"
+requires-python = ">=3.10"
+# No runtime dependencies — the skill itself is pure markdown/YAML.
+# Test dependencies are in requirements-dev.txt.
+dependencies = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--tb=short",
+    "--strict-markers",
+    "-v",
+]
+markers = [
+    "unit: fast, isolated tests for a single file or component",
+    "functional: multi-file behavioural and cross-reference tests",
+    "integration: full-repository consistency and regression tests",
+]
+# To stop on the first failure run: pytest -x tests/integration/
+# (not in addopts — most workflows benefit from seeing all failures at once)
+
+[tool.coverage.run]
+# source=["tests"] measures how thoroughly the test files themselves are exercised
+# (i.e. every branch and helper in conftest.py / test_*.py is reachable).
+# This is the correct target: the skill has no Python source to cover.
+source = ["tests"]
+omit = [
+    "tests/__init__.py",
+    "tests/unit/__init__.py",
+    "tests/functional/__init__.py",
+    "tests/integration/__init__.py",
+]
+
+[tool.coverage.report]
+show_missing = true
+# 80 % line coverage is the minimum for the test suite itself to be well-tested.
+fail_under = 80
+
+[tool.coverage.html]
+directory = "htmlcov"
