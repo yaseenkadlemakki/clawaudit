@@ -1,0 +1,206 @@
+name: Test Suite
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [master]
+
+# Least-privilege: workflow only reads repository contents.
+permissions:
+  contents: read
+
+# Cancel in-progress runs on the same branch when a new commit is pushed.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── 1. YAML lint ──────────────────────────────────────────────────────────────
+  lint-yaml:
+    name: Lint YAML
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-lint-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-lint-
+
+      - name: Install yamllint
+        run: pip install yamllint==1.35.1
+
+      - name: Lint hardening-rules.yaml
+        run: |
+          yamllint -d "{
+            extends: default,
+            rules: {
+              line-length: {max: 200},
+              truthy: disable,
+              comments: disable
+            }
+          }" data/hardening-rules.yaml
+
+  # ── 2. Unit tests (matrix: Python 3.10 / 3.11 / 3.12) ───────────────────────
+  unit-tests:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint-yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.python-version }}-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-${{ matrix.python-version }}-
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run unit tests
+        run: pytest tests/unit/ -v --tb=short -m unit
+
+  # ── 3. Functional tests (Python 3.12) ────────────────────────────────────────
+  functional-tests:
+    name: Functional tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-3.12-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-3.12-
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run functional tests
+        run: pytest tests/functional/ -v --tb=short -m functional
+
+  # ── 4. Integration + regression tests (Python 3.12, fail-fast) ───────────────
+  integration-tests:
+    name: Integration & regression tests
+    runs-on: ubuntu-latest
+    needs: functional-tests
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-3.12-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-3.12-
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run integration tests
+        # -x: stop on first failure — regression failures are hard blockers
+        run: pytest tests/integration/ -v --tb=long -m integration -x
+
+  # ── 5. Full suite with coverage (Python 3.12) ────────────────────────────────
+  coverage:
+    name: Test coverage
+    runs-on: ubuntu-latest
+    needs: [unit-tests, functional-tests, integration-tests]
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4
+        with:
+          path: ~/.cache/pip
+          key: pip-3.12-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-3.12-
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run full suite with coverage
+        run: |
+          pytest tests/ \
+            --cov=tests \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-fail-under=80 \
+            -v
+
+      - name: Upload coverage report (HTML)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        if: always()
+        with:
+          name: coverage-html
+          path: htmlcov/
+          retention-days: 14
+
+      - name: Upload coverage XML (for external tools)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
+        if: always()
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 14
+
+  # ── 6. Final status gate ──────────────────────────────────────────────────────
+  # All required jobs must pass before a PR can be merged.
+  all-tests-pass:
+    name: All tests passed
+    runs-on: ubuntu-latest
+    needs: [lint-yaml, unit-tests, functional-tests, integration-tests, coverage]
+    if: always()
+    steps:
+      - name: Check all jobs succeeded
+        run: |
+          if [[ "${{ needs.lint-yaml.result }}" != "success" ||
+                "${{ needs.unit-tests.result }}" != "success" ||
+                "${{ needs.functional-tests.result }}" != "success" ||
+                "${{ needs.integration-tests.result }}" != "success" ||
+                "${{ needs.coverage.result }}" != "success" ]]; then
+            echo "One or more required jobs failed."
+            exit 1
+          fi
+          echo "All jobs passed."
