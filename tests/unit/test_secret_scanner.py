@@ -46,10 +46,13 @@ def test_detects_jwt(scanner):
 
 def test_skip_redacted_values(scanner):
     for skip_val in SKIP_VALUES:
-        matches = scanner.scan_text(f"token = {skip_val}", "test.txt")
-        # Should not find secrets in clearly-placeholder values
-        # (actual behavior depends on if placeholder matches pattern)
-        assert isinstance(matches, list)
+        # Embed each known placeholder in a realistic key context and verify it is NOT flagged
+        text = f'gateway_token = "{skip_val}"'
+        matches = scanner.scan_text(text, "test.txt")
+        assert len(matches) == 0, (
+            f"Skip value {skip_val!r} was incorrectly flagged as a secret. "
+            "SKIP_VALUES list must cover all placeholder patterns."
+        )
 
 
 def test_skip_placeholder_token(scanner):
@@ -79,3 +82,34 @@ def test_scan_dict(scanner):
     matches = scanner.scan_dict(data, "config.json")
     assert len(matches) > 0
     assert matches[0].secret_type == "anthropic_key"
+
+
+# ── Edge case tests ────────────────────────────────────────────────────────────
+
+def test_scan_empty_string(scanner):
+    """scan_text on empty string returns empty list without error."""
+    matches = scanner.scan_text("", "empty.txt")
+    assert matches == []
+
+
+def test_scan_empty_dict(scanner):
+    """scan_dict on empty dict returns empty list without error."""
+    matches = scanner.scan_dict({}, "config.json")
+    assert matches == []
+
+
+def test_secret_value_not_in_context(scanner):
+    """The matched context must not contain the raw secret value."""
+    real_key = "sk-ant-api03-" + "Z" * 40
+    text = f"export ANTHROPIC_API_KEY={real_key}"
+    matches = scanner.scan_text(text, "env.sh")
+    for m in matches:
+        assert real_key not in m.context, "Raw secret value leaked into match context"
+
+
+def test_nested_dict_scan(scanner):
+    """Secrets nested multiple levels deep are detected."""
+    data = {"level1": {"level2": {"key": "sk-ant-api03-" + "C" * 30}}}
+    matches = scanner.scan_dict(data, "deep.json")
+    assert len(matches) > 0
+    assert all(m.secret_type == "anthropic_key" for m in matches)

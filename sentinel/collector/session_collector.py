@@ -13,7 +13,6 @@ from sentinel.models.event import Event
 
 logger = logging.getLogger(__name__)
 
-SESSIONS_DIR = Path("~/.openclaw/sessions").expanduser()
 TOOL_CALL_LIMIT_PER_MINUTE = 30
 
 
@@ -74,8 +73,9 @@ class SessionCollector:
     async def run(self) -> None:
         """Periodically scan session files."""
         while True:
-            if SESSIONS_DIR.exists():
-                for session_file in SESSIONS_DIR.glob("*.jsonl"):
+            sessions_dir = self._config.sessions_dir
+            if sessions_dir.exists():
+                for session_file in sessions_dir.glob("*.jsonl"):
                     try:
                         self._analyze_session_file(session_file)
                     except Exception as exc:

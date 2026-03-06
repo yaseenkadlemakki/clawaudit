@@ -135,3 +135,52 @@ def test_highest_action_wins():
     )
     decision = engine.evaluate(event)
     assert decision.action == "BLOCK"
+
+
+# ── Edge case tests ────────────────────────────────────────────────────────────
+
+def test_malformed_yaml_policy_dir_graceful():
+    """PolicyLoader gracefully handles malformed YAML files."""
+    import tempfile
+    d = Path(tempfile.mkdtemp())
+    (d / "bad.yaml").write_text("{{{{ not valid yaml }}}}")
+    (d / "good.yaml").write_text(
+        'name: good\nversion: "1"\nrules:\n'
+        '  - {id: G1, domain: runtime, check: event_type, condition: equals,\n'
+        '     value: test, severity: LOW, action: WARN, message: ok}\n'
+    )
+    engine = PolicyEngine(d)
+    # Bad file should be skipped; good file should load
+    assert any(r.id == "G1" for r in engine.rules)
+
+
+def test_empty_policy_dir():
+    """PolicyLoader with empty directory returns zero rules without error."""
+    import tempfile
+    d = Path(tempfile.mkdtemp())
+    engine = PolicyEngine(d)
+    assert engine.rules == []
+
+
+def test_policy_engine_nonexistent_dir():
+    """PolicyEngine with nonexistent dir does not raise, returns zero rules."""
+    engine = PolicyEngine(Path("/tmp/nonexistent-sentinel-policies-xyz"))
+    assert engine.rules == []
+
+
+def test_lt_condition_not_matched():
+    """Unknown condition returns False, not an exception."""
+    from sentinel.policy.engine import _matches_condition
+    from sentinel.models.policy import Rule
+    rule = Rule(id="X", domain="", check="severity", condition="unknown_op",
+                value="HIGH", severity="LOW", action="ALERT", message="")
+    assert _matches_condition(rule, "HIGH") is False
+
+
+def test_gt_condition_non_numeric_value():
+    """gt condition with non-numeric input returns False gracefully."""
+    from sentinel.policy.engine import _matches_condition
+    from sentinel.models.policy import Rule
+    rule = Rule(id="X", domain="", check="tool_calls", condition="gt",
+                value="10", severity="HIGH", action="ALERT", message="")
+    assert _matches_condition(rule, "notanumber") is False

@@ -48,9 +48,13 @@ class AlertEngine:
                 delivery_target=oc_cfg.get("delivery_target", ""),
             ))
 
+    def _dedup_key(self, finding: "Finding") -> str:
+        """Return a stable deduplication key for a finding (check_id + location)."""
+        return f"{finding.check_id}:{finding.location}"
+
     def _is_deduplicated(self, finding: "Finding") -> bool:
         """Return True if this finding was recently alerted (within dedup window)."""
-        last_sent = self._dedup.get(finding.id)
+        last_sent = self._dedup.get(self._dedup_key(finding))
         if last_sent and (time.time() - last_sent) < self._config.dedup_window:
             return True
         return False
@@ -66,7 +70,7 @@ class AlertEngine:
             return
 
         message = format_finding_alert(finding, decision)
-        self._dedup[finding.id] = time.time()
+        self._dedup[self._dedup_key(finding)] = time.time()
 
         for channel in self._channels:
             try:

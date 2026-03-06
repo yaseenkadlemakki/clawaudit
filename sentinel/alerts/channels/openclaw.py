@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Module-level set to hold task references and prevent premature GC
+_background_tasks: set = set()
+
 
 class OpenClawAlertChannel:
     """Delivers alerts via the OpenClaw gateway message API."""
@@ -49,10 +52,12 @@ class OpenClawAlertChannel:
                 logger.warning("Failed to send alert via gateway: %s", exc)
 
     def send(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
-        """Synchronous wrapper."""
+        """Synchronous wrapper — schedules delivery, holds task ref to prevent GC."""
         import asyncio
         try:
             loop = asyncio.get_running_loop()
-            loop.create_task(self.send_async(message, finding, decision))
+            task = loop.create_task(self.send_async(message, finding, decision))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
         except RuntimeError:
             asyncio.run(self.send_async(message, finding, decision))

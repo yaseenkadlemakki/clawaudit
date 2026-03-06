@@ -78,8 +78,11 @@ class SkillCollector:
 
         for path in [self._config.skills_dir, self._config.workspace_skills_dir]:
             if path.exists():
-                self._observer.schedule(handler, str(path), recursive=True)  # type: ignore[arg-type]
-                logger.info("Watching skill directory: %s", path)
+                try:
+                    self._observer.schedule(handler, str(path), recursive=True)  # type: ignore[arg-type]
+                    logger.info("Watching skill directory: %s", path)
+                except (PermissionError, OSError) as exc:
+                    logger.warning("Cannot watch skill directory %s: %s", path, exc)
 
         self._observer.start()
 

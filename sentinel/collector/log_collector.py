@@ -53,9 +53,20 @@ class LogCollector:
         self._emit = event_callback
         self._secret_scanner = SecretScanner()
 
+    def _sanitize_for_evidence(self, line: str) -> str:
+        """Redact any secret-like values from a log line before using as evidence."""
+        safe = line[:200]
+        for compiled_pat, _, _ in _COMPILED_SUSPICIOUS:
+            pass  # pattern already used for matching
+        for match in self._secret_scanner.scan_text(safe, "<evidence>"):
+            # Replace matched context segment with redaction marker
+            safe = safe.replace(match.context, f"[REDACTED:{match.secret_type}]")
+        return safe
+
     def _handle_line(self, line: str, source_path: Path) -> None:
         """Process a single log line."""
         # Check for suspicious commands
+        safe_evidence = self._sanitize_for_evidence(line)
         for pattern, description, severity in _COMPILED_SUSPICIOUS:
             if pattern.search(line):
                 self._emit(Event(
@@ -63,7 +74,7 @@ class LogCollector:
                     event_type="suspicious_command",
                     severity=severity,
                     entity=str(source_path),
-                    evidence=description + " — " + line[:200],
+                    evidence=description + " — " + safe_evidence,
                     action_taken="ALERT",
                 ))
 

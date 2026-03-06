@@ -106,3 +106,23 @@ def test_conf06_yolo_fails(auditor):
     assert conf06
     assert conf06[0].result == "FAIL"
     assert conf06[0].severity == "CRITICAL"
+
+
+# ── Edge case tests ────────────────────────────────────────────────────────────
+
+def test_empty_config_does_not_raise(auditor):
+    """Auditing an empty config dict does not raise an exception."""
+    findings = auditor.audit({}, "r-empty")
+    assert isinstance(findings, list)
+
+
+def test_conf05_evidence_does_not_contain_secret_value(auditor):
+    """CONF-05 finding evidence must not contain the raw credential value."""
+    secret = "sk-ant-api03-" + "Y" * 30
+    config = _make_config()
+    config["auth_token"] = secret
+    findings = auditor.audit(config, "r1")
+    conf05 = [f for f in findings if f.check_id == "CONF-05"]
+    assert conf05
+    for f in conf05:
+        assert secret not in f.evidence, "Raw secret value leaked into finding evidence"

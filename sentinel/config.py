@@ -99,7 +99,7 @@ class SentinelConfig:
 
     @property
     def skills_dir(self) -> Path:
-        return Path(self._data["openclaw"]["skills_dir"])
+        return Path(self._data["openclaw"]["skills_dir"]).expanduser()
 
     @property
     def workspace_skills_dir(self) -> Path:
@@ -130,11 +130,15 @@ class SentinelConfig:
         p = Path(self._data["sentinel"]["policies_dir"]).expanduser()
         if not p.exists():
             # fall back to bundled policies
-            bundled = Path(__file__).parent.parent / "policies"
+            bundled = Path(__file__).parent / "policies"
             if bundled.exists():
                 return bundled
         return p
 
+
+    @property
+    def sessions_dir(self) -> Path:
+        return Path(self._data["openclaw"].get("sessions_dir", "~/.openclaw/sessions")).expanduser()
     @property
     def alerts_enabled(self) -> bool:
         return bool(self._data["alerts"]["enabled"])

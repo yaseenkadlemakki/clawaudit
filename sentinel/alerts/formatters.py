@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from sentinel.models.finding import Finding
+    from sentinel.models.event import Event
     from sentinel.models.policy import PolicyDecision
 
 SEVERITY_EMOJI = {
@@ -41,7 +42,7 @@ def format_finding_alert(finding: "Finding", decision: "PolicyDecision") -> str:
     return "\n".join(lines)
 
 
-def format_event_alert(event: "any", decision: "PolicyDecision") -> str:
+def format_event_alert(event: "Event", decision: "PolicyDecision") -> str:
     """Format an event into an alert message string."""
     emoji = SEVERITY_EMOJI.get(event.severity, "⚠️")
     policy_ids = ", ".join(decision.policy_ids) if decision.policy_ids else "default"
