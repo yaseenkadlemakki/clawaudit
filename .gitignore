@@ -1,0 +1,27 @@
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python packaging artifacts (if skill-creator scripts are used)
+__pycache__/
+*.pyc
+*.pyo
+dist/
+*.egg-info/
+
+# Packaged skill outputs
+*.skill
+
+# Local audit report outputs (never commit generated reports)
+clawaudit-report-*.md
+clawaudit-report-*.json
+
+# Environment files (never commit)
+.env
+.env.local

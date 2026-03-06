@@ -1,5 +1,11 @@
 # Installing ClawAudit into an OpenClaw Deployment
 
+## Requirements
+
+- **OpenClaw** ≥ 1.0.0
+- **Platform:** macOS (primary), Linux (supported — adjust install path for Method 1)
+- **Permissions:** Read access to the OpenClaw config file and skills directory. No write permissions required.
+
 ## Method 1: Copy to OpenClaw Skills Directory (Recommended)
 
 ```bash
@@ -54,10 +60,13 @@ It does **not** require `exec`, `Write`, `Edit`, or any messaging tool.
 ## Scheduling Periodic Audits
 
 ```bash
-# Weekly audit every Monday at 09:00 (isolated session, delivers to Discord)
+# Weekly audit every Monday at 09:00 — adjust timezone to your local zone
 openclaw cron add \
   --name "clawaudit:weekly" \
   --schedule "cron:0 9 * * MON America/New_York" \
   --payload "agentTurn:/clawaudit" \
   --delivery "announce:discord"
 ```
+
+Replace `America/New_York` with your local IANA timezone (e.g., `Europe/London`, `Asia/Tokyo`).
+Run `openclaw cron list` to confirm the scheduled job was registered.

@@ -23,21 +23,41 @@ Map FAIL/WARN results to severity based on domain definitions:
 | LOW | Minor hardening gap; defense-in-depth | Fix when convenient |
 | INFO | Informational observation; no action required | Note only |
 
-UNKNOWN results are counted as FAIL for scoring purposes (conservative).
+UNKNOWN results are counted as FAIL for scoring purposes (conservative). The distinction between UNKNOWN and FAIL is preserved in the raw evidence appendix so the reader understands which gaps are confirmed deficiencies vs. gaps due to incomplete evidence.
 
 ## Domain Score Calculation
 
 ```
-Domain Score = (PASS count / Total checks) × 100
+Domain Score = (PASS count / Total checks in domain) × 100
 ```
 
-Where UNKNOWN counts as FAIL (0 points).
+Where UNKNOWN counts as FAIL (0 points). If a domain has 0 checks (e.g., no skills discovered for Domain 2), report that domain as N/A rather than 0% or 100%.
 
 ## Overall Compliance Score
 
 ```
 Overall = (Sum of all PASS across all domains / Total checks across all domains) × 100
 ```
+
+Only include domains with at least one check in the denominator.
+
+## Adjusted Score (Confirmed Checks Only)
+
+A second score excludes UNKNOWN results from the denominator entirely, measuring only checks where evidence was available:
+
+```
+Adjusted Score = (PASS count / (Total checks − UNKNOWN count)) × 100
+```
+
+This gives auditors two signals:
+- **Worst-case score** (main formula, UNKNOWN = FAIL): conservative; penalises gaps in evidence.
+- **Confirmed compliance rate** (adjusted formula, UNKNOWN excluded): what is actually verified. A deployment where the gateway is unavailable should not score 30% when nothing is actually misconfigured — the adjusted score surfaces this distinction.
+
+Both scores must appear in the compliance table.
+
+## Severity Weighting Note
+
+The numeric score is unweighted — a deployment with 3 CRITICAL FAILs can still score above 80% overall. **Always read the CRITICAL and HIGH findings list before relying on the overall score.** The score is a completeness indicator, not a safety guarantee.
 
 ## Trust Score Calculation (Skills)
 

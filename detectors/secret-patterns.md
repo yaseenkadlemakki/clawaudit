@@ -1,4 +1,5 @@
 # ClawAudit — Secret Detection Patterns
+**Pattern registry version:** 1.0.0 | **Last reviewed:** 2026-03
 
 **Rules:**
 1. These patterns are for DETECTION ONLY — never output matched values.
@@ -8,12 +9,18 @@
 
 ---
 
+## Scan Order (critical — apply in this order)
+
+> **Always apply Anthropic before OpenAI.** The OpenAI `sk-` prefix is a superset of the Anthropic `sk-ant-` prefix. A scanner that checks `sk-` first will misclassify Anthropic keys as OpenAI keys. Apply the more-specific pattern first.
+>
+> Effective OpenAI pattern (negative lookahead): match `sk-` **not** followed by `ant-`, i.e., `sk-(?!ant-)[a-zA-Z0-9]+`.
+
 ## Pattern Registry
 
 | Credential Type | Pattern Description | Severity |
 |---|---|---|
-| Anthropic API Key | Value starting with `sk-ant-` followed by alphanumeric string | CRITICAL |
-| OpenAI API Key | Value starting with `sk-` followed by alphanumeric string (non-Anthropic) | CRITICAL |
+| Anthropic API Key | Value starting with `sk-ant-` followed by alphanumeric string (**check first**) | CRITICAL |
+| OpenAI API Key | Value starting with `sk-` but **not** `sk-ant-` (use negative lookahead: `sk-(?!ant-)`) followed by alphanumeric string | CRITICAL |
 | AWS Access Key ID | Value matching `AKIA` followed by 16 uppercase alphanumeric chars | CRITICAL |
 | AWS Secret Access Key | 40-char base64-like string adjacent to `AWS_SECRET` or `aws_secret` key | CRITICAL |
 | GitHub Personal Access Token | Value starting with `ghp_`, `gho_`, `ghs_`, `ghr_` | CRITICAL |
@@ -24,7 +31,7 @@
 | Discord Bot Token | Multi-segment base64-like string matching Discord token format | HIGH |
 | Generic Bearer Token | `Bearer ` followed by a token string in config values (not in HTTP example docs) | MEDIUM |
 | JWT Token | Three base64url segments separated by `.` starting with `eyJ` | MEDIUM |
-| Generic API Key | Key names containing `api_key`, `apikey`, `api-key`, `secret`, `token`, `password` with non-empty, non-placeholder values | MEDIUM |
+| Generic API Key | Key names containing `api_key`, `apikey`, `api-key`, `secret`, `token`, `password` with non-empty, non-placeholder values **and** value length ≥ 20 characters **and** value is not purely numeric (exclude counts, expiry timestamps, port numbers, etc.) | MEDIUM |
 | Private Key PEM | `-----BEGIN RSA PRIVATE KEY-----` or `-----BEGIN PRIVATE KEY-----` | CRITICAL |
 | SSH Private Key | `-----BEGIN OPENSSH PRIVATE KEY-----` | CRITICAL |
 
@@ -46,6 +53,9 @@ Skip matches if:
 - Value equals `__OPENCLAW_REDACTED__`, `***`, `<redacted>`, `YOUR_TOKEN_HERE`, `example`, `placeholder`
 - Value is inside a markdown code block that is clearly documentation/example (check context)
 - Pattern appears in a comment line starting with `#` or `//`
+- For Generic API Key: value is purely numeric (e.g., `max_token_length: 4096`, `session_timeout: 3600`)
+- For Generic API Key: value length < 20 characters (too short to be a real credential)
+- Key name is a known non-credential field: `max_tokens`, `max_token_length`, `session_token_expiry`, `token_limit`, `token_count`
 
 When in doubt: **flag it** — do not assume safe.
 
