@@ -66,7 +66,7 @@ The numeric score is unweighted — a deployment with 3 CRITICAL FAILs can still
 | TRUSTED | SKILL-01 PASS + SKILL-02 PASS/scoped + SKILL-05 PASS + SKILL-09 PASS |
 | CAUTION | One of: missing SKILL-01, or SKILL-02 FAIL with low SKILL-05 risk |
 | UNTRUSTED | SKILL-02 FAIL + SKILL-05 FAIL, or SKILL-08 FAIL + SKILL-09 FAIL |
-| QUARANTINE | SKILL-05 FAIL with active injection patterns, or SKILL-07 calls unknown endpoints |
+| QUARANTINE | SKILL-05 FAIL with active injection patterns, or SC-07 calls home to undeclared endpoint |
 
 ## Severity → Emoji
 

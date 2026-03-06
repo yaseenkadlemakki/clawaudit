@@ -324,10 +324,10 @@ checks:
   - id: OBS-01
     domain: observability
     description: Every skill invocation logged with timestamp + skill + user
-    evidence_key: "config.hooks.internal.entries.command-logger.enabled"
-    expected: "true"
+    evidence_key: "config.hooks.external.logDestination OR config.hooks.internal.entries.command-logger.invocationSchema"
+    expected: "external log destination present, or invocation schema includes timestamp+skill+user"
     severity: HIGH
-    remediation: "Enable command-logger hook. Ensure it captures: timestamp, skill name, invoking session/user."
+    remediation: "Configure an external log destination (e.g., hooks.external.logDestination) or ensure the command-logger invocation schema captures: timestamp, skill name, invoking session/user. OBS-01 tests observability completeness; CONF-05 tests the enabled flag."
 
   - id: OBS-02
     domain: observability

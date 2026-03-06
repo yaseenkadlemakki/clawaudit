@@ -65,6 +65,8 @@ For each finding:
 
 _Worst-Case Score = PASS / Total (UNKNOWN treated as FAIL). Adjusted Score = PASS / (Total − UNKNOWN). See `references/scoring.md` for formula details._
 
+> ⚠️ **WARNING — Score Misleading When CRITICAL Findings Exist:** If ANY CRITICAL finding is present, the overall score percentage does not reflect actual security posture. A deployment with active credential exposure or unauthenticated API access can still score above 80% overall. When CRITICAL count > 0: (1) display this warning prominently in the Executive Summary, (2) treat the score as an audit completeness indicator only, and (3) mark the Adjusted Score as **N/A** until all CRITICAL findings are remediated.
+
 ---
 
 ## Remediation Roadmap
