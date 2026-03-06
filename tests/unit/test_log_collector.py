@@ -127,6 +127,14 @@ class TestSanitizeForEvidence:
         line = "Starting application"
         assert col._sanitize_for_evidence(line) == line
 
+    def test_redacts_multiple_secrets_on_same_line(self, tmp_path):
+        """Both an AWS key and a Bearer token on the same line must both be redacted."""
+        col = self._collector(tmp_path)
+        line = "aws=AKIA1234567890ABCDEF auth=Bearer abcdefghijklmnopqrstuvwxyz0123"
+        result = col._sanitize_for_evidence(line)
+        assert "AKIA1234567890ABCDEF" not in result
+        assert "abcdefghijklmnopqrstuvwxyz0123" not in result
+
 
 @pytest.mark.unit
 class TestLogCollectorSecurityCombinedCase:
