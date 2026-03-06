@@ -11,9 +11,10 @@ checks:
     domain: config
     description: Debug mode disabled in production config
     evidence_key: "config.debug"
-    expected: "absent or false"
+    expected: "absent (defaults to false) or explicitly false"
+    pass_when_absent: true
     severity: MEDIUM
-    remediation: "Set `debug: false` explicitly in openclaw.json or remove the key (defaults to false)."
+    remediation: "Set `debug: false` explicitly in openclaw.json or remove the key (defaults to false). FAIL only if the key is present and set to true."
 
   - id: CONF-02
     domain: config

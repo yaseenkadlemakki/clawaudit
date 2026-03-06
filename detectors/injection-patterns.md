@@ -1,4 +1,5 @@
 # ClawAudit — Injection Detection Patterns
+**Pattern registry version:** 1.0.0 | **Last reviewed:** 2026-03
 
 **Purpose:** Detect prompt injection and shell injection vectors in skill files.
 **Rules:** Detection only. Never execute or evaluate found patterns.

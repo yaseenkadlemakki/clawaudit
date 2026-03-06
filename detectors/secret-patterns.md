@@ -1,4 +1,5 @@
 # ClawAudit — Secret Detection Patterns
+**Pattern registry version:** 1.0.0 | **Last reviewed:** 2026-03
 
 **Rules:**
 1. These patterns are for DETECTION ONLY — never output matched values.

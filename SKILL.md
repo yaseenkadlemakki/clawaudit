@@ -4,7 +4,7 @@ description: "Autonomous security compliance agent for OpenClaw deployments. Per
 user-invocable: true
 allowed-tools: ["Read", "memory_search", "memory_get", "gateway", "session_status"]
 metadata:
-  { "openclaw": { "emoji": "🔍", "version": "1.0.0", "author": "clawaudit" } }
+  { "openclaw": { "emoji": "🔍", "version": "1.0.0", "author": "OpenClaw Security" } }
 ---
 
 # ClawAudit — OpenClaw Security Compliance Agent
@@ -31,11 +31,11 @@ clawaudit/
 
 ### Phase 0 — Setup
 
-1. Run `gateway config.get` to load the live OpenClaw config.
+1. Run `gateway config.get` to load the live OpenClaw config. If this call fails or returns an error, mark **all Domain 1 and Domain 4 checks as UNKNOWN** with reason "gateway unavailable — config could not be loaded" and continue with remaining phases.
 2. Read `detectors/secret-patterns.md` for credential detection patterns.
 3. Read `data/hardening-rules.yaml` for the full check registry.
-4. Note the OpenClaw install path: `/opt/homebrew/lib/node_modules/openclaw/` (default). Confirm via config if different.
-5. Discover all skill directories under `<install>/skills/` — read each `SKILL.md` frontmatter.
+4. Determine the OpenClaw install path from the gateway config key `openclaw.installPath`. If absent, fall back to `/opt/homebrew/lib/node_modules/openclaw/` (macOS Homebrew default) or `/usr/local/lib/node_modules/openclaw/` (Linux npm global). If neither path exists, mark skill discovery as UNKNOWN with reason "install path not found" and skip Phase 2 and Phase 5.
+5. Discover all skill directories under `<install>/skills/` — read each `SKILL.md` frontmatter. If the skills directory does not exist or is not readable, mark Domains 2 and 5 as UNKNOWN.
 
 ### Phase 1 — Configuration Hardening (8 checks)
 
@@ -84,3 +84,5 @@ Produce the full ClawAudit report per the template.
 4. **Flag UNKNOWN, never assume PASS.** If a check cannot be completed, mark UNKNOWN with reason.
 5. **Cite everything.** Every finding must reference an exact file path, config key, or line range.
 6. **Complete all 6 domains** before generating the report.
+7. **Do not audit yourself.** Exclude `clawaudit`'s own `SKILL.md` from Domain 2 and Domain 5 skill checks to prevent false positives from this file's own security-pattern documentation.
+8. **Never block on a failed phase.** If any phase fails or is UNKNOWN, record the reason and continue. The report must always be produced.

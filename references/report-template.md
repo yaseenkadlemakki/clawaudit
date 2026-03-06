@@ -43,6 +43,8 @@ For each finding:
 
 ## Skill Trust Matrix
 
+> If no skills were discovered (install path unavailable or skills directory empty), replace this section with: "Skill Trust Matrix: N/A — skills directory not found or empty. See Phase 0 notes."
+
 | Skill Name | Source | Shell Access | Outbound Calls | Injection Risk | Signed | Trust Score |
 |---|---|---|---|---|---|---|
 | [name] | [bundled/clawhub/local] | ✅/❌ [tool if yes] | [domains or None] | LOW/MEDIUM/HIGH | ✅/❌ | TRUSTED/CAUTION/UNTRUSTED/QUARANTINE |
@@ -53,13 +55,13 @@ For each finding:
 
 | Domain | Checks Run | Passed | Failed | UNKNOWN | Score |
 |---|---|---|---|---|---|
-| Configuration | 8 | [n] | [n] | [n] | [n]% |
-| Skill Permissions | [skills × 10] | [n] | [n] | [n] | [n]% |
+| Configuration | 8 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% |
+| Skill Permissions | [skills × 10] (or N/A if no skills found) | [n] | [n] | [n] | [n]% |
 | Secrets Hygiene | 6 | [n] | [n] | [n] | [n]% |
-| Network Exposure | 7 | [n] | [n] | [n] | [n]% |
-| Supply Chain | 7 | [n] | [n] | [n] | [n]% |
+| Network Exposure | 7 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% |
+| Supply Chain | 7 (or N/A if no skills found) | [n] | [n] | [n] | [n]% |
 | Audit Logging | 5 | [n] | [n] | [n] | [n]% |
-| **OVERALL** | **[total]** | **[n]** | **[n]** | **[n]** | **[n]%** |
+| **OVERALL** | **[total — exclude N/A domains]** | **[n]** | **[n]** | **[n]** | **[n]%** |
 
 ---
 

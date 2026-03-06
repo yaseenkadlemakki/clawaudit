@@ -19,9 +19,12 @@ Evidence source: `gateway config.get` (parsed config JSON).
 
 - Load config via `gateway config.get`.
 - For each check: navigate the parsed JSON to the key path.
-- If key absent → FAIL (or UNKNOWN if the config schema could represent it differently).
+- If key absent: use the per-check expected value to determine the result.
+  - CONF-01: `absent` is **PASS** (debug defaults to false when omitted).
+  - All other checks: `absent` is **FAIL** (presence is required by design).
 - If key present but wrong value → FAIL.
 - If key present and matches expected → PASS.
+- If the config schema is ambiguous or structured differently than the evidence_key path assumes → UNKNOWN with reason noted.
 
 ### Evidence Collection
 
