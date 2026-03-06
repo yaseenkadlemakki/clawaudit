@@ -1,3 +1,4 @@
+---
 # ClawAudit — Hardening Rules Registry
 # Canonical check definitions. Each check has: id, domain, description, evidence_key, expected, severity, remediation.
 
@@ -13,7 +14,10 @@ checks:
     evidence_key: "config.debug"
     expected: "absent (defaults to false) or explicitly false"
     severity: MEDIUM
-    remediation: "Set `debug: false` explicitly in openclaw.json or remove the key (defaults to false). FAIL only if the key is present and set to true. Absent-handling rule: see references/domains.md Domain 1 Detection Logic."
+    remediation: >-
+      Set `debug: false` explicitly in openclaw.json or remove the key (defaults to false).
+      FAIL only if the key is present and set to true.
+      Absent-handling rule: see references/domains.md Domain 1 Detection Logic.
 
   - id: CONF-02
     domain: config
