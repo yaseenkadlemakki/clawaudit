@@ -1,0 +1,114 @@
+name: default
+version: "1.0"
+description: "Default security policies for OpenClaw deployments"
+
+rules:
+  - id: POL-001
+    domain: config
+    check: "discord.groupPolicy"
+    condition: not_equals
+    value: "allowlist"
+    severity: CRITICAL
+    action: ALERT
+    auto_remediate: false
+    description: "Discord groupPolicy must be set to allowlist"
+    message: "Discord groupPolicy is not 'allowlist' — any server member can invoke the agent"
+
+  - id: POL-002
+    domain: config
+    check: "telegram.groupPolicy"
+    condition: not_equals
+    value: "allowlist"
+    severity: CRITICAL
+    action: ALERT
+    auto_remediate: false
+    description: "Telegram groupPolicy must be set to allowlist"
+    message: "Telegram groupPolicy is not 'allowlist' — any group member can invoke the agent"
+
+  - id: POL-003
+    domain: config
+    check: "gateway.bind"
+    condition: not_in
+    value: "loopback,localhost,127.0.0.1,::1"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "Gateway must be bound to loopback interface only"
+    message: "Gateway bind is not loopback — gateway is exposed to the network"
+
+  - id: POL-004
+    domain: config
+    check: "gateway.auth.mode"
+    condition: not_in
+    value: "token,oauth,bearer"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "Gateway auth mode must be token or oauth"
+    message: "Gateway auth mode is insecure — use token or oauth"
+
+  - id: POL-005
+    domain: secrets
+    check: "result"
+    condition: equals
+    value: "FAIL"
+    severity: CRITICAL
+    action: ALERT
+    auto_remediate: false
+    description: "No credential patterns should appear in config values"
+    message: "Credential pattern detected in configuration — rotate affected secrets immediately"
+
+  - id: POL-006
+    domain: skills
+    check: "evidence"
+    condition: contains
+    value: "--yolo"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "Skills documenting --yolo usage without owner gate are risky"
+    message: "Skill documents --yolo usage without owner session gate"
+
+  - id: POL-007
+    domain: runtime
+    check: "tool_calls_per_minute"
+    condition: gt
+    value: "30"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "Tool call rate must stay below 30/minute per session"
+    message: "Runaway agent detected — tool call rate exceeds 30/minute"
+
+  - id: POL-008
+    domain: runtime
+    check: "event_type"
+    condition: equals
+    value: "unauthorized_cron"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "New cron jobs must match baseline"
+    message: "Unauthorized cron job detected — not in baseline registry"
+
+  - id: POL-009
+    domain: skills
+    check: "event_type"
+    condition: equals
+    value: "new_skill"
+    severity: MEDIUM
+    action: ALERT
+    auto_remediate: false
+    description: "Unknown skills trigger review alert"
+    message: "New skill detected — review for security compliance"
+
+  - id: POL-010
+    domain: config
+    check: "event_type"
+    condition: equals
+    value: "config_drift"
+    severity: HIGH
+    action: ALERT
+    auto_remediate: false
+    description: "Config hash must match baseline — drift triggers alert"
+    message: "Configuration drift detected — config hash changed from baseline"
