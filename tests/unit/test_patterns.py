@@ -73,7 +73,7 @@ class TestCredentialTypeRegistry:
             f"Credential type '{cred_type}' not found in secret-patterns.md pattern registry"
         )
 
-    def test_at_least_14_credential_types(self, secret_patterns_md):
+    def test_at_least_15_credential_types(self, secret_patterns_md):
         import re
         # Match table rows that are NOT separator lines (|---|---| style).
         # Separator lines have cells containing only dashes, colons, and spaces.
@@ -86,8 +86,8 @@ class TestCredentialTypeRegistry:
             and not separator_re.match(line.strip())
             and "Credential Type" not in line
         ]
-        assert len(table_rows) >= 14, (
-            f"Expected at least 14 credential-type rows, found {len(table_rows)}"
+        assert len(table_rows) >= 15, (
+            f"Expected at least 15 credential-type rows, found {len(table_rows)}"
         )
 
     def test_version_header_present(self, secret_patterns_md):

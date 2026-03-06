@@ -54,12 +54,15 @@ class TestAbsentHandlingSourceOfTruth:
         (the pass_when_absent YAML field was removed to avoid split source of truth).
         The rule lives in the Detection Logic section, not the check table itself.
         """
+        import re
         # The rule is in the Detection Logic section — search there, not from the
         # first table occurrence of "CONF-01" (which is too far from the PASS text).
         assert "Detection Logic" in domains_md
         det_idx = domains_md.index("Detection Logic")
         detection_section = domains_md[det_idx: det_idx + 1200]
-        assert "CONF-01" in detection_section and "PASS" in detection_section, (
+        # Use regex to confirm the rule co-locates CONF-01 with absent and PASS,
+        # preventing a false pass when the three words appear for unrelated reasons.
+        assert re.search(r"CONF-01.{0,120}absent.{0,120}PASS", detection_section, re.DOTALL), (
             "The Detection Logic section of domains.md must document that "
             "CONF-01 absent key = PASS (debug defaults to false when omitted)"
         )

@@ -50,7 +50,11 @@ def _get_body(path: Path) -> str:
 
 
 def _read(relpath: str) -> str:
-    return (REPO_ROOT / relpath).read_text(encoding="utf-8")
+    path = REPO_ROOT / relpath
+    try:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        pytest.fail(f"Required file not found: {path} — run tests from the repository root")
 
 
 # ── Session fixtures ────────────────────────────────────────────────────────────

@@ -96,8 +96,10 @@ class TestComplianceTable:
     def test_adjusted_score_footnote_or_note(self, report_template):
         """The template must explain what Adjusted Score means inline."""
         score_idx = report_template.rfind("Adjusted Score")
-        if score_idx == -1:
-            pytest.skip("Adjusted Score not found — covered by separate test")
+        assert score_idx != -1, (
+            "report-template.md must contain 'Adjusted Score' — "
+            "this column distinguishes UNKNOWN-driven score drops from confirmed failures"
+        )
         # Look for an explanation within 500 chars of the last mention
         context = report_template[score_idx: score_idx + 500]
         has_explanation = (

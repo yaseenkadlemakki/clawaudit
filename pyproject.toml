@@ -23,10 +23,13 @@ markers = [
     "functional: multi-file behavioural and cross-reference tests",
     "integration: full-repository consistency and regression tests",
 ]
-# Fail immediately on first regression-test failure — regressions are hard blockers.
-# Remove -x from addopts if you want to see all failures before stopping.
+# To stop on the first failure run: pytest -x tests/integration/
+# (not in addopts — most workflows benefit from seeing all failures at once)
 
 [tool.coverage.run]
+# source=["tests"] measures how thoroughly the test files themselves are exercised
+# (i.e. every branch and helper in conftest.py / test_*.py is reachable).
+# This is the correct target: the skill has no Python source to cover.
 source = ["tests"]
 omit = [
     "tests/__init__.py",

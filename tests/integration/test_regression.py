@@ -6,6 +6,8 @@ These are the highest-priority tests in the suite. Each test:
   2. States which PR fixed it
   3. Asserts exactly the condition that the fix established
 
+Current count: 17 regression guards (9 from PR #1 core fixes + 8 from PR #1 review comments).
+
 If any of these tests fail, a previously fixed bug has been reintroduced.
 Failing a regression test is a hard blocker — do not merge.
 """
@@ -41,12 +43,15 @@ class TestPR1Regressions:
 
         FIX: Detection Logic in domains.md updated: CONF-01 absent = PASS.
         """
+        import re
         assert "Detection Logic" in domains_md
         det_idx = domains_md.index("Detection Logic")
         # The CONF-01 absent=PASS rule is in the Detection Logic section,
         # not in the check-table row (which is hundreds of chars earlier).
         detection_section = domains_md[det_idx: det_idx + 1200]
-        assert "CONF-01" in detection_section and "PASS" in detection_section, (
+        # Use regex to confirm the rule co-locates CONF-01 with absent and PASS,
+        # preventing a false pass when the three words appear for unrelated reasons.
+        assert re.search(r"CONF-01.{0,120}absent.{0,120}PASS", detection_section, re.DOTALL), (
             "REGRESSION: CONF-01 absent=PASS rule missing from Detection Logic in domains.md. "
             "Absent debug key must be PASS (it defaults to false — the safe state)."
         )
