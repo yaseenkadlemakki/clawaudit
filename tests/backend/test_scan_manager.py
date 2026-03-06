@@ -2,20 +2,9 @@
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
-from backend.database import Base, engine, AsyncSessionLocal
 from backend.engine.scan_manager import ScanManager
 from backend.models.scan import ScanStatus
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def setup_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest.mark.asyncio
@@ -57,3 +46,15 @@ async def test_stop_scan_not_found():
     mgr = ScanManager()
     result = await mgr.stop_scan("no-such-id")
     assert result is None
+
+
+@pytest.mark.asyncio
+async def test_stop_scan_running():
+    """Stop a running scan — status should transition to STOPPING."""
+    mgr = ScanManager()
+    scan = await mgr.start_scan(triggered_by="test")
+    scan_id = scan["id"]
+
+    result = await mgr.stop_scan(scan_id)
+    assert result is not None
+    assert result["status"] in (ScanStatus.STOPPING, ScanStatus.COMPLETED)

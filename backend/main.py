@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 import uvicorn
 from fastapi import Depends, FastAPI
@@ -20,19 +21,29 @@ from backend.models.skill import SkillRecord
 
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize the database on startup."""
+    await init_db()
+    logger.info("ClawAudit API v%s started on %s:%s", settings.API_VERSION, settings.HOST, settings.PORT)
+    yield
+
+
 app = FastAPI(
     title=settings.API_TITLE,
     description=settings.API_DESCRIPTION,
     version=settings.API_VERSION,
+    lifespan=lifespan,
 )
 
-# CORS
+# CORS — allow_credentials=True requires explicit origins (never "*")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 # Routers
@@ -42,13 +53,6 @@ app.include_router(skills.router, prefix="/api/v1/skills")
 app.include_router(policies.router, prefix="/api/v1/policies")
 app.include_router(graph.router, prefix="/api/v1/graph")
 app.include_router(ws.router)  # WebSocket at /ws/scans/{id}/stream
-
-
-@app.on_event("startup")
-async def startup():
-    """Initialize the database on startup."""
-    await init_db()
-    logger.info("ClawAudit API v%s started on %s:%s", settings.API_VERSION, settings.HOST, settings.PORT)
 
 
 @app.get("/api/v1/health")

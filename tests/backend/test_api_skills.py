@@ -2,24 +2,16 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
+
 import pytest
 import pytest_asyncio
-from datetime import datetime
 from httpx import ASGITransport, AsyncClient
 
-from backend.database import Base, engine, AsyncSessionLocal
+import backend.database as _db
 from backend.main import app
 from backend.models.scan import ScanRun, ScanStatus
 from backend.models.skill import SkillRecord
-
-
-@pytest_asyncio.fixture(autouse=True)
-async def setup_db():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
 
 
 @pytest_asyncio.fixture
@@ -30,7 +22,7 @@ async def client():
 
 @pytest_asyncio.fixture
 async def seeded_skill():
-    async with AsyncSessionLocal() as db:
+    async with _db.AsyncSessionLocal() as db:
         scan = ScanRun(id="scan-002", status=ScanStatus.COMPLETED, triggered_by="test")
         db.add(scan)
         skill = SkillRecord(

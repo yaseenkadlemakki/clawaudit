@@ -102,6 +102,7 @@ class PolicyRepository:
         record = PolicyRecord(**data)
         self._db.add(record)
         await self._db.flush()
+        await self._db.commit()
         return record
 
     async def update(self, policy_id: str, data: dict[str, Any]) -> PolicyRecord | None:
@@ -111,4 +112,14 @@ class PolicyRepository:
         for k, v in data.items():
             setattr(record, k, v)
         await self._db.flush()
+        await self._db.commit()
         return record
+
+    async def delete(self, policy_id: str) -> bool:
+        record = await self.get(policy_id)
+        if not record:
+            return False
+        await self._db.delete(record)
+        await self._db.flush()
+        await self._db.commit()
+        return True

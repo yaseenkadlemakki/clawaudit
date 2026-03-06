@@ -39,7 +39,7 @@ class ScanManager:
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    async def start_scan(self, triggered_by: str = "api") -> ScanRun:
+    async def start_scan(self, triggered_by: str = "api") -> dict:
         """Create a new scan record, set status=RUNNING, and kick off async execution."""
         scan_id = str(uuid.uuid4())
 
@@ -193,6 +193,7 @@ class ScanManager:
                 await db.flush()
 
                 # Update scan record
+                summary: dict = {}
                 scan = await db.get(ScanRun, scan_id)
                 if scan:
                     sev_counts = _count_severities(all_findings)

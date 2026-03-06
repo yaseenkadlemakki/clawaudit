@@ -36,3 +36,12 @@ async def update_policy(policy_id: str, body: PolicyUpdate, db: AsyncSession = D
     if not record:
         raise HTTPException(status_code=404, detail="Policy not found")
     return record.to_dict()
+
+
+@router.delete("/{policy_id}", status_code=204)
+async def delete_policy(policy_id: str, db: AsyncSession = Depends(get_db)):
+    """Delete a policy rule."""
+    repo = PolicyRepository(db)
+    deleted = await repo.delete(policy_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Policy not found")
