@@ -196,7 +196,7 @@ The `/clawaudit` skill report includes:
 
 ---
 
-## Repository structure
+## Architecture
 
 ```
 clawaudit/
@@ -216,7 +216,10 @@ clawaudit/
 ├── data/
 │   └── hardening-rules.yaml        ← Skill check registry (43 checks)
 ├── detectors/                      ← Secret and injection pattern definitions
-├── references/                     ← Scoring rules, domain logic, report template
+├── references/
+│   ├── domains.md                  ← Per-domain check definitions and detection logic
+│   ├── scoring.md                  ← Severity classification and scoring rules
+│   └── report-template.md         ← Report structure and formatting template
 └── tests/
     ├── unit/                       ← Per-module isolated tests
     ├── functional/                 ← Cross-file consistency and alignment tests
