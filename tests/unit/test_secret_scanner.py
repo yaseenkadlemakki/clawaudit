@@ -113,3 +113,43 @@ def test_nested_dict_scan(scanner):
     matches = scanner.scan_dict(data, "deep.json")
     assert len(matches) > 0
     assert all(m.secret_type == "anthropic_key" for m in matches)
+
+
+# ── sanitize_line tests ───────────────────────────────────────────────────────
+
+class TestSanitizeLine:
+    def test_sanitize_single_aws_key(self, scanner):
+        line = "key=AKIA1234567890ABCDEF end"
+        result = scanner.sanitize_line(line)
+        assert "AKIA1234567890ABCDEF" not in result
+        assert "[REDACTED:aws_access_key]" in result
+
+    def test_sanitize_multiple_secrets_on_one_line(self, scanner):
+        """Both an AWS key and a generic Bearer token on the same line must be redacted."""
+        aws_key = "AKIA1234567890ABCDEF"
+        bearer = "Bearer averylongtokenvalue1234567890abc"
+        line = f"aws={aws_key} auth={bearer}"
+        result = scanner.sanitize_line(line)
+        assert aws_key not in result, f"AWS key survived sanitize_line: {result!r}"
+        assert "averylongtokenvalue1234567890abc" not in result, (
+            f"Bearer token survived sanitize_line: {result!r}"
+        )
+        assert "[REDACTED:aws_access_key]" in result
+        assert "[REDACTED:generic_bearer]" in result
+
+    def test_sanitize_clean_line_unchanged(self, scanner):
+        line = "INFO server started on port 8080"
+        assert scanner.sanitize_line(line) == line
+
+    def test_sanitize_preserves_non_secret_content(self, scanner):
+        line = "prefix AKIA1234567890ABCDEF suffix"
+        result = scanner.sanitize_line(line)
+        assert "prefix" in result
+        assert "suffix" in result
+
+    def test_sanitize_idempotent_after_redaction(self, scanner):
+        """Calling sanitize_line twice must not further mangle the marker."""
+        line = "key=AKIA1234567890ABCDEF"
+        once = scanner.sanitize_line(line)
+        twice = scanner.sanitize_line(once)
+        assert once == twice

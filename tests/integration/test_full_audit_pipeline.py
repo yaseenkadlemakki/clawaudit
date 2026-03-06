@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Integration tests — full audit pipeline: config + skills → reporter → renderer."""
 import json
 import pytest

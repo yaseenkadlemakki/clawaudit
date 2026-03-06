@@ -138,6 +138,7 @@ class TestAlertPipeline:
 
 @pytest.mark.integration
 class TestConfigCollectorToAlertPipeline:
+    @pytest.mark.asyncio
     async def test_config_drift_event_triggers_policy_and_alert(self, tmp_path):
         """ConfigCollector drift event → PolicyEngine → AlertEngine writes alert."""
         import hashlib, json as _json
