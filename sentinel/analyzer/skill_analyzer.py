@@ -1,11 +1,14 @@
 """Deep skill security analysis and trust scoring."""
 from __future__ import annotations
 
+import logging
 import re
 import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
@@ -83,8 +86,10 @@ def _calculate_trust_score(profile: SkillProfile) -> tuple[int, str]:
         score -= 10
     if not profile.author:
         score -= 10
-    if not profile.outbound_domains:
-        score -= 20
+    if profile.outbound_domains:
+        # Penalize skills that make outbound calls without declared tool scoping
+        if not profile.has_allowed_tools:
+            score -= 10
 
     score = max(0, score)
     if score >= 80:
@@ -113,6 +118,7 @@ class SkillAnalyzer:
         try:
             text = skill_path.read_text(errors="replace")
         except (OSError, PermissionError) as exc:
+            logger.debug("Cannot read skill %s: %s", skill_path, exc)
             return SkillProfile(
                 name=skill_path.parent.name,
                 path=str(skill_path),

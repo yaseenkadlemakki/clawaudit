@@ -114,7 +114,7 @@ def watch(
 ) -> None:
     """Start continuous monitoring daemon."""
     cfg = load_config(config_path)
-    cfg._data["sentinel"]["scan_interval_seconds"] = interval
+    cfg.scan_interval = interval
 
     console.print(f"[bold green]🛡  ClawAudit Sentinel watching — interval {interval}s[/bold green]")
 
@@ -223,7 +223,7 @@ def skills(
     console.print(table)
 
 
-def _print_skill_detail(profile: "any") -> None:
+def _print_skill_detail(profile: "SkillProfile") -> None:
     """Print detailed skill profile."""
     from sentinel.models.skill import SkillProfile
     trust_colors = {"TRUSTED": "green", "CAUTION": "yellow", "UNTRUSTED": "orange3", "QUARANTINE": "red"}

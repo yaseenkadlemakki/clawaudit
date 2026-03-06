@@ -56,8 +56,6 @@ class LogCollector:
     def _sanitize_for_evidence(self, line: str) -> str:
         """Redact any secret-like values from a log line before using as evidence."""
         safe = line[:200]
-        for compiled_pat, _, _ in _COMPILED_SUSPICIOUS:
-            pass  # pattern already used for matching
         for match in self._secret_scanner.scan_text(safe, "<evidence>"):
             # Replace matched context segment with redaction marker
             safe = safe.replace(match.context, f"[REDACTED:{match.secret_type}]")
@@ -97,6 +95,9 @@ class LogCollector:
 
         tasks: list[asyncio.Task] = []
         while True:
+            # Prune completed tasks to prevent unbounded list growth
+            tasks = [t for t in tasks if not t.done()]
+
             # Discover new log files
             current_files = set(log_dir.glob("*.log")) | set(log_dir.glob("*.jsonl"))
             for f in current_files:

@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from sentinel.models.finding import Finding
     from sentinel.models.policy import PolicyDecision
 
+# Module-level set to hold task references and prevent premature GC
+_background_tasks: set = set()
+
 
 class WebhookAlertChannel:
     """Sends alerts via a generic HTTP webhook."""
@@ -33,10 +36,12 @@ class WebhookAlertChannel:
                 pass  # Non-fatal
 
     def send(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
-        """Synchronous wrapper."""
+        """Synchronous wrapper — schedules delivery, holds task ref to prevent GC."""
         import asyncio
         try:
-            loop = asyncio.get_event_loop()
-            loop.run_until_complete(self.send_async(message, finding, decision))
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(self.send_async(message, finding, decision))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
         except RuntimeError:
             asyncio.run(self.send_async(message, finding, decision))

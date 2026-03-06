@@ -13,8 +13,6 @@ from typing import Any
 import yaml
 from dotenv import load_dotenv
 
-load_dotenv()
-
 _DEFAULT_CONFIG: dict[str, Any] = {
     "openclaw": {
         "gateway_url": "http://localhost:18789",
@@ -82,8 +80,6 @@ def _deep_merge(base: dict, override: dict) -> dict:
 class SentinelConfig:
     """Configuration container for the Sentinel platform."""
 
-    _instance: SentinelConfig | None = None
-
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data
 
@@ -113,6 +109,10 @@ class SentinelConfig:
     def scan_interval(self) -> int:
         return int(self._data["sentinel"]["scan_interval_seconds"])
 
+    @scan_interval.setter
+    def scan_interval(self, value: int) -> None:
+        self._data["sentinel"]["scan_interval_seconds"] = int(value)
+
     @property
     def log_dir(self) -> Path:
         return Path(self._data["sentinel"]["log_dir"]).expanduser()
@@ -135,10 +135,10 @@ class SentinelConfig:
                 return bundled
         return p
 
-
     @property
     def sessions_dir(self) -> Path:
         return Path(self._data["openclaw"].get("sessions_dir", "~/.openclaw/sessions")).expanduser()
+
     @property
     def alerts_enabled(self) -> bool:
         return bool(self._data["alerts"]["enabled"])
@@ -165,6 +165,7 @@ class SentinelConfig:
 
 def load_config(config_path: Path | None = None) -> SentinelConfig:
     """Load and return the Sentinel configuration."""
+    load_dotenv()
     default_path = Path("~/.openclaw/sentinel/sentinel.yaml").expanduser()
     path = config_path or default_path
 

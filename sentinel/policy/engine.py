@@ -112,8 +112,7 @@ class PolicyEngine:
             if rule.check == "event_type":
                 pass  # domain filtering skipped; match by check value below
             elif rule.domain not in (event.source, event.event_type, "runtime", "*", ""):
-                if rule.domain != event.source and rule.domain != event.event_type:
-                    continue
+                continue
 
             value = _get_event_value(event, rule.check)
             if _matches_condition(rule, value):
