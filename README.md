@@ -1,5 +1,7 @@
 # ClawAudit
 
+[![Test Suite](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/test.yml/badge.svg)](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/test.yml)
+
 **Read-only forensic security auditor for OpenClaw deployments.**
 
 ClawAudit is an OpenClaw skill that performs an autonomous, read-only compliance audit across 6 security domains and produces a structured report with severity scoring and a remediation roadmap. It never modifies files, executes other skills, or calls external APIs.
