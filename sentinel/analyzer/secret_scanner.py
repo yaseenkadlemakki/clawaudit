@@ -121,3 +121,10 @@ class SecretScanner:
                     elif isinstance(item, dict):
                         matches.extend(self.scan_dict(item, f"{loc}[{i}]"))
         return matches
+
+    def sanitize_line(self, line: str) -> str:
+        """Return the line with all detected secret values replaced by redaction markers."""
+        result = line
+        for secret_type, pattern in _COMPILED.items():
+            result = pattern.sub(f"[REDACTED:{secret_type}]", result)
+        return result

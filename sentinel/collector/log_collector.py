@@ -55,11 +55,7 @@ class LogCollector:
 
     def _sanitize_for_evidence(self, line: str) -> str:
         """Redact any secret-like values from a log line before using as evidence."""
-        safe = line[:200]
-        for match in self._secret_scanner.scan_text(safe, "<evidence>"):
-            # Replace matched context segment with redaction marker
-            safe = safe.replace(match.context, f"[REDACTED:{match.secret_type}]")
-        return safe
+        return self._secret_scanner.sanitize_line(line[:200])
 
     def _handle_line(self, line: str, source_path: Path) -> None:
         """Process a single log line."""
