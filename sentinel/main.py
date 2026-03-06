@@ -122,6 +122,7 @@ def watch(
     from sentinel.collector.skill_collector import SkillCollector
     from sentinel.collector.session_collector import SessionCollector
     from sentinel.collector.cron_collector import CronCollector
+    from sentinel.collector.log_collector import LogCollector
     from sentinel.policy.engine import PolicyEngine
     from sentinel.alerts.engine import AlertEngine
 
@@ -156,6 +157,7 @@ def watch(
         config_col = ConfigCollector(cfg, on_event)
         session_col = SessionCollector(cfg, on_event)
         cron_col = CronCollector(cfg, on_event)
+        log_col = LogCollector(cfg, on_event)
         skill_col = SkillCollector(cfg, on_event)
         skill_col.start()
 
@@ -163,6 +165,7 @@ def watch(
             config_col.run(),
             session_col.run(),
             cron_col.run(),
+            log_col.run(),
         )
 
     try:
