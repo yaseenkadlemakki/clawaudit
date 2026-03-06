@@ -41,6 +41,20 @@ Overall = (Sum of all PASS across all domains / Total checks across all domains)
 
 Only include domains with at least one check in the denominator.
 
+## Adjusted Score (Confirmed Checks Only)
+
+A second score excludes UNKNOWN results from the denominator entirely, measuring only checks where evidence was available:
+
+```
+Adjusted Score = (PASS count / (Total checks − UNKNOWN count)) × 100
+```
+
+This gives auditors two signals:
+- **Worst-case score** (main formula, UNKNOWN = FAIL): conservative; penalises gaps in evidence.
+- **Confirmed compliance rate** (adjusted formula, UNKNOWN excluded): what is actually verified. A deployment where the gateway is unavailable should not score 30% when nothing is actually misconfigured — the adjusted score surfaces this distinction.
+
+Both scores must appear in the compliance table.
+
 ## Severity Weighting Note
 
 The numeric score is unweighted — a deployment with 3 CRITICAL FAILs can still score above 80% overall. **Always read the CRITICAL and HIGH findings list before relying on the overall score.** The score is a completeness indicator, not a safety guarantee.

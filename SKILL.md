@@ -2,7 +2,9 @@
 name: clawaudit
 description: "Autonomous security compliance agent for OpenClaw deployments. Performs read-only forensic audit across 6 domains: configuration hardening, skill permissions, secrets hygiene, network exposure, supply chain risk, and audit logging. Generates a structured ClawAudit compliance report with severity scoring and remediation roadmap. Use when: (1) running a security audit on an OpenClaw install, (2) checking for credential exposure, (3) reviewing skill trust posture, (4) generating a compliance report for an OpenClaw deployment. NEVER modifies files, executes skills, or calls external APIs."
 user-invocable: true
-allowed-tools: ["Read", "memory_search", "memory_get", "gateway", "session_status"]
+allowed-tools: ["Read", "web_fetch", "memory_search", "memory_get", "gateway", "session_status"]
+# web_fetch: read-only HTTP GET used solely for SC-03/SC-05 supply chain checks (repo availability, commit recency).
+# It is never used to POST data, authenticate, or call external services beyond public source repositories.
 metadata:
   { "openclaw": { "emoji": "🔍", "version": "1.0.0", "author": "OpenClaw Security" } }
 ---
@@ -84,5 +86,5 @@ Produce the full ClawAudit report per the template.
 4. **Flag UNKNOWN, never assume PASS.** If a check cannot be completed, mark UNKNOWN with reason.
 5. **Cite everything.** Every finding must reference an exact file path, config key, or line range.
 6. **Complete all 6 domains** before generating the report.
-7. **Do not audit yourself.** Exclude `clawaudit`'s own `SKILL.md` from Domain 2 and Domain 5 skill checks to prevent false positives from this file's own security-pattern documentation.
+7. **Scoped self-audit.** Audit `clawaudit`'s own `SKILL.md` normally in Domain 2 and Domain 5 — do not blanket-exclude it. However, when a pattern match in clawaudit files originates from content that is clearly documentation of a pattern (e.g., regex examples in `detectors/secret-patterns.md`, injection examples in `detectors/injection-patterns.md`), record the finding as WARN with note "documentation context — pattern appears as documented example, not live credential or exploitable code." A blanket exclusion would become a blind spot if future versions of this skill gain broader tool access.
 8. **Never block on a failed phase.** If any phase fails or is UNKNOWN, record the reason and continue. The report must always be produced.

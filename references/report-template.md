@@ -53,15 +53,17 @@ For each finding:
 
 ## Compliance Score
 
-| Domain | Checks Run | Passed | Failed | UNKNOWN | Score |
-|---|---|---|---|---|---|
-| Configuration | 8 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% |
-| Skill Permissions | [skills × 10] (or N/A if no skills found) | [n] | [n] | [n] | [n]% |
-| Secrets Hygiene | 6 | [n] | [n] | [n] | [n]% |
-| Network Exposure | 7 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% |
-| Supply Chain | 7 (or N/A if no skills found) | [n] | [n] | [n] | [n]% |
-| Audit Logging | 5 | [n] | [n] | [n] | [n]% |
-| **OVERALL** | **[total — exclude N/A domains]** | **[n]** | **[n]** | **[n]** | **[n]%** |
+| Domain | Checks Run | Passed | Failed | UNKNOWN | Worst-Case Score | Adjusted Score |
+|---|---|---|---|---|---|---|
+| Configuration | 8 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% | [n]% |
+| Skill Permissions | [skills × 10] (or N/A if no skills found) | [n] | [n] | [n] | [n]% | [n]% |
+| Secrets Hygiene | 6 | [n] | [n] | [n] | [n]% | [n]% |
+| Network Exposure | 7 (or N/A if gateway unavailable) | [n] | [n] | [n] | [n]% | [n]% |
+| Supply Chain | 7 (or N/A if no skills found) | [n] | [n] | [n] | [n]% | [n]% |
+| Audit Logging | 5 | [n] | [n] | [n] | [n]% | [n]% |
+| **OVERALL** | **[total — exclude N/A domains]** | **[n]** | **[n]** | **[n]** | **[n]%** | **[n]%** |
+
+_Worst-Case Score = PASS / Total (UNKNOWN treated as FAIL). Adjusted Score = PASS / (Total − UNKNOWN). See `references/scoring.md` for formula details._
 
 ---
 

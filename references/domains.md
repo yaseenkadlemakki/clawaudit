@@ -17,11 +17,13 @@ Evidence source: `gateway config.get` (parsed config JSON).
 
 ### Detection Logic
 
+> **Absent-handling is defined here (domains.md) as the single canonical source. The hardening-rules.yaml registry defers to this file for absent-handling behavior.**
+
 - Load config via `gateway config.get`.
 - For each check: navigate the parsed JSON to the key path.
-- If key absent: use the per-check expected value to determine the result.
-  - CONF-01: `absent` is **PASS** (debug defaults to false when omitted).
-  - All other checks: `absent` is **FAIL** (presence is required by design).
+- If key absent: use these rules (canonical):
+  - **CONF-01 only**: `absent` is **PASS** — `debug` defaults to `false` when the key is omitted, so absence is the safe state.
+  - **All other Domain 1 checks**: `absent` is **FAIL** — presence is explicitly required.
 - If key present but wrong value → FAIL.
 - If key present and matches expected → PASS.
 - If the config schema is ambiguous or structured differently than the evidence_key path assumes → UNKNOWN with reason noted.
@@ -51,12 +53,9 @@ Evidence source: SKILL.md frontmatter + body for each discovered skill.
 
 ### Trust Scoring
 
-| Score | Criteria |
-|---|---|
-| TRUSTED | allowed-tools declared; no shell exec; no injection risk; author declared |
-| CAUTION | shell exec present but scoped; or missing allowed-tools; low injection risk |
-| UNTRUSTED | shell exec + injection risk; or missing author + unsigned |
-| QUARANTINE | active injection patterns detected; or calls undeclared external endpoints |
+> **Canonical trust score criteria are defined in `references/scoring.md` → "Trust Score Calculation" section. That file is the single source of truth. Do not re-derive criteria here.**
+
+When building the Skill Trust Matrix, apply the SKILL-01 through SKILL-10 check results to the trust scoring table in `scoring.md`. Do not use an independent criteria table from this file.
 
 ### Detection Logic — Shell Access (SKILL-02)
 
@@ -118,9 +117,9 @@ Evidence source: skill frontmatter `metadata`, OpenClaw npm lockfile.
 |---|---|---|
 | SC-01 | Record name, version, publisher, source URL per skill | INFO |
 | SC-02 | Publisher has established identity (multiple skills / known org) | LOW |
-| SC-03 | Source repo has recent commits + open issues (requires web check — flag UNKNOWN if unavailable) | LOW |
+| SC-03 | Source repo has recent commits (within 12 months) — use `web_fetch` on the repo URL; mark UNKNOWN if web_fetch unavailable | LOW |
 | SC-04 | Skill pinned to version hash | MEDIUM |
-| SC-05 | Source repo deleted or private | HIGH |
+| SC-05 | Source repo accessible (not deleted or private) — use `web_fetch` to check the source URL; mark UNKNOWN if unavailable | HIGH |
 | SC-06 | External deps (npm/pip) without pinned versions in skill scripts | MEDIUM |
 | SC-07 | Skill calls home to non-declared endpoint on first load | HIGH |
 
