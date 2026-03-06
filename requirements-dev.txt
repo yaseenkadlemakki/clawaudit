@@ -7,3 +7,4 @@ pyyaml==6.0.2
 
 # Optional: lint tools invoked by CI (not imported by tests directly)
 yamllint==1.35.1
+python-dotenv==1.0.1
