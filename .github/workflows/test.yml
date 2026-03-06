@@ -2,7 +2,7 @@ name: Test Suite
 
 on:
   push:
-    branches: ["**"]
+    branches: [master]
   pull_request:
     branches: [master]
 
@@ -38,7 +38,7 @@ jobs:
       - name: Install yamllint
         run: pip install yamllint==1.35.1
 
-      - name: Lint hardening-rules.yaml
+      - name: Lint YAML files
         run: |
           yamllint -d "{
             extends: default,
@@ -47,7 +47,7 @@ jobs:
               truthy: disable,
               comments: disable
             }
-          }" data/hardening-rules.yaml
+          }" data/hardening-rules.yaml .github/workflows/
 
   # ── 2. Unit tests (matrix: Python 3.10 / 3.11 / 3.12) ───────────────────────
   unit-tests:
@@ -111,7 +111,7 @@ jobs:
   integration-tests:
     name: Integration & regression tests
     runs-on: ubuntu-latest
-    needs: functional-tests
+    needs: unit-tests  # runs in parallel with functional-tests after unit-tests
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -140,6 +140,9 @@ jobs:
     name: Test coverage
     runs-on: ubuntu-latest
     needs: [unit-tests, functional-tests, integration-tests]
+    permissions:
+      contents: read   # inherited from workflow-level
+      actions: write   # required for actions/upload-artifact@v4
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4
@@ -187,6 +190,7 @@ jobs:
 
   # ── 6. Final status gate ──────────────────────────────────────────────────────
   # All required jobs must pass before a PR can be merged.
+  # IMPORTANT: Update the needs list and result checks whenever a new required job is added.
   all-tests-pass:
     name: All tests passed
     runs-on: ubuntu-latest
