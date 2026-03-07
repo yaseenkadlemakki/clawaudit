@@ -154,6 +154,15 @@ class TestCheckSecretsInConfig:
         findings = detector.check_secrets_in_config(skill_file, RUN_ID)
         assert len(findings) == 1
 
+    def test_finding_for_generic_token(self, tmp_path):
+        skill_file = tmp_path / "SKILL.md"
+        skill_file.write_text("config:\n  password: mysupersecretpassword123456")
+        detector = AdvancedDetector()
+        findings = detector.check_secrets_in_config(skill_file, RUN_ID)
+        assert len(findings) == 1
+        assert findings[0].severity == "CRITICAL"
+        assert findings[0].check_id == "ADV-005"
+
     def test_returns_empty_for_missing_file(self, tmp_path):
         detector = AdvancedDetector()
         findings = detector.check_secrets_in_config(tmp_path / "nonexistent.md", RUN_ID)

@@ -50,7 +50,7 @@ class TestBuildPrompt:
             "scan_status": "completed",
             "total_findings": 1,
             "skills_scanned": 1,
-            "findings": [{"title": "Shell Escape", "severity": "HIGH", "skill": "bad-skill", "policy": "P1", "remediation": "fix"}],
+            "findings": [{"title": "Shell Escape", "severity": "HIGH", "skill": "bad-skill", "domain": "capability", "remediation": "fix"}],
             "skills": [],
         }
         prompt = engine._build_prompt("test", context)
@@ -76,20 +76,28 @@ class TestBuildPrompt:
 
 class TestAskOpenClaw:
     @pytest.mark.asyncio
+    async def test_raises_when_token_not_configured(self):
+        engine = ChatEngine()
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", None):
+            with pytest.raises(RuntimeError, match="OPENCLAW_GATEWAY_TOKEN not configured"):
+                await engine._ask_openclaw("test prompt")
+
+    @pytest.mark.asyncio
     async def test_posts_to_gateway_and_returns_reply(self):
         engine = ChatEngine()
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"reply": "Here is the answer"}
 
-        with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_cls.return_value = mock_client
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", "test-token"):
+            with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
+                mock_client = AsyncMock()
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=False)
+                mock_client.post = AsyncMock(return_value=mock_resp)
+                mock_cls.return_value = mock_client
 
-            result = await engine._ask_openclaw("test prompt")
+                result = await engine._ask_openclaw("test prompt")
 
         assert result == "Here is the answer"
 
@@ -98,15 +106,16 @@ class TestAskOpenClaw:
         engine = ChatEngine()
         import httpx
 
-        with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
-            mock_cls.return_value = mock_client
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", "test-token"):
+            with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
+                mock_client = AsyncMock()
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=False)
+                mock_client.post = AsyncMock(side_effect=httpx.ConnectError("refused"))
+                mock_cls.return_value = mock_client
 
-            with pytest.raises(RuntimeError, match="Cannot reach"):
-                await engine._ask_openclaw("test")
+                with pytest.raises(RuntimeError, match="Cannot reach"):
+                    await engine._ask_openclaw("test")
 
     @pytest.mark.asyncio
     async def test_raises_on_http_status_error(self):
@@ -118,15 +127,16 @@ class TestAskOpenClaw:
             "401", request=MagicMock(), response=MagicMock(status_code=401)
         )
 
-        with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_cls.return_value = mock_client
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", "test-token"):
+            with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
+                mock_client = AsyncMock()
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=False)
+                mock_client.post = AsyncMock(return_value=mock_resp)
+                mock_cls.return_value = mock_client
 
-            with pytest.raises(RuntimeError, match="gateway error"):
-                await engine._ask_openclaw("test")
+                with pytest.raises(RuntimeError, match="gateway error"):
+                    await engine._ask_openclaw("test")
 
     @pytest.mark.asyncio
     async def test_falls_back_to_message_key(self):
@@ -135,14 +145,15 @@ class TestAskOpenClaw:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"message": "fallback answer"}
 
-        with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
-            mock_client = AsyncMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=False)
-            mock_client.post = AsyncMock(return_value=mock_resp)
-            mock_cls.return_value = mock_client
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", "test-token"):
+            with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
+                mock_client = AsyncMock()
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=False)
+                mock_client.post = AsyncMock(return_value=mock_resp)
+                mock_cls.return_value = mock_client
 
-            result = await engine._ask_openclaw("test")
+                result = await engine._ask_openclaw("test")
 
         assert result == "fallback answer"
 
@@ -155,22 +166,22 @@ class TestAskAnthropic:
         mock_client_instance = MagicMock()
         mock_message = MagicMock()
         mock_message.content = [MagicMock(text="Anthropic answer")]
-        mock_client_instance.messages.create.return_value = mock_message
-        mock_anthropic.Anthropic.return_value = mock_client_instance
+        mock_client_instance.messages.create = AsyncMock(return_value=mock_message)
+        mock_anthropic.AsyncAnthropic.return_value = mock_client_instance
 
         with patch.dict("sys.modules", {"anthropic": mock_anthropic}):
             result = await engine._ask_anthropic("test prompt", "sk-test-key")
 
         assert result == "Anthropic answer"
-        mock_anthropic.Anthropic.assert_called_once_with(api_key="sk-test-key")
+        mock_anthropic.AsyncAnthropic.assert_called_once_with(api_key="sk-test-key")
 
     @pytest.mark.asyncio
     async def test_raises_on_api_error(self):
         engine = ChatEngine()
         mock_anthropic = MagicMock()
         mock_client_instance = MagicMock()
-        mock_client_instance.messages.create.side_effect = Exception("Invalid API key")
-        mock_anthropic.Anthropic.return_value = mock_client_instance
+        mock_client_instance.messages.create = AsyncMock(side_effect=Exception("Invalid API key"))
+        mock_anthropic.AsyncAnthropic.return_value = mock_client_instance
 
         with patch.dict("sys.modules", {"anthropic": mock_anthropic}):
             with pytest.raises(RuntimeError, match="Anthropic API error"):
@@ -179,12 +190,7 @@ class TestAskAnthropic:
     @pytest.mark.asyncio
     async def test_raises_when_sdk_missing(self):
         engine = ChatEngine()
-        mock_anthropic = MagicMock()
-        mock_client = MagicMock()
-        mock_client.messages.create.side_effect = ImportError("No module named 'anthropic'")
-        mock_anthropic.Anthropic.return_value = mock_client
 
-        # Simulate ImportError inside the function by making import fail
         import builtins
         real_import = builtins.__import__
 
@@ -241,7 +247,8 @@ class TestAsk:
                               side_effect=RuntimeError("gateway down")):
                 answer, _ = await engine.ask("test", mode="openclaw")
 
-        assert "unavailable" in answer.lower() or "gateway" in answer.lower()
+        assert "gateway" in answer.lower()
+        assert "byollm" in answer.lower()
 
     @pytest.mark.asyncio
     async def test_no_scan_data_returns_helpful_message(self):
@@ -253,3 +260,67 @@ class TestAsk:
                 answer, _ = await engine.ask("test")
 
         assert answer
+
+
+class TestBuildContextIntegration:
+    """Integration test exercising _build_context against a real in-memory DB."""
+
+    @pytest.mark.asyncio
+    async def test_build_context_returns_correct_shape(self):
+        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from backend.database import Base
+        from backend.models.scan import ScanRun, ScanStatus
+        from backend.models.finding import FindingRecord
+        from backend.models.skill import SkillRecord
+
+        test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+        TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
+
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        async with TestSession() as db:
+            scan = ScanRun(
+                id="scan-1",
+                status=ScanStatus.COMPLETED,
+                total_findings=1,
+                skills_scanned=1,
+            )
+            finding = FindingRecord(
+                id="f-1",
+                scan_id="scan-1",
+                check_id="CONF-01",
+                domain="configuration",
+                title="Test finding",
+                description="desc",
+                severity="HIGH",
+                result="FAIL",
+                evidence="none",
+                location="/tmp",
+                remediation="fix it",
+                skill_name="test-skill",
+            )
+            skill = SkillRecord(
+                id="s-1",
+                scan_id="scan-1",
+                name="test-skill",
+                path="/tmp/test-skill",
+                risk_score=75,
+                risk_level="High",
+            )
+            db.add_all([scan, finding, skill])
+            await db.commit()
+
+        engine = ChatEngine()
+        with patch("backend.engine.chat_engine.AsyncSessionLocal", TestSession):
+            context = await engine._build_context()
+
+        assert context["scan_id"] == "scan-1"
+        assert context["total_findings"] == 1
+        assert len(context["findings"]) == 1
+        assert len(context["skills"]) == 1
+        # Verify the field that was previously buggy (f.policy → f.domain)
+        assert context["findings"][0]["domain"] == "configuration"
+        assert "policy" not in context["findings"][0]
+
+        await test_engine.dispose()

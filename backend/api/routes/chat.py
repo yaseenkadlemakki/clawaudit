@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
     question: str
-    mode: str = "openclaw"  # "openclaw" | "byollm"
+    mode: Literal["openclaw", "byollm"] = "openclaw"
     api_key: Optional[str] = None
 
 

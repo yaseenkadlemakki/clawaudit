@@ -22,7 +22,8 @@ from backend.models.skill import SkillRecord
 logger = logging.getLogger(__name__)
 
 OPENCLAW_GATEWAY_URL = os.getenv("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
-OPENCLAW_GATEWAY_TOKEN = os.getenv("OPENCLAW_GATEWAY_TOKEN", "")
+OPENCLAW_GATEWAY_TOKEN = os.getenv("OPENCLAW_GATEWAY_TOKEN")  # None if not set
+BYOLLM_MODEL = os.getenv("BYOLLM_MODEL", "claude-haiku-4-5-20251001")
 
 
 class ChatEngine:
@@ -75,7 +76,7 @@ class ChatEngine:
                     "title": f.title,
                     "severity": f.severity,
                     "skill": f.skill_name,
-                    "policy": f.policy,
+                    "domain": f.domain,
                     "remediation": f.remediation,
                 }
                 for f in findings
@@ -104,7 +105,7 @@ class ChatEngine:
             )
 
         findings_summary = "\n".join(
-            f"- [{f['severity'].upper()}] {f['title']} (skill: {f['skill'] or 'N/A'}, policy: {f['policy'] or 'N/A'})"
+            f"- [{f['severity'].upper()}] {f['title']} (skill: {f['skill'] or 'N/A'}, domain: {f['domain'] or 'N/A'})"
             for f in context["findings"][:15]
         )
         skills_summary = "\n".join(
@@ -139,6 +140,8 @@ be answered from the available data, say so clearly."""
 
     async def _ask_openclaw(self, prompt: str) -> str:
         """Route query through OpenClaw gateway."""
+        if not OPENCLAW_GATEWAY_TOKEN:
+            raise RuntimeError("OPENCLAW_GATEWAY_TOKEN not configured")
         headers = {"Authorization": f"Bearer {OPENCLAW_GATEWAY_TOKEN}"}
         payload = {"message": prompt}
 
@@ -157,7 +160,7 @@ be answered from the available data, say so clearly."""
             raise RuntimeError(f"OpenClaw gateway error: {exc.response.status_code}") from exc
         except httpx.ConnectError:
             raise RuntimeError(
-                "Cannot reach OpenClaw gateway at %s. Is it running?" % OPENCLAW_GATEWAY_URL
+                f"Cannot reach OpenClaw gateway at {OPENCLAW_GATEWAY_URL}. Is it running?"
             )
 
     # ── BYOLLM mode ────────────────────────────────────────────────────────
@@ -169,10 +172,10 @@ be answered from the available data, say so clearly."""
         except ImportError:
             raise RuntimeError("anthropic SDK not installed. Run: pip install anthropic")
 
-        client = anthropic.Anthropic(api_key=api_key)
+        client = anthropic.AsyncAnthropic(api_key=api_key)
         try:
-            message = client.messages.create(
-                model="claude-3-5-haiku-20241022",
+            message = await client.messages.create(
+                model=BYOLLM_MODEL,
                 max_tokens=1024,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -211,7 +214,7 @@ be answered from the available data, say so clearly."""
                 # Fallback: return a helpful error with context summary
                 logger.warning("OpenClaw gateway unavailable, returning context summary: %s", exc)
                 answer = (
-                    f"⚠️ OpenClaw gateway unavailable ({exc}).\n\n"
+                    f"OpenClaw gateway unavailable ({exc}).\n\n"
                     f"Based on scan data, here's what I can tell you:\n\n"
                     f"**Scan summary:** {context.get('total_findings', 0)} findings across "
                     f"{context.get('skills_scanned', 0)} skills.\n\n"
