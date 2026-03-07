@@ -14,6 +14,8 @@ RUN npm ci --omit=dev
 # ── builder stage ─────────────────────────────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
+# Override NODE_ENV so npm ci installs devDependencies (TypeScript, ESLint, etc.)
+ENV NODE_ENV=development
 
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
