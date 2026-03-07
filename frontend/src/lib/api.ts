@@ -26,7 +26,8 @@ export interface ScanRun {
   status: "pending" | "running" | "complete" | "failed" | "stopped"
   started_at: string
   finished_at: string | null
-  findings_count: number
+  findings_count?: number
+  total_findings?: number
   score: number | null
 }
 

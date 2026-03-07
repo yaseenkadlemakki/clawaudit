@@ -36,6 +36,8 @@ class ScanManager:
         self._stop_flags: dict[str, bool] = {}
         # WebSocket subscribers: scan_id → list of queues
         self._ws_subscribers: dict[str, list[asyncio.Queue]] = {}
+        # Cache last terminal event so late WS subscribers get it immediately
+        self._terminal_events: dict[str, dict] = {}
 
     # ── Public API ────────────────────────────────────────────────────────
 
@@ -94,9 +96,15 @@ class ScanManager:
     # ── WebSocket subscription ────────────────────────────────────────────
 
     def subscribe(self, scan_id: str) -> asyncio.Queue:
-        """Create and register a queue for WebSocket streaming."""
+        """Create and register a queue for WebSocket streaming.
+
+        If the scan already completed, immediately enqueue the terminal event
+        so late-connecting WebSocket clients don't wait forever.
+        """
         q: asyncio.Queue = asyncio.Queue()
         self._ws_subscribers.setdefault(scan_id, []).append(q)
+        if scan_id in self._terminal_events:
+            q.put_nowait(self._terminal_events[scan_id])
         return q
 
     def unsubscribe(self, scan_id: str, queue: asyncio.Queue) -> None:
@@ -208,7 +216,9 @@ class ScanManager:
                     await db.commit()
                     summary = scan.to_dict()
 
-            self._broadcast(scan_id, {"type": "completed", "summary": summary})
+            terminal = {"type": "completed", "summary": summary}
+            self._terminal_events[scan_id] = terminal
+            self._broadcast(scan_id, terminal)
             logger.info("Scan %s completed: %d findings", scan_id, len(all_findings))
 
         except Exception as exc:
@@ -220,7 +230,9 @@ class ScanManager:
                     scan.completed_at = datetime.utcnow()
                     scan.error_message = str(exc)
                     await db.commit()
-            self._broadcast(scan_id, {"type": "error", "message": str(exc)})
+            terminal = {"type": "error", "message": str(exc)}
+            self._terminal_events[scan_id] = terminal
+            self._broadcast(scan_id, terminal)
         finally:
             self._stop_flags.pop(scan_id, None)
 
