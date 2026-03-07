@@ -1,4 +1,5 @@
 """WebSocket streaming endpoint."""
+
 from __future__ import annotations
 
 import asyncio
@@ -36,7 +37,7 @@ async def scan_stream(websocket: WebSocket, scan_id: str):
                 await websocket.send_text(json.dumps(event))
                 if event.get("type") in ("completed", "error"):
                     break
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send keepalive ping
                 try:
                     await websocket.send_text(json.dumps({"type": "ping"}))

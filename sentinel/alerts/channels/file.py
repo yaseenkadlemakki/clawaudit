@@ -1,4 +1,5 @@
 """File-based alert channel — writes alerts to a JSONL file."""
+
 from __future__ import annotations
 
 import json
@@ -18,7 +19,7 @@ class FileAlertChannel:
         self._path = path
         self._path.parent.mkdir(parents=True, exist_ok=True)
 
-    def send(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
+    def send(self, message: str, finding: Finding, decision: PolicyDecision) -> None:
         """Append alert to the JSONL file."""
         record = {
             "ts": datetime.utcnow().isoformat(),

@@ -1,8 +1,9 @@
 """SkillProfile data model."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Literal, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
     from .finding import Finding
@@ -18,16 +19,16 @@ class SkillProfile:
     version: str = ""
     author: str = ""
     shell_access: bool = False
-    shell_evidence: List[str] = field(default_factory=list)
-    outbound_domains: List[str] = field(default_factory=list)
+    shell_evidence: list[str] = field(default_factory=list)
+    outbound_domains: list[str] = field(default_factory=list)
     injection_risk: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "LOW"
-    injection_evidence: List[str] = field(default_factory=list)
+    injection_evidence: list[str] = field(default_factory=list)
     credential_exposure: bool = False
     trust_score: Literal["TRUSTED", "CAUTION", "UNTRUSTED", "QUARANTINE"] = "TRUSTED"
     trust_score_value: int = 100
     has_allowed_tools: bool = False
     is_signed: bool = False
-    findings: List["Finding"] = field(default_factory=list)
+    findings: list[Finding] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {

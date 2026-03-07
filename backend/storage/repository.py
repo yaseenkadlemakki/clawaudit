@@ -1,4 +1,5 @@
 """Database abstraction layer — CRUD operations."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -7,9 +8,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.finding import FindingRecord
+from backend.models.policy import PolicyRecord
 from backend.models.scan import ScanRun
 from backend.models.skill import SkillRecord
-from backend.models.policy import PolicyRecord
 
 
 class ScanRepository:
@@ -27,6 +28,7 @@ class ScanRepository:
 
     async def count(self) -> int:
         from sqlalchemy import func
+
         result = await self._db.execute(select(func.count()).select_from(ScanRun))
         return result.scalar_one()
 
@@ -80,7 +82,10 @@ class SkillRepository:
 
     async def get_by_name(self, name: str) -> SkillRecord | None:
         result = await self._db.execute(
-            select(SkillRecord).where(SkillRecord.name == name).order_by(SkillRecord.detected_at.desc()).limit(1)
+            select(SkillRecord)
+            .where(SkillRecord.name == name)
+            .order_by(SkillRecord.detected_at.desc())
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -94,7 +99,10 @@ class PolicyRepository:
 
     async def list(self, limit: int = 100, offset: int = 0) -> list[PolicyRecord]:
         result = await self._db.execute(
-            select(PolicyRecord).order_by(PolicyRecord.created_at.desc()).limit(limit).offset(offset)
+            select(PolicyRecord)
+            .order_by(PolicyRecord.created_at.desc())
+            .limit(limit)
+            .offset(offset)
         )
         return list(result.scalars().all())
 

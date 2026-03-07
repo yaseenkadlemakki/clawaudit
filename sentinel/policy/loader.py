@@ -1,8 +1,8 @@
 """YAML policy loader with hot-reload support."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List
 
 import yaml
 
@@ -46,7 +46,7 @@ class PolicyLoader:
 
     def __init__(self, policies_dir: Path) -> None:
         self._dir = policies_dir
-        self._policies: List[Policy] = []
+        self._policies: list[Policy] = []
         self._load_all()
 
     def _load_all(self) -> None:
@@ -64,9 +64,9 @@ class PolicyLoader:
         self._load_all()
 
     @property
-    def policies(self) -> List[Policy]:
+    def policies(self) -> list[Policy]:
         return list(self._policies)
 
     @property
-    def rules(self) -> List[Rule]:
+    def rules(self) -> list[Rule]:
         return [r for p in self._policies for r in p.rules]

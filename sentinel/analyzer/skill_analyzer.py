@@ -1,19 +1,18 @@
 """Deep skill security analysis and trust scoring."""
+
 from __future__ import annotations
 
 import logging
 import re
 import uuid
-from datetime import datetime
 from pathlib import Path
-from typing import List
 
-logger = logging.getLogger(__name__)
-
+from sentinel.analyzer.injection_detector import RISK_ORDER, InjectionDetector
+from sentinel.analyzer.secret_scanner import SecretScanner
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
-from sentinel.analyzer.secret_scanner import SecretScanner
-from sentinel.analyzer.injection_detector import InjectionDetector, RISK_ORDER
+
+logger = logging.getLogger(__name__)
 
 SHELL_ACCESS_PATTERNS: list[tuple[str, str]] = [
     (r"\bexec\b", "exec keyword"),
@@ -57,7 +56,7 @@ def _check_signed(text: str) -> bool:
     return bool(re.search(r"signature|signed-by|pgp|gpg", text, re.IGNORECASE))
 
 
-def _extract_domains(text: str) -> List[str]:
+def _extract_domains(text: str) -> list[str]:
     """Extract declared outbound domains."""
     domains: list[str] = list(set(URL_PATTERN.findall(text)))
     # Exclude common localhost / example patterns
@@ -166,46 +165,52 @@ class SkillAnalyzer:
         findings: list[Finding] = []
 
         if profile.shell_access:
-            findings.append(Finding(
-                check_id="SKILL-01",
-                domain="skills",
-                title=f"Skill '{name}' has shell access",
-                description=f"Detected shell access patterns: {', '.join(shell_evidence[:3])}",
-                severity="MEDIUM" if profile.has_allowed_tools else "HIGH",
-                result="FAIL",
-                evidence=", ".join(shell_evidence[:5]),
-                location=str(skill_path),
-                remediation="Scope shell access with allowed-tools constraint.",
-                run_id=run_id,
-            ))
+            findings.append(
+                Finding(
+                    check_id="SKILL-01",
+                    domain="skills",
+                    title=f"Skill '{name}' has shell access",
+                    description=f"Detected shell access patterns: {', '.join(shell_evidence[:3])}",
+                    severity="MEDIUM" if profile.has_allowed_tools else "HIGH",
+                    result="FAIL",
+                    evidence=", ".join(shell_evidence[:5]),
+                    location=str(skill_path),
+                    remediation="Scope shell access with allowed-tools constraint.",
+                    run_id=run_id,
+                )
+            )
 
         if RISK_ORDER.get(profile.injection_risk, 0) >= 2:
-            findings.append(Finding(
-                check_id="SKILL-02",
-                domain="skills",
-                title=f"Skill '{name}' has {profile.injection_risk} injection risk",
-                description="Template variables or user input may reach shell commands.",
-                severity=profile.injection_risk,
-                result="FAIL",
-                evidence="; ".join(profile.injection_evidence[:3]),
-                location=str(skill_path),
-                remediation="Validate and sanitize user input before passing to shell commands.",
-                run_id=run_id,
-            ))
+            findings.append(
+                Finding(
+                    check_id="SKILL-02",
+                    domain="skills",
+                    title=f"Skill '{name}' has {profile.injection_risk} injection risk",
+                    description="Template variables or user input may reach shell commands.",
+                    severity=profile.injection_risk,
+                    result="FAIL",
+                    evidence="; ".join(profile.injection_evidence[:3]),
+                    location=str(skill_path),
+                    remediation="Validate and sanitize user input before passing to shell commands.",
+                    run_id=run_id,
+                )
+            )
 
         if profile.credential_exposure:
-            findings.append(Finding(
-                check_id="SKILL-03",
-                domain="secrets",
-                title=f"Skill '{name}' may expose credentials",
-                description="Secret patterns detected in skill body.",
-                severity="CRITICAL",
-                result="FAIL",
-                evidence="[secret values redacted]",
-                location=str(skill_path),
-                remediation="Remove hardcoded credentials from skill files.",
-                run_id=run_id,
-            ))
+            findings.append(
+                Finding(
+                    check_id="SKILL-03",
+                    domain="secrets",
+                    title=f"Skill '{name}' may expose credentials",
+                    description="Secret patterns detected in skill body.",
+                    severity="CRITICAL",
+                    result="FAIL",
+                    evidence="[secret values redacted]",
+                    location=str(skill_path),
+                    remediation="Remove hardcoded credentials from skill files.",
+                    run_id=run_id,
+                )
+            )
 
         profile.findings = findings
         return profile

@@ -3,6 +3,7 @@
 Nodes: skills, tools, permissions, files, network_endpoints, policies
 Edges: skill→uses→tool, skill→accesses→filesystem, skill→connects_to→network
 """
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -56,24 +57,28 @@ class SecurityKnowledgeGraph:
         self._edges.append(edge)
         self._out_edges[edge.source].append(edge)
 
-    def add_skill(self, profile: "SkillProfile", risk_score: int = 0, risk_level: str = "Low") -> None:
+    def add_skill(
+        self, profile: SkillProfile, risk_score: int = 0, risk_level: str = "Low"
+    ) -> None:
         """Add a skill and its relationships to the graph."""
         skill_id = f"skill:{profile.name}"
-        self._add_node(GraphNode(
-            id=skill_id,
-            kind="skill",
-            attrs={
-                "name": profile.name,
-                "path": profile.path,
-                "trust_score": profile.trust_score,
-                "trust_score_value": profile.trust_score_value,
-                "shell_access": profile.shell_access,
-                "injection_risk": profile.injection_risk,
-                "credential_exposure": profile.credential_exposure,
-                "risk_score": risk_score,
-                "risk_level": risk_level,
-            },
-        ))
+        self._add_node(
+            GraphNode(
+                id=skill_id,
+                kind="skill",
+                attrs={
+                    "name": profile.name,
+                    "path": profile.path,
+                    "trust_score": profile.trust_score,
+                    "trust_score_value": profile.trust_score_value,
+                    "shell_access": profile.shell_access,
+                    "injection_risk": profile.injection_risk,
+                    "credential_exposure": profile.credential_exposure,
+                    "risk_score": risk_score,
+                    "risk_level": risk_level,
+                },
+            )
+        )
         self._skill_risk[profile.name] = risk_score
 
         # Network endpoint edges
@@ -98,7 +103,11 @@ class SecurityKnowledgeGraph:
             return {}
         edges = self._out_edges.get(skill_id, [])
         neighbors = [
-            {"id": e.target, "relation": e.relation, "node": self._nodes.get(e.target, GraphNode(e.target, "unknown")).attrs}
+            {
+                "id": e.target,
+                "relation": e.relation,
+                "node": self._nodes.get(e.target, GraphNode(e.target, "unknown")).attrs,
+            }
             for e in edges
         ]
         return {"node": node.attrs, "edges": neighbors}
@@ -121,7 +130,10 @@ class SecurityKnowledgeGraph:
         """Export the full graph as a JSON-serializable dict."""
         return {
             "nodes": [{"id": n.id, "kind": n.kind, "attrs": n.attrs} for n in self._nodes.values()],
-            "edges": [{"source": e.source, "target": e.target, "relation": e.relation} for e in self._edges],
+            "edges": [
+                {"source": e.source, "target": e.target, "relation": e.relation}
+                for e in self._edges
+            ],
             "stats": {
                 "total_nodes": len(self._nodes),
                 "total_edges": len(self._edges),

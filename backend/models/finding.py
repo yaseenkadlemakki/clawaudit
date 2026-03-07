@@ -1,9 +1,9 @@
 """FindingRecord ORM model."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -28,7 +28,7 @@ class FindingRecord(Base):
     location: Mapped[str] = mapped_column(String)
     remediation: Mapped[str] = mapped_column(String)
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    skill_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    skill_name: Mapped[str | None] = mapped_column(String, nullable=True)
 
     def to_dict(self) -> dict:
         return {

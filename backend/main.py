@@ -1,4 +1,5 @@
 """ClawAudit FastAPI application entrypoint."""
+
 from __future__ import annotations
 
 import logging
@@ -7,10 +8,10 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.routes import scans, findings, skills, policies, graph, ws, chat
+from backend.api.routes import chat, findings, graph, policies, scans, skills, ws
 from backend.api.schemas import DashboardResponse
 from backend.config import settings
 from backend.database import get_db, init_db
@@ -26,7 +27,9 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     """Initialize the database on startup."""
     await init_db()
-    logger.info("ClawAudit API v%s started on %s:%s", settings.API_VERSION, settings.HOST, settings.PORT)
+    logger.info(
+        "ClawAudit API v%s started on %s:%s", settings.API_VERSION, settings.HOST, settings.PORT
+    )
     yield
 
 
@@ -52,8 +55,8 @@ app.include_router(findings.router, prefix="/api/v1/findings")
 app.include_router(skills.router, prefix="/api/v1/skills")
 app.include_router(policies.router, prefix="/api/v1/policies")
 app.include_router(graph.router, prefix="/api/v1/graph")
-app.include_router(ws.router)   # WebSocket at /ws/scans/{id}/stream
-app.include_router(chat.router) # Chat at /api/v1/chat
+app.include_router(ws.router)  # WebSocket at /ws/scans/{id}/stream
+app.include_router(chat.router)  # Chat at /api/v1/chat
 
 
 @app.get("/api/v1/health")

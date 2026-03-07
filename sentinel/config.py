@@ -56,8 +56,10 @@ _ENV_PATTERN = re.compile(r"\$\{([^}]+)\}")
 def _interpolate_env(value: Any) -> Any:
     """Recursively interpolate ${ENV_VAR} references."""
     if isinstance(value, str):
+
         def replace(m: re.Match) -> str:  # type: ignore[type-arg]
             return os.environ.get(m.group(1), "")
+
         return _ENV_PATTERN.sub(replace, value)
     if isinstance(value, dict):
         return {k: _interpolate_env(v) for k, v in value.items()}
@@ -91,7 +93,9 @@ class SentinelConfig:
 
     @property
     def gateway_token(self) -> str:
-        return self._data["openclaw"]["gateway_token"] or os.environ.get("OPENCLAW_GATEWAY_TOKEN", "")
+        return self._data["openclaw"]["gateway_token"] or os.environ.get(
+            "OPENCLAW_GATEWAY_TOKEN", ""
+        )
 
     @property
     def skills_dir(self) -> Path:

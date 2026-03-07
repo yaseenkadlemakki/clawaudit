@@ -1,10 +1,11 @@
 """Shell and prompt injection detection."""
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Literal
+from typing import Literal
 
 # Patterns that indicate shell execution contexts
 SHELL_EXECUTION_PATTERNS: list[tuple[str, str]] = [
@@ -22,7 +23,11 @@ SHELL_EXECUTION_PATTERNS: list[tuple[str, str]] = [
 # Patterns indicating user input in shell context
 INJECTION_PATTERNS: list[tuple[str, str, str]] = [
     # (pattern, description, risk_level)
-    (r"\{[a-zA-Z_][a-zA-Z0-9_]*\}.*(?:exec|bash|sh|curl|wget)", "template var in shell cmd", "HIGH"),
+    (
+        r"\{[a-zA-Z_][a-zA-Z0-9_]*\}.*(?:exec|bash|sh|curl|wget)",
+        "template var in shell cmd",
+        "HIGH",
+    ),
     (r"--yolo", "--yolo flag without gate", "HIGH"),
     (r"\$[@*]", "$@ or $* shell expansion", "HIGH"),
     (r"\beval\b", "eval in any context", "HIGH"),
@@ -51,7 +56,7 @@ class InjectionReport:
     """Aggregated injection risk report for a piece of content."""
 
     overall_risk: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"] = "LOW"
-    findings: List[InjectionFinding] = field(default_factory=list)
+    findings: list[InjectionFinding] = field(default_factory=list)
 
     def _recalculate_risk(self) -> None:
         if not self.findings:
@@ -78,12 +83,14 @@ class InjectionDetector:
                 if re.search(pattern, line, re.IGNORECASE):
                     # Sanitize the evidence
                     evidence = line.strip()[:120]
-                    report.add(InjectionFinding(
-                        description=description,
-                        risk_level=risk,
-                        line_number=line_num,
-                        evidence=evidence,
-                    ))
+                    report.add(
+                        InjectionFinding(
+                            description=description,
+                            risk_level=risk,
+                            line_number=line_num,
+                            evidence=evidence,
+                        )
+                    )
 
         return report
 

@@ -1,12 +1,12 @@
 """Alert message formatters."""
+
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from sentinel.models.finding import Finding
     from sentinel.models.event import Event
+    from sentinel.models.finding import Finding
     from sentinel.models.policy import PolicyDecision
 
 SEVERITY_EMOJI = {
@@ -20,7 +20,7 @@ SEVERITY_EMOJI = {
 LINE = "━" * 28
 
 
-def format_finding_alert(finding: "Finding", decision: "PolicyDecision") -> str:
+def format_finding_alert(finding: Finding, decision: PolicyDecision) -> str:
     """Format a finding into an alert message string."""
     emoji = SEVERITY_EMOJI.get(finding.severity, "⚠️")
     policy_ids = ", ".join(decision.policy_ids) if decision.policy_ids else "default"
@@ -34,7 +34,7 @@ def format_finding_alert(finding: "Finding", decision: "PolicyDecision") -> str:
         f"Location: {finding.location}",
         f"Time: {ts}",
         LINE,
-        f"Run: `sentinel audit --fix` to remediate",
+        "Run: `sentinel audit --fix` to remediate",
     ]
     if finding.remediation:
         lines.insert(-1, f"Remediation: {finding.remediation}")
@@ -42,7 +42,7 @@ def format_finding_alert(finding: "Finding", decision: "PolicyDecision") -> str:
     return "\n".join(lines)
 
 
-def format_event_alert(event: "Event", decision: "PolicyDecision") -> str:
+def format_event_alert(event: Event, decision: PolicyDecision) -> str:
     """Format an event into an alert message string."""
     emoji = SEVERITY_EMOJI.get(event.severity, "⚠️")
     policy_ids = ", ".join(decision.policy_ids) if decision.policy_ids else "default"

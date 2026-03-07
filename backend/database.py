@@ -1,4 +1,5 @@
 """SQLAlchemy async database setup and session management."""
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
@@ -38,7 +39,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db() -> None:
     """Create all tables (used for dev/testing without alembic)."""
-    from backend.models import scan, finding, skill, policy, chat  # noqa: F401
+    from backend.models import chat, finding, policy, scan, skill  # noqa: F401
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

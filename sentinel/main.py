@@ -1,26 +1,23 @@
 """ClawAudit Sentinel CLI entrypoint."""
+
 from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import uuid
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
 from rich.table import Table
-from rich import print as rprint
 
-from sentinel.config import get_config, load_config
-from sentinel.analyzer.skill_analyzer import SkillAnalyzer
-from sentinel.analyzer.config_auditor import ConfigAuditor
-from sentinel.reporter.compliance import ComplianceReporter
-from sentinel.reporter.delta import load_findings_from_jsonl
-from sentinel.policy.engine import PolicyEngine
 from sentinel.alerts.engine import AlertEngine
+from sentinel.analyzer.skill_analyzer import SkillAnalyzer
+from sentinel.config import load_config
 from sentinel.models.event import Event
+from sentinel.models.skill import SkillProfile
+from sentinel.policy.engine import PolicyEngine
+from sentinel.reporter.compliance import ComplianceReporter
 
 app = typer.Typer(
     name="sentinel",
@@ -45,9 +42,11 @@ def _severity_color(s: str) -> str:
 @app.command()
 def audit(
     fix: bool = typer.Option(False, "--fix", help="Attempt auto-remediation (v2)"),
-    format: str = typer.Option("markdown", "--format", "-f", help="Output format: markdown or json"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save report to file"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c", help="Sentinel config file"),
+    format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format: markdown or json"
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save report to file"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="Sentinel config file"),
 ) -> None:
     """Run a full one-shot ClawAudit security scan."""
     cfg = load_config(config_path)
@@ -68,7 +67,14 @@ def audit(
     table.add_column("Title")
     table.add_column("Location", overflow="fold")
 
-    for f in sorted(findings, key=lambda x: ["CRITICAL","HIGH","MEDIUM","LOW","INFO"].index(x.severity) if x.severity in ["CRITICAL","HIGH","MEDIUM","LOW","INFO"] else 99):
+    for f in sorted(
+        findings,
+        key=lambda x: (
+            ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].index(x.severity)
+            if x.severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+            else 99
+        ),
+    ):
         color = _severity_color(f.severity)
         result_style = "red" if f.result == "FAIL" else "green" if f.result == "PASS" else "yellow"
         table.add_row(
@@ -84,7 +90,9 @@ def audit(
     # Counts
     fails = sum(1 for f in findings if f.result == "FAIL")
     passes = sum(1 for f in findings if f.result == "PASS")
-    console.print(f"\n[red]FAIL: {fails}[/red]  [green]PASS: {passes}[/green]  Total: {len(findings)}")
+    console.print(
+        f"\n[red]FAIL: {fails}[/red]  [green]PASS: {passes}[/green]  Total: {len(findings)}"
+    )
 
     # Save findings
     findings_file = cfg.findings_file
@@ -94,7 +102,8 @@ def audit(
             fh.write(json.dumps(f.to_dict()) + "\n")
 
     if output:
-        from sentinel.reporter.renderer import render_markdown, render_json
+        from sentinel.reporter.renderer import render_json, render_markdown
+
         if format == "json":
             output.write_text(render_json(findings, run_id))
         else:
@@ -102,7 +111,9 @@ def audit(
         console.print(f"[dim]Report saved to {output}[/dim]")
 
     if fix:
-        console.print("[yellow]⚠ Auto-fix is a Phase 2 feature. Manual remediation required.[/yellow]")
+        console.print(
+            "[yellow]⚠ Auto-fix is a Phase 2 feature. Manual remediation required.[/yellow]"
+        )
 
     raise typer.Exit(1 if fails > 0 else 0)
 
@@ -110,7 +121,7 @@ def audit(
 @app.command()
 def watch(
     interval: int = typer.Option(60, "--interval", "-i", help="Scan interval in seconds"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Start continuous monitoring daemon."""
     cfg = load_config(config_path)
@@ -119,12 +130,11 @@ def watch(
     console.print(f"[bold green]🛡  ClawAudit Sentinel watching — interval {interval}s[/bold green]")
 
     from sentinel.collector.config_collector import ConfigCollector
-    from sentinel.collector.skill_collector import SkillCollector
-    from sentinel.collector.session_collector import SessionCollector
     from sentinel.collector.cron_collector import CronCollector
     from sentinel.collector.log_collector import LogCollector
+    from sentinel.collector.session_collector import SessionCollector
+    from sentinel.collector.skill_collector import SkillCollector
     from sentinel.policy.engine import PolicyEngine
-    from sentinel.alerts.engine import AlertEngine
 
     policy_engine = PolicyEngine(cfg.policies_dir)
     alert_engine = AlertEngine(cfg)
@@ -137,7 +147,7 @@ def watch(
         console.print(f"[{color}][{event.severity}][/{color}] {event.event_type} — {event.entity}")
         if decision.action in ("ALERT", "BLOCK"):
             from sentinel.models.finding import Finding
-            from datetime import datetime
+
             # Convert event to a temporary finding for alert routing
             f = Finding(
                 check_id=event.source,
@@ -176,8 +186,8 @@ def watch(
 
 @app.command()
 def skills(
-    name: Optional[str] = typer.Option(None, "--name", "-n", help="Show details for a specific skill"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    name: str | None = typer.Option(None, "--name", "-n", help="Show details for a specific skill"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """List skills with trust scores."""
     cfg = load_config(config_path)
@@ -207,7 +217,12 @@ def skills(
     table.add_column("Injection Risk")
     table.add_column("Credentials")
 
-    trust_colors = {"TRUSTED": "green", "CAUTION": "yellow", "UNTRUSTED": "orange3", "QUARANTINE": "red"}
+    trust_colors = {
+        "TRUSTED": "green",
+        "CAUTION": "yellow",
+        "UNTRUSTED": "orange3",
+        "QUARANTINE": "red",
+    }
 
     for p in sorted(profiles, key=lambda x: x.trust_score_value):
         tc = trust_colors.get(p.trust_score, "white")
@@ -223,17 +238,25 @@ def skills(
     console.print(table)
 
 
-def _print_skill_detail(profile: "SkillProfile") -> None:
+def _print_skill_detail(profile: SkillProfile) -> None:
     """Print detailed skill profile."""
-    from sentinel.models.skill import SkillProfile
-    trust_colors = {"TRUSTED": "green", "CAUTION": "yellow", "UNTRUSTED": "orange3", "QUARANTINE": "red"}
+    trust_colors = {
+        "TRUSTED": "green",
+        "CAUTION": "yellow",
+        "UNTRUSTED": "orange3",
+        "QUARANTINE": "red",
+    }
     tc = trust_colors.get(profile.trust_score, "white")
 
     console.print(f"\n[bold]Skill: {profile.name}[/bold]")
     console.print(f"Path: {profile.path}")
-    console.print(f"Trust Score: [{tc}]{profile.trust_score} ({profile.trust_score_value}/100)[/{tc}]")
+    console.print(
+        f"Trust Score: [{tc}]{profile.trust_score} ({profile.trust_score_value}/100)[/{tc}]"
+    )
     console.print(f"Author: {profile.author or 'unknown'}")
-    console.print(f"Shell Access: {'Yes — ' + ', '.join(profile.shell_evidence[:3]) if profile.shell_access else 'No'}")
+    console.print(
+        f"Shell Access: {'Yes — ' + ', '.join(profile.shell_evidence[:3]) if profile.shell_access else 'No'}"
+    )
     console.print(f"Injection Risk: {profile.injection_risk}")
     console.print(f"Credential Exposure: {'Yes' if profile.credential_exposure else 'No'}")
     console.print(f"Outbound Domains: {', '.join(profile.outbound_domains[:5]) or 'none declared'}")
@@ -249,7 +272,7 @@ def _print_skill_detail(profile: "SkillProfile") -> None:
 def policies(
     list_: bool = typer.Option(False, "--list", "-l", help="List loaded policies"),
     validate: bool = typer.Option(False, "--validate", help="Validate policy files"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Manage and inspect policies."""
     cfg = load_config(config_path)
@@ -282,8 +305,8 @@ def policies(
 @app.command()
 def alerts(
     last: int = typer.Option(20, "--last", "-n", help="Number of recent alerts to show"),
-    ack: Optional[str] = typer.Option(None, "--ack", help="Acknowledge alert by ID"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    ack: str | None = typer.Option(None, "--ack", help="Acknowledge alert by ID"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """View recent alerts."""
     cfg = load_config(config_path)
@@ -317,7 +340,7 @@ def alerts(
         color = _severity_color(r.get("severity", "INFO"))
         table.add_row(
             r.get("ts", "")[:19],
-            f"[{color}]{r.get('severity','?')}[/{color}]",
+            f"[{color}]{r.get('severity', '?')}[/{color}]",
             r.get("check_id", ""),
             r.get("action", ""),
             r.get("message", "")[:80],
@@ -330,13 +353,15 @@ def alerts(
 def baseline(
     create: bool = typer.Option(False, "--create", help="Create baseline from current config"),
     diff: bool = typer.Option(False, "--diff", help="Show diff from baseline"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Manage config baselines."""
     cfg = load_config(config_path)
 
     if create:
-        import hashlib, json
+        import hashlib
+        import json
+
         baseline_file = cfg.baseline_file
         baseline_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -346,7 +371,9 @@ def baseline(
 
         baseline_record = {
             "created_at": __import__("datetime").datetime.utcnow().isoformat(),
-            "config_hash": hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest(),
+            "config_hash": hashlib.sha256(
+                json.dumps(config_data, sort_keys=True).encode()
+            ).hexdigest(),
             "config": config_data,
         }
         baseline_file.write_text(json.dumps(baseline_record, indent=2))
@@ -364,8 +391,8 @@ def baseline(
 @app.command()
 def report(
     format: str = typer.Option("markdown", "--format", "-f", help="markdown or json"),
-    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Save to file"),
-    config_path: Optional[Path] = typer.Option(None, "--config", "-c"),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save to file"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Generate a compliance report."""
     cfg = load_config(config_path)

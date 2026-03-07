@@ -1,8 +1,8 @@
 """Policy data models."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
@@ -27,7 +27,7 @@ class Policy:
 
     name: str
     version: str
-    rules: List[Rule] = field(default_factory=list)
+    rules: list[Rule] = field(default_factory=list)
     description: str = ""
 
 
@@ -36,6 +36,6 @@ class PolicyDecision:
     """Result of evaluating an event or finding against policies."""
 
     action: str  # ALLOW / WARN / ALERT / BLOCK
-    matched_rules: List[Rule] = field(default_factory=list)
+    matched_rules: list[Rule] = field(default_factory=list)
     reason: str = ""
-    policy_ids: List[str] = field(default_factory=list)
+    policy_ids: list[str] = field(default_factory=list)

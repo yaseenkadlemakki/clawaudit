@@ -1,4 +1,5 @@
 """OpenClaw gateway alert channel."""
+
 from __future__ import annotations
 
 import logging
@@ -31,7 +32,7 @@ class OpenClawAlertChannel:
         self._channel = delivery_channel
         self._target = delivery_target
 
-    async def send_async(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
+    async def send_async(self, message: str, finding: Finding, decision: PolicyDecision) -> None:
         """Send alert via OpenClaw gateway."""
         headers = {"Authorization": f"Bearer {self._token}"}
         payload = {
@@ -51,9 +52,10 @@ class OpenClawAlertChannel:
             except httpx.HTTPError as exc:
                 logger.warning("Failed to send alert via gateway: %s", exc)
 
-    def send(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
+    def send(self, message: str, finding: Finding, decision: PolicyDecision) -> None:
         """Synchronous wrapper — schedules delivery, holds task ref to prevent GC."""
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
             task = loop.create_task(self.send_async(message, finding, decision))

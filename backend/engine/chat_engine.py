@@ -4,6 +4,7 @@ Supports two modes:
   - openclaw: routes query through the local OpenClaw gateway
   - byollm:   calls the Anthropic API directly with the user's key
 """
+
 from __future__ import annotations
 
 import json
@@ -89,7 +90,9 @@ class ChatEngine:
                     "shell_access": s.shell_access,
                     "trust_score": s.trust_score,
                     "injection_risk": s.injection_risk,
-                    "outbound_domains": json.loads(s.outbound_domains) if s.outbound_domains else [],
+                    "outbound_domains": json.loads(s.outbound_domains)
+                    if s.outbound_domains
+                    else [],
                 }
                 for s in skills
             ],
@@ -120,20 +123,20 @@ class ChatEngine:
 You have access to the latest OpenClaw security scan data:
 
 SCAN SUMMARY:
-- Scan ID: {context['scan_id']}
-- Total findings: {context['total_findings']}
-- Skills scanned: {context['skills_scanned']}
+- Scan ID: {context["scan_id"]}
+- Total findings: {context["total_findings"]}
+- Skills scanned: {context["skills_scanned"]}
 
 TOP FINDINGS:
-{findings_summary or 'None'}
+{findings_summary or "None"}
 
 TOP RISKY SKILLS:
-{skills_summary or 'None'}
+{skills_summary or "None"}
 
 USER QUESTION: {question}
 
-Answer concisely and accurately based on the scan data above. Include specific skill names, 
-finding titles, risk scores, and remediation advice where relevant. If the question cannot 
+Answer concisely and accurately based on the scan data above. Include specific skill names,
+finding titles, risk scores, and remediation advice where relevant. If the question cannot
 be answered from the available data, say so clearly."""
 
     # ── OpenClaw mode ──────────────────────────────────────────────────────

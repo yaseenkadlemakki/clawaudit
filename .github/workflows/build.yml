@@ -39,7 +39,8 @@ jobs:
       - name: Audit Python dependencies
         run: |
           pip install -r requirements-dev.txt -e ".[backend]"
-          pip-audit --strict
+          # --skip-editable: local packages (clawaudit-sentinel) are not on PyPI
+          pip-audit --skip-editable
 
   # ── 2. Node dependency vulnerability scan ─────────────────────────────────────
   audit-node:
