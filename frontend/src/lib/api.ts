@@ -33,13 +33,17 @@ export interface ScanRun {
 
 export interface Skill {
   id: string
+  scan_id: string
   name: string
-  description: string
+  source: string
+  path: string
+  shell_access: boolean
+  outbound_domains: string[]
+  injection_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  trust_score: "TRUSTED" | "CAUTION" | "UNTRUSTED" | "QUARANTINE"
   risk_score: number
-  permissions: string[]
-  capabilities: string[]
-  policy_violations: number
-  location: string
+  risk_level: string
+  detected_at: string
 }
 
 export interface Finding {
