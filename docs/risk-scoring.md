@@ -31,7 +31,7 @@ These checks run after the main audit on every skill. Each generates a `FindingR
 
 ### ADV-001 — Unrestricted Shell Execution
 **Severity:** HIGH  
-**Domain:** `execution`
+**Domain:** `capability`
 
 Triggered when a skill's SKILL.md or configuration declares or demonstrates shell execution capability with no explicit sandboxing or restriction policy.
 
@@ -51,7 +51,7 @@ Triggered when a skill has no declared `author` or `source` field, making proven
 
 ### ADV-003 — Supply Chain Risk
 **Severity:** HIGH  
-**Domain:** `supply-chain`
+**Domain:** `network`
 
 Triggered when a skill contacts domains not in the ClawAudit safe-domain allowlist. The allowlist includes well-known AI provider APIs, package registries, and GitHub.
 

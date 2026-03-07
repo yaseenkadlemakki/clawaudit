@@ -99,6 +99,6 @@ ChatEngine.ask()
 | Table | Purpose |
 |-------|---------|
 | `scan_runs` | One row per audit run; tracks status, counts, timestamps |
-| `skill_records` | Risk profile per skill per scan: scores, flags, domains |
-| `finding_records` | Individual policy violations; linked to scan + skill |
+| `skills` | Risk profile per skill per scan: scores, flags, domains |
+| `findings` | Individual policy violations; linked to scan + skill |
 | `chat_messages` | Investigation chat history; stores question, answer, mode |

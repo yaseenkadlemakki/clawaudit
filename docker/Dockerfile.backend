@@ -13,7 +13,8 @@ WORKDIR /app
 FROM base AS deps
 
 COPY pyproject.toml ./
-COPY requirements-dev.txt ./
+COPY sentinel/ ./sentinel/
+COPY backend/ ./backend/
 
 RUN pip install --upgrade pip \
  && pip install ".[backend]"

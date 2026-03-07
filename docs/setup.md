@@ -107,7 +107,7 @@ docker compose -f docker/docker-compose.yml down -v
 | `CLAWAUDIT_LOG_LEVEL` | `info` | Log level |
 | `CLAWAUDIT_CORS_ORIGINS` | `http://localhost:3000` | Comma-separated allowed CORS origins |
 | `OPENCLAW_GATEWAY_URL` | `http://localhost:18789` | OpenClaw gateway URL for chat mode |
-| `OPENCLAW_GATEWAY_TOKEN` | _(empty)_ | Gateway auth token |
+| `OPENCLAW_GATEWAY_TOKEN` | _(unset — required only for OpenClaw chat mode)_ | Gateway auth token |
 | `BYOLLM_MODEL` | `claude-haiku-4-5` | Anthropic model for BYOLLM chat mode |
 | `NEXT_PUBLIC_API_URL` | `http://localhost:18790` | Frontend → backend REST URL |
 | `NEXT_PUBLIC_WS_URL` | `ws://localhost:18790` | Frontend → backend WebSocket URL |

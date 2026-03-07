@@ -35,7 +35,7 @@ services:
       CLAWAUDIT_LOG_LEVEL: ${LOG_LEVEL:-info}
       CLAWAUDIT_CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN:-}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
       BYOLLM_MODEL: ${BYOLLM_MODEL:-claude-haiku-4-5}
     depends_on:
       postgres:
