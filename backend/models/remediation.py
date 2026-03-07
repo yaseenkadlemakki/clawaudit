@@ -27,6 +27,7 @@ class RemediationEvent(Base):
     impact: Mapped[str] = mapped_column(Text, default="")  # JSON array stored as text
     snapshot_path: Mapped[str | None] = mapped_column(String, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)  # noqa: UP017
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),  # noqa: UP017
     )
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
