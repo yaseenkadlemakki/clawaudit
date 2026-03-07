@@ -11,14 +11,16 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
 
 // ── Dashboard ──────────────────────────────────────────────
 export interface DashboardStats {
-  security_score: number
-  total_findings: number
-  critical: number
-  high: number
-  medium: number
-  low: number
-  total_scans: number
-  last_scan_at: string | null
+  overall_score: number
+  total_skills: number
+  critical_findings: number
+  risk_distribution: {
+    Critical: number
+    High: number
+    Medium: number
+    Low: number
+  }
+  recent_scans: ScanRun[]
 }
 
 export interface ScanRun {
