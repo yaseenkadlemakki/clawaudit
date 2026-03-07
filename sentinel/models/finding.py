@@ -1,10 +1,10 @@
 """Finding data model."""
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass
@@ -23,7 +23,7 @@ class Finding:
     run_id: str
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     detected_at: datetime = field(default_factory=datetime.utcnow)
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
     def to_dict(self) -> dict:
         return {

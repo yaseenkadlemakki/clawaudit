@@ -1,8 +1,9 @@
 """Chat investigation API routes."""
+
 from __future__ import annotations
 
 import logging
-from typing import Literal, Optional
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -20,7 +21,7 @@ router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 class ChatRequest(BaseModel):
     question: str
     mode: Literal["openclaw", "byollm"] = "openclaw"
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -54,6 +55,7 @@ async def ask(request: ChatRequest, db: AsyncSession = Depends(get_db)):
 
     # Persist the exchange
     import json
+
     msg = ChatMessage(
         question=request.question,
         answer=answer,

@@ -1,4 +1,5 @@
 """Extensible additive risk scoring engine (0-100)."""
+
 from __future__ import annotations
 
 import re
@@ -31,13 +32,13 @@ _DANGEROUS_PATTERNS = [
 ]
 
 
-def _has_dangerous_commands(profile: "SkillProfile") -> bool:
+def _has_dangerous_commands(profile: SkillProfile) -> bool:
     """Check if any shell evidence includes dangerous patterns."""
     text = " ".join(profile.shell_evidence + profile.injection_evidence)
     return any(re.search(p, text, re.IGNORECASE) for p in _DANGEROUS_PATTERNS)
 
 
-def score_skill(profile: "SkillProfile") -> tuple[int, str]:
+def score_skill(profile: SkillProfile) -> tuple[int, str]:
     """
     Compute additive risk score (0–100) and level for a SkillProfile.
 

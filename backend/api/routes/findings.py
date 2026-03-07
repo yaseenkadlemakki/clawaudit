@@ -1,4 +1,5 @@
 """Findings routes."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -22,7 +23,9 @@ async def list_findings(
 ):
     """List findings with optional filters."""
     repo = FindingRepository(db)
-    records = await repo.list(scan_id=scan_id, severity=severity, domain=domain, limit=limit, offset=offset)
+    records = await repo.list(
+        scan_id=scan_id, severity=severity, domain=domain, limit=limit, offset=offset
+    )
     return [r.to_dict() for r in records]
 
 

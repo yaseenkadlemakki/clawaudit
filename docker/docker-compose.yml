@@ -1,0 +1,76 @@
+name: clawaudit
+
+services:
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-clawaudit}
+      POSTGRES_USER: ${POSTGRES_USER:-clawaudit}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clawaudit} -d ${POSTGRES_DB:-clawaudit}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - clawaudit-net
+
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-18790}:18790"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-clawaudit}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-clawaudit}
+      CLAWAUDIT_HOST: 0.0.0.0
+      CLAWAUDIT_PORT: "18790"
+      CLAWAUDIT_LOG_LEVEL: ${LOG_LEVEL:-info}
+      CLAWAUDIT_CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      OPENCLAW_GATEWAY_URL: ${OPENCLAW_GATEWAY_URL:-http://host.docker.internal:18789}
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_GATEWAY_TOKEN}
+      BYOLLM_MODEL: ${BYOLLM_MODEL:-claude-haiku-4-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:18790/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 15s
+      retries: 3
+    networks:
+      - clawaudit-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ── Frontend UI ──────────────────────────────────────────────────────────────
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:18790}
+        NEXT_PUBLIC_WS_URL: ${NEXT_PUBLIC_WS_URL:-ws://localhost:18790}
+    restart: unless-stopped
+    ports:
+      - "${UI_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - clawaudit-net
+
+volumes:
+  postgres_data:
+
+networks:
+  clawaudit-net:
+    driver: bridge

@@ -1,4 +1,5 @@
 """Alert routing and deduplication engine."""
+
 from __future__ import annotations
 
 import logging
@@ -6,9 +7,9 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from sentinel.alerts.formatters import format_finding_alert
 from sentinel.alerts.channels.file import FileAlertChannel
 from sentinel.alerts.channels.openclaw import OpenClawAlertChannel
+from sentinel.alerts.formatters import format_finding_alert
 from sentinel.config import SentinelConfig
 
 if TYPE_CHECKING:
@@ -30,7 +31,6 @@ class AlertEngine:
     def _setup_channels(self) -> None:
         """Initialize alert delivery channels from config."""
         channels_cfg = self._config.alert_channels
-        dedup_window = self._config.dedup_window
 
         # File channel
         file_cfg = channels_cfg.get("file", {})
@@ -41,25 +41,27 @@ class AlertEngine:
         # OpenClaw gateway channel
         oc_cfg = channels_cfg.get("openclaw", {})
         if oc_cfg.get("enabled", False) and self._config.gateway_token:
-            self._channels.append(OpenClawAlertChannel(
-                gateway_url=self._config.gateway_url,
-                gateway_token=self._config.gateway_token,
-                delivery_channel=oc_cfg.get("delivery_channel", "discord"),
-                delivery_target=oc_cfg.get("delivery_target", ""),
-            ))
+            self._channels.append(
+                OpenClawAlertChannel(
+                    gateway_url=self._config.gateway_url,
+                    gateway_token=self._config.gateway_token,
+                    delivery_channel=oc_cfg.get("delivery_channel", "discord"),
+                    delivery_target=oc_cfg.get("delivery_target", ""),
+                )
+            )
 
-    def _dedup_key(self, finding: "Finding") -> str:
+    def _dedup_key(self, finding: Finding) -> str:
         """Return a stable deduplication key for a finding (check_id + location)."""
         return f"{finding.check_id}:{finding.location}"
 
-    def _is_deduplicated(self, finding: "Finding") -> bool:
+    def _is_deduplicated(self, finding: Finding) -> bool:
         """Return True if this finding was recently alerted (within dedup window)."""
         last_sent = self._dedup.get(self._dedup_key(finding))
         if last_sent and (time.time() - last_sent) < self._config.dedup_window:
             return True
         return False
 
-    def send(self, finding: "Finding", decision: "PolicyDecision") -> None:
+    def send(self, finding: Finding, decision: PolicyDecision) -> None:
         """Route a finding alert to all configured channels."""
         if not self._config.alerts_enabled:
             return

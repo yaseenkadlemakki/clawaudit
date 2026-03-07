@@ -1,17 +1,18 @@
 """Skill collector — watches skill directories for changes."""
+
 from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
-from watchdog.events import FileSystemEvent, FileCreatedEvent, FileModifiedEvent, FileDeletedEvent
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileSystemEvent
 from watchdog.observers import Observer
 
+from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 from sentinel.config import SentinelConfig
 from sentinel.models.event import Event
-from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -53,14 +54,16 @@ class _SkillHandler:
             except Exception as exc:
                 logger.warning("Skill analysis error: %s", exc)
 
-        self._emit(Event(
-            source="skill_collector",
-            event_type=event_type,
-            severity=severity,
-            entity=skill_name,
-            evidence=evidence,
-            action_taken="ALERT" if severity in ("HIGH", "CRITICAL") else "WARN",
-        ))
+        self._emit(
+            Event(
+                source="skill_collector",
+                event_type=event_type,
+                severity=severity,
+                entity=skill_name,
+                evidence=evidence,
+                action_taken="ALERT" if severity in ("HIGH", "CRITICAL") else "WARN",
+            )
+        )
 
 
 class SkillCollector:

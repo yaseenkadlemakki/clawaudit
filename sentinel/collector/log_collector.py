@@ -1,15 +1,16 @@
 """Log collector — tails OpenClaw log files for suspicious activity."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import re
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
+from sentinel.analyzer.secret_scanner import SecretScanner
 from sentinel.config import SentinelConfig
 from sentinel.models.event import Event
-from sentinel.analyzer.secret_scanner import SecretScanner
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,7 @@ SUSPICIOUS_PATTERNS: list[tuple[str, str, str]] = [
 ]
 
 _COMPILED_SUSPICIOUS = [
-    (re.compile(p, re.IGNORECASE), desc, sev)
-    for p, desc, sev in SUSPICIOUS_PATTERNS
+    (re.compile(p, re.IGNORECASE), desc, sev) for p, desc, sev in SUSPICIOUS_PATTERNS
 ]
 
 
@@ -63,26 +63,30 @@ class LogCollector:
         safe_evidence = self._sanitize_for_evidence(line)
         for pattern, description, severity in _COMPILED_SUSPICIOUS:
             if pattern.search(line):
-                self._emit(Event(
-                    source="log_collector",
-                    event_type="suspicious_command",
-                    severity=severity,
-                    entity=str(source_path),
-                    evidence=description + " — " + safe_evidence,
-                    action_taken="ALERT",
-                ))
+                self._emit(
+                    Event(
+                        source="log_collector",
+                        event_type="suspicious_command",
+                        severity=severity,
+                        entity=str(source_path),
+                        evidence=description + " — " + safe_evidence,
+                        action_taken="ALERT",
+                    )
+                )
 
         # Check for secrets in logs
         matches = self._secret_scanner.scan_text(line, str(source_path))
         for m in matches:
-            self._emit(Event(
-                source="log_collector",
-                event_type="secret_in_log",
-                severity="CRITICAL",
-                entity=str(source_path),
-                evidence=f"secret_type={m.secret_type} context={m.context[:80]}",
-                action_taken="ALERT",
-            ))
+            self._emit(
+                Event(
+                    source="log_collector",
+                    event_type="secret_in_log",
+                    severity="CRITICAL",
+                    entity=str(source_path),
+                    evidence=f"secret_type={m.secret_type} context={m.context[:80]}",
+                    action_taken="ALERT",
+                )
+            )
 
     async def run(self) -> None:
         """Start tailing all log files in the log directory."""

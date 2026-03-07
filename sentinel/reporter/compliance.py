@@ -1,15 +1,15 @@
 """Full compliance report generator."""
+
 from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from typing import List
 
 from sentinel.analyzer.config_auditor import ConfigAuditor
 from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 from sentinel.config import SentinelConfig
 from sentinel.models.finding import Finding
-from sentinel.reporter.renderer import render_markdown, render_json
+from sentinel.reporter.renderer import render_json, render_markdown
 
 
 class ComplianceReporter:
@@ -20,10 +20,10 @@ class ComplianceReporter:
         self._config_auditor = ConfigAuditor()
         self._skill_analyzer = SkillAnalyzer()
 
-    def run_full_audit(self) -> tuple[str, List[Finding]]:
+    def run_full_audit(self) -> tuple[str, list[Finding]]:
         """Run all checks, return (run_id, findings)."""
         run_id = str(uuid.uuid4())
-        findings: List[Finding] = []
+        findings: list[Finding] = []
 
         # Config audit
         if self._config.config_file.exists():

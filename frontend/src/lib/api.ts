@@ -30,6 +30,7 @@ export interface ScanRun {
   finished_at: string | null
   findings_count?: number
   total_findings?: number
+  skills_scanned?: number
   score: number | null
 }
 

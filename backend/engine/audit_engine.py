@@ -1,19 +1,20 @@
 """Audit engine — wraps sentinel's ConfigAuditor and SkillAnalyzer."""
+
 from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
+from backend.engine.advanced_detection import AdvancedDetector
+from backend.engine.risk_scoring import score_skill
 from sentinel.analyzer.config_auditor import ConfigAuditor
 from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 from sentinel.config import load_config
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
-
-from backend.engine.advanced_detection import AdvancedDetector
-from backend.engine.risk_scoring import score_skill
 
 logger = logging.getLogger(__name__)
 

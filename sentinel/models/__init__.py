@@ -1,7 +1,8 @@
 """Data models for Sentinel."""
-from .finding import Finding
+
 from .event import Event
-from .policy import Policy, Rule, PolicyDecision
+from .finding import Finding
+from .policy import Policy, PolicyDecision, Rule
 from .skill import SkillProfile
 
 __all__ = ["Finding", "Event", "Policy", "Rule", "PolicyDecision", "SkillProfile"]

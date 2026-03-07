@@ -1,10 +1,11 @@
 """Cron collector — detects unauthorized cron job registrations."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import Callable
+from collections.abc import Callable
 
 import httpx
 
@@ -52,15 +53,17 @@ class CronCollector:
 
         new_crons = cron_ids - self._baseline_crons
         for cron_id in new_crons:
-            self._emit(Event(
-                source="cron_collector",
-                event_type="unauthorized_cron",
-                severity="HIGH",
-                entity=cron_id,
-                evidence=f"new_cron_id={cron_id}",
-                action_taken="ALERT",
-                policy_refs=["POL-008"],
-            ))
+            self._emit(
+                Event(
+                    source="cron_collector",
+                    event_type="unauthorized_cron",
+                    severity="HIGH",
+                    entity=cron_id,
+                    evidence=f"new_cron_id={cron_id}",
+                    action_taken="ALERT",
+                    policy_refs=["POL-008"],
+                )
+            )
 
         self._baseline_crons = cron_ids
 

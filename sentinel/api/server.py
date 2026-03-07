@@ -1,9 +1,10 @@
 """FastAPI application (Phase 2 — disabled by default in v1)."""
+
 from __future__ import annotations
 
 from fastapi import FastAPI
 
-from sentinel.api.routes import findings, policies, skills, alerts
+from sentinel.api.routes import alerts, findings, policies, skills
 
 app = FastAPI(
     title="ClawAudit Sentinel API",
@@ -25,4 +26,5 @@ async def health():
 def start(host: str = "127.0.0.1", port: int = 18790) -> None:
     """Start the API server."""
     import uvicorn
+
     uvicorn.run(app, host=host, port=port)

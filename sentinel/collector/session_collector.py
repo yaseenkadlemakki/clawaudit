@@ -1,12 +1,13 @@
 """Session collector — monitors session JSONL for runaway agent patterns."""
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Callable
 
 from sentinel.config import SentinelConfig
 from sentinel.models.event import Event
@@ -59,15 +60,17 @@ class SessionCollector:
                 session_id = path.stem
                 if session_id not in self._alerted_sessions:
                     self._alerted_sessions.add(session_id)
-                    self._emit(Event(
-                        source="session_collector",
-                        event_type="runaway_agent",
-                        severity="HIGH",
-                        entity=session_id,
-                        evidence=f"tool_calls_per_minute={count} threshold={TOOL_CALL_LIMIT_PER_MINUTE}",
-                        action_taken="ALERT",
-                        policy_refs=["POL-007"],
-                    ))
+                    self._emit(
+                        Event(
+                            source="session_collector",
+                            event_type="runaway_agent",
+                            severity="HIGH",
+                            entity=session_id,
+                            evidence=f"tool_calls_per_minute={count} threshold={TOOL_CALL_LIMIT_PER_MINUTE}",
+                            action_taken="ALERT",
+                            policy_refs=["POL-007"],
+                        )
+                    )
                 break
 
     async def run(self) -> None:

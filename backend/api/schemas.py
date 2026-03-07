@@ -1,10 +1,10 @@
 """Pydantic request/response schemas for the ClawAudit API."""
+
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class ScanCreate(BaseModel):
@@ -13,8 +13,8 @@ class ScanCreate(BaseModel):
 
 class ScanResponse(BaseModel):
     id: str
-    started_at: Optional[str]
-    completed_at: Optional[str]
+    started_at: str | None
+    completed_at: str | None
     status: str
     total_findings: int = 0
     critical_count: int = 0
@@ -23,7 +23,7 @@ class ScanResponse(BaseModel):
     low_count: int = 0
     skills_scanned: int = 0
     triggered_by: str
-    error_message: Optional[str] = None
+    error_message: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -40,8 +40,8 @@ class FindingResponse(BaseModel):
     evidence: str
     location: str
     remediation: str
-    detected_at: Optional[str]
-    skill_name: Optional[str] = None
+    detected_at: str | None
+    skill_name: str | None = None
 
     model_config = {"from_attributes": True}
 
@@ -58,7 +58,7 @@ class SkillResponse(BaseModel):
     trust_score: str
     risk_score: int
     risk_level: str
-    detected_at: Optional[str]
+    detected_at: str | None
 
     model_config = {"from_attributes": True}
 
@@ -70,17 +70,17 @@ class PolicyCreate(BaseModel):
     severity: str
     action: str
     enabled: bool = True
-    description: Optional[str] = None
+    description: str | None = None
 
 
 class PolicyUpdate(BaseModel):
-    name: Optional[str] = None
-    domain: Optional[str] = None
-    check: Optional[str] = None
-    severity: Optional[str] = None
-    action: Optional[str] = None
-    enabled: Optional[bool] = None
-    description: Optional[str] = None
+    name: str | None = None
+    domain: str | None = None
+    check: str | None = None
+    severity: str | None = None
+    action: str | None = None
+    enabled: bool | None = None
+    description: str | None = None
 
 
 class PolicyResponse(BaseModel):
@@ -91,9 +91,9 @@ class PolicyResponse(BaseModel):
     severity: str
     action: str
     enabled: bool
-    description: Optional[str]
-    created_at: Optional[str]
-    updated_at: Optional[str]
+    description: str | None
+    created_at: str | None
+    updated_at: str | None
 
     model_config = {"from_attributes": True}
 

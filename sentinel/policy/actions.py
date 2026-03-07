@@ -1,4 +1,5 @@
 """Policy action handlers."""
+
 from __future__ import annotations
 
 import logging
@@ -19,21 +20,21 @@ def resolve_action(actions: list[str]) -> str:
     return max(actions, key=lambda a: ACTION_PRIORITY.get(a.upper(), 0))
 
 
-def handle_allow(decision: "PolicyDecision") -> None:
+def handle_allow(decision: PolicyDecision) -> None:
     """Handle ALLOW decision."""
     logger.debug("Policy decision: ALLOW — %s", decision.reason)
 
 
-def handle_warn(decision: "PolicyDecision") -> None:
+def handle_warn(decision: PolicyDecision) -> None:
     """Handle WARN decision."""
     logger.warning("Policy decision: WARN — %s", decision.reason)
 
 
-def handle_alert(decision: "PolicyDecision") -> None:
+def handle_alert(decision: PolicyDecision) -> None:
     """Handle ALERT decision — alert engine will route this."""
     logger.warning("Policy decision: ALERT — %s", decision.reason)
 
 
-def handle_block(decision: "PolicyDecision") -> None:
+def handle_block(decision: PolicyDecision) -> None:
     """Handle BLOCK decision."""
     logger.error("Policy decision: BLOCK — %s", decision.reason)

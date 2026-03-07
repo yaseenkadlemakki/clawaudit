@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+__pycache__
+*.pyc
+.coverage
+.pytest_cache
+.next
+docker/
+docs/
+tests/
+htmlcov/
+*.egg-info
+dist/
+.env
+.env.*
+!.env.example

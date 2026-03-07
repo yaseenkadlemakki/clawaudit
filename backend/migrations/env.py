@@ -1,10 +1,10 @@
 """Alembic environment configuration."""
+
 from __future__ import annotations
 
 import asyncio
 import os
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import pool
@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import all models so metadata is populated
 from backend.database import Base
-from backend.models import scan, finding, skill, policy  # noqa: F401
+from backend.models import finding, policy, scan, skill  # noqa: F401
 
 config = context.config
 

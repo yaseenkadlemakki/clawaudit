@@ -1,8 +1,8 @@
 """Pydantic response models for the REST API."""
+
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class FindingResponse(BaseModel):
     location: str
     remediation: str
     detected_at: datetime
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
     run_id: str
 
 

@@ -1,12 +1,13 @@
 """Policy evaluation engine."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from typing import List, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from sentinel.models.policy import PolicyDecision, Rule
-from sentinel.policy.loader import PolicyLoader
 from sentinel.policy.actions import resolve_action
+from sentinel.policy.loader import PolicyLoader
 
 if TYPE_CHECKING:
     from sentinel.models.event import Event
@@ -52,7 +53,7 @@ def _matches_condition(rule: Rule, value: str) -> bool:
     return False
 
 
-def _get_event_value(event: "Event", check: str) -> str:
+def _get_event_value(event: Event, check: str) -> str:
     """Extract the value to check from an event."""
     # Try event attributes first
     if check == "event_type":
@@ -66,16 +67,18 @@ def _get_event_value(event: "Event", check: str) -> str:
     if check == "tool_calls_per_minute":
         # Parse from evidence
         import re
+
         m = re.search(r"tool_calls_per_minute=(\d+)", event.evidence)
         return m.group(1) if m else "0"
     # Generic: look in evidence for key=value
     import re
+
     pattern = re.compile(rf"{re.escape(check)}=([^\s,]+)")
     m = pattern.search(event.evidence)
     return m.group(1) if m else ""
 
 
-def _get_finding_value(finding: "Finding", check: str) -> str:
+def _get_finding_value(finding: Finding, check: str) -> str:
     """Extract the value to check from a finding."""
     mapping = {
         "check_id": finding.check_id,
@@ -99,13 +102,13 @@ class PolicyEngine:
         self.loader.reload()
 
     @property
-    def rules(self) -> List[Rule]:
+    def rules(self) -> list[Rule]:
         return self.loader.rules
 
-    def evaluate(self, event: "Event") -> PolicyDecision:
+    def evaluate(self, event: Event) -> PolicyDecision:
         """Evaluate an event against all loaded policies."""
-        matched: List[Rule] = []
-        actions: List[str] = []
+        matched: list[Rule] = []
+        actions: list[str] = []
 
         for rule in self.rules:
             # When the rule check is "event_type", match against event_type regardless of domain
@@ -131,10 +134,10 @@ class PolicyEngine:
             policy_ids=[r.id for r in matched],
         )
 
-    def evaluate_finding(self, finding: "Finding") -> PolicyDecision:
+    def evaluate_finding(self, finding: Finding) -> PolicyDecision:
         """Evaluate a finding against all loaded policies."""
-        matched: List[Rule] = []
-        actions: List[str] = []
+        matched: list[Rule] = []
+        actions: list[str] = []
 
         for rule in self.rules:
             if rule.domain and rule.domain not in (finding.domain, "config", "*"):
@@ -155,7 +158,9 @@ class PolicyEngine:
             # Default: alert on FAIL findings with HIGH/CRITICAL severity
             sev_ord = SEVERITY_ORDER.get(finding.severity, 0)
             if finding.result == "FAIL" and sev_ord >= 3:
-                return PolicyDecision(action="ALERT", reason="Default: FAIL + HIGH/CRITICAL severity")
+                return PolicyDecision(
+                    action="ALERT", reason="Default: FAIL + HIGH/CRITICAL severity"
+                )
             return PolicyDecision(action="ALLOW", reason="No matching rules")
 
         action = resolve_action(actions)

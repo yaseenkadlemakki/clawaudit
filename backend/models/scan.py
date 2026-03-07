@@ -1,10 +1,10 @@
 """ScanRun ORM model and ScanStatus enum."""
+
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from backend.database import Base
 
 
-class ScanStatus(str, Enum):
+class ScanStatus(StrEnum):
     IDLE = "idle"
     RUNNING = "running"
     STOPPING = "stopping"
@@ -27,7 +27,7 @@ class ScanRun(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String, default=ScanStatus.IDLE)
     total_findings: Mapped[int] = mapped_column(Integer, default=0)
     critical_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -36,7 +36,7 @@ class ScanRun(Base):
     low_count: Mapped[int] = mapped_column(Integer, default=0)
     skills_scanned: Mapped[int] = mapped_column(Integer, default=0)
     triggered_by: Mapped[str] = mapped_column(String, default="api")
-    error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
 
     def to_dict(self) -> dict:
         return {

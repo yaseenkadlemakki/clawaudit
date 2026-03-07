@@ -1,4 +1,5 @@
 """Config collector — polls gateway config and detects drift."""
+
 from __future__ import annotations
 
 import asyncio
@@ -6,15 +7,14 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import datetime
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 import httpx
 
+from sentinel.analyzer.config_auditor import ConfigAuditor
 from sentinel.config import SentinelConfig
 from sentinel.models.event import Event
-from sentinel.analyzer.config_auditor import ConfigAuditor
-from sentinel.analyzer.secret_scanner import SecretScanner
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 def _sanitize_config(config: dict) -> dict:
     """Remove sensitive values from config before logging."""
     import re
+
     text = json.dumps(config)
     # Redact token-like values
     text = re.sub(r'"token"\s*:\s*"[^"]{8,}"', '"token": "[REDACTED]"', text)
@@ -78,17 +79,21 @@ class ConfigCollector:
         current_hash = _hash_config(config)
 
         if self._last_hash is not None and current_hash != self._last_hash:
-            sanitized = _sanitize_config(config)
-            self._emit(Event(
-                source="config_collector",
-                event_type="config_drift",
-                severity="HIGH",
-                entity="openclaw.json",
-                evidence=f"config_hash_changed={current_hash[:16]}",
-                action_taken="ALERT",
-                policy_refs=["POL-010"],
-            ))
-            logger.warning("Config drift detected: hash %s → %s", self._last_hash[:8], current_hash[:8])
+            _sanitize_config(config)
+            self._emit(
+                Event(
+                    source="config_collector",
+                    event_type="config_drift",
+                    severity="HIGH",
+                    entity="openclaw.json",
+                    evidence=f"config_hash_changed={current_hash[:16]}",
+                    action_taken="ALERT",
+                    policy_refs=["POL-010"],
+                )
+            )
+            logger.warning(
+                "Config drift detected: hash %s → %s", self._last_hash[:8], current_hash[:8]
+            )
 
         self._last_hash = current_hash
         self._last_config = config
@@ -98,15 +103,17 @@ class ConfigCollector:
         findings = self._auditor.audit(config, run_id)
         for finding in findings:
             if finding.result == "FAIL":
-                self._emit(Event(
-                    source="config_collector",
-                    event_type="config_audit_fail",
-                    severity=finding.severity,
-                    entity=finding.location,
-                    evidence=f"check_id={finding.check_id} {finding.evidence}",
-                    action_taken="ALERT",
-                    policy_refs=[finding.check_id],
-                ))
+                self._emit(
+                    Event(
+                        source="config_collector",
+                        event_type="config_audit_fail",
+                        severity=finding.severity,
+                        entity=finding.location,
+                        evidence=f"check_id={finding.check_id} {finding.evidence}",
+                        action_taken="ALERT",
+                        policy_refs=[finding.check_id],
+                    )
+                )
 
     async def run(self) -> None:
         """Run continuous collection loop."""

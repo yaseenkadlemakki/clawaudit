@@ -1,0 +1,136 @@
+                                                        ClawAudit Findings — Run 3611fab8                                                        
+┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Check    ┃ Severity ┃ Result ┃ Title                                                     ┃ Location                                           ┃
+┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ CONF-05  │ CRITICAL │ FAIL   │ Credential pattern detected in config: telegram_bot_token │ openclaw.json.channels.telegram.botToken           │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'nano-pdf' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/nan │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'himalaya' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/him │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'bear-notes' has shell access                       │ /opt/homebrew/lib/node_modules/openclaw/skills/bea │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'peekaboo' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/pee │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'model-usage' has shell access                      │ /opt/homebrew/lib/node_modules/openclaw/skills/mod │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'blogwatcher' has shell access                      │ /opt/homebrew/lib/node_modules/openclaw/skills/blo │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'coding-agent' has shell access                     │ /opt/homebrew/lib/node_modules/openclaw/skills/cod │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'coding-agent' has HIGH injection risk              │ /opt/homebrew/lib/node_modules/openclaw/skills/cod │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'openhue' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/ope │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'gemini' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/gem │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'gemini' has HIGH injection risk                    │ /opt/homebrew/lib/node_modules/openclaw/skills/gem │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'gifgrep' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/gif │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'session-logs' has shell access                     │ /opt/homebrew/lib/node_modules/openclaw/skills/ses │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'ordercli' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/ord │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'openai-whisper' has shell access                   │ /opt/homebrew/lib/node_modules/openclaw/skills/ope │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'spotify-player' has shell access                   │ /opt/homebrew/lib/node_modules/openclaw/skills/spo │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'healthcheck' has shell access                      │ /opt/homebrew/lib/node_modules/openclaw/skills/hea │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'oracle' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/ora │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'xurl' has shell access                             │ /opt/homebrew/lib/node_modules/openclaw/skills/xur │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'summarize' has shell access                        │ /opt/homebrew/lib/node_modules/openclaw/skills/sum │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'clawhub' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/cla │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'bluebubbles' has shell access                      │ /opt/homebrew/lib/node_modules/openclaw/skills/blu │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'sherpa-onnx-tts' has shell access                  │ /opt/homebrew/lib/node_modules/openclaw/skills/she │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'sherpa-onnx-tts' has HIGH injection risk           │ /opt/homebrew/lib/node_modules/openclaw/skills/she │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'video-frames' has shell access                     │ /opt/homebrew/lib/node_modules/openclaw/skills/vid │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'video-frames' has HIGH injection risk              │ /opt/homebrew/lib/node_modules/openclaw/skills/vid │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'eightctl' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/eig │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'gog' has shell access                              │ /opt/homebrew/lib/node_modules/openclaw/skills/gog │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'canvas' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/can │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'canvas' has HIGH injection risk                    │ /opt/homebrew/lib/node_modules/openclaw/skills/can │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'notion' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/not │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'notion' has HIGH injection risk                    │ /opt/homebrew/lib/node_modules/openclaw/skills/not │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'goplaces' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/gop │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'apple-reminders' has shell access                  │ /opt/homebrew/lib/node_modules/openclaw/skills/app │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'imsg' has shell access                             │ /opt/homebrew/lib/node_modules/openclaw/skills/ims │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'skill-creator' has shell access                    │ /opt/homebrew/lib/node_modules/openclaw/skills/ski │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'camsnap' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/cam │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'github' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/git │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'things-mac' has shell access                       │ /opt/homebrew/lib/node_modules/openclaw/skills/thi │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'blucli' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/blu │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'sonoscli' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/son │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'mcporter' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/mcp │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'tmux' has shell access                             │ /opt/homebrew/lib/node_modules/openclaw/skills/tmu │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'openai-image-gen' has shell access                 │ /opt/homebrew/lib/node_modules/openclaw/skills/ope │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'sag' has shell access                              │ /opt/homebrew/lib/node_modules/openclaw/skills/sag │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'slack' has shell access                            │ /opt/homebrew/lib/node_modules/openclaw/skills/sla │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'weather' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/wea │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'obsidian' has shell access                         │ /opt/homebrew/lib/node_modules/openclaw/skills/obs │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'trello' has shell access                           │ /opt/homebrew/lib/node_modules/openclaw/skills/tre │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'trello' has HIGH injection risk                    │ /opt/homebrew/lib/node_modules/openclaw/skills/tre │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'wacli' has shell access                            │ /opt/homebrew/lib/node_modules/openclaw/skills/wac │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'songsee' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/son │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'apple-notes' has shell access                      │ /opt/homebrew/lib/node_modules/openclaw/skills/app │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'openai-whisper-api' has shell access               │ /opt/homebrew/lib/node_modules/openclaw/skills/ope │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'openai-whisper-api' has HIGH injection risk        │ /opt/homebrew/lib/node_modules/openclaw/skills/ope │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'gh-issues' has shell access                        │ /opt/homebrew/lib/node_modules/openclaw/skills/gh- │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-02 │ HIGH     │ FAIL   │ Skill 'gh-issues' has HIGH injection risk                 │ /opt/homebrew/lib/node_modules/openclaw/skills/gh- │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'nano-banana-pro' has shell access                  │ /opt/homebrew/lib/node_modules/openclaw/skills/nan │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill '1password' has shell access                        │ /opt/homebrew/lib/node_modules/openclaw/skills/1pa │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'voice-call' has shell access                       │ /opt/homebrew/lib/node_modules/openclaw/skills/voi │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ HIGH     │ FAIL   │ Skill 'fastapi' has shell access                          │ /Users/ykadlemakki/.openclaw/workspace/network-lab │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ MEDIUM   │ FAIL   │ Skill 'discord' has shell access                          │ /opt/homebrew/lib/node_modules/openclaw/skills/dis │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ SKILL-01 │ MEDIUM   │ FAIL   │ Skill 'clawaudit' has shell access                        │ /Users/ykadlemakki/.openclaw/workspace/clawaudit/S │
+├──────────┼──────────┼────────┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────┤
+│ CONF-01  │ INFO     │ PASS   │ Discord groupPolicy is allowlist                          │ ~/.openclaw/openclaw.json → channels.discord.group │
+└──────────┴──────────┴────────┴───────────────────────────────────────────────────────────┴────────────────────────────────────────────────────┘
+
+FAIL: 64  PASS: 1  Total: 65

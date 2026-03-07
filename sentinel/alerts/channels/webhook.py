@@ -1,7 +1,7 @@
 """Generic webhook alert channel."""
+
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 import httpx
@@ -21,7 +21,7 @@ class WebhookAlertChannel:
         self._url = url
         self._headers = headers or {}
 
-    async def send_async(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
+    async def send_async(self, message: str, finding: Finding, decision: PolicyDecision) -> None:
         """Send alert to webhook endpoint."""
         payload = {
             "text": message,
@@ -35,9 +35,10 @@ class WebhookAlertChannel:
             except httpx.HTTPError:
                 pass  # Non-fatal
 
-    def send(self, message: str, finding: "Finding", decision: "PolicyDecision") -> None:
+    def send(self, message: str, finding: Finding, decision: PolicyDecision) -> None:
         """Synchronous wrapper — schedules delivery, holds task ref to prevent GC."""
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
             task = loop.create_task(self.send_async(message, finding, decision))

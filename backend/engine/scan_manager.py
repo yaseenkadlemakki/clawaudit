@@ -1,4 +1,5 @@
 """Scan lifecycle manager with async execution and WebSocket broadcast."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,6 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import AsyncSessionLocal
 from backend.engine.audit_engine import AuditEngine
@@ -132,53 +132,70 @@ class ScanManager:
         skill_records: list[dict] = []
 
         def on_finding(finding: Finding, skill_name: str | None) -> None:
-            finding_records.append({
-                "id": finding.id,
-                "scan_id": scan_id,
-                "check_id": finding.check_id,
-                "domain": finding.domain,
-                "title": finding.title,
-                "description": finding.description,
-                "severity": finding.severity,
-                "result": finding.result,
-                "evidence": finding.evidence,
-                "location": finding.location,
-                "remediation": finding.remediation,
-                "detected_at": finding.detected_at,
-                "skill_name": skill_name,
-            })
-            self._broadcast(scan_id, {
-                "type": "finding",
-                "data": {**finding.to_dict(), "skill_name": skill_name},
-            })
+            finding_records.append(
+                {
+                    "id": finding.id,
+                    "scan_id": scan_id,
+                    "check_id": finding.check_id,
+                    "domain": finding.domain,
+                    "title": finding.title,
+                    "description": finding.description,
+                    "severity": finding.severity,
+                    "result": finding.result,
+                    "evidence": finding.evidence,
+                    "location": finding.location,
+                    "remediation": finding.remediation,
+                    "detected_at": finding.detected_at,
+                    "skill_name": skill_name,
+                }
+            )
+            self._broadcast(
+                scan_id,
+                {
+                    "type": "finding",
+                    "data": {**finding.to_dict(), "skill_name": skill_name},
+                },
+            )
 
         def on_skill(profile: SkillProfile, risk_score: int, risk_level: str) -> None:
-            skill_records.append({
-                "scan_id": scan_id,
-                "name": profile.name,
-                "source": profile.source,
-                "path": profile.path,
-                "shell_access": profile.shell_access,
-                "outbound_domains": json.dumps(profile.outbound_domains),
-                "injection_risk": profile.injection_risk,
-                "trust_score": profile.trust_score,
-                "risk_score": risk_score,
-                "risk_level": risk_level,
-                "detected_at": datetime.utcnow(),
-            })
+            skill_records.append(
+                {
+                    "scan_id": scan_id,
+                    "name": profile.name,
+                    "source": profile.source,
+                    "path": profile.path,
+                    "shell_access": profile.shell_access,
+                    "outbound_domains": json.dumps(profile.outbound_domains),
+                    "injection_risk": profile.injection_risk,
+                    "trust_score": profile.trust_score,
+                    "risk_score": risk_score,
+                    "risk_level": risk_level,
+                    "detected_at": datetime.utcnow(),
+                }
+            )
             knowledge_graph.add_skill(profile, risk_score, risk_level)
-            self._broadcast(scan_id, {
-                "type": "skill",
-                "data": {**profile.to_dict(), "risk_score": risk_score, "risk_level": risk_level},
-            })
+            self._broadcast(
+                scan_id,
+                {
+                    "type": "skill",
+                    "data": {
+                        **profile.to_dict(),
+                        "risk_score": risk_score,
+                        "risk_level": risk_level,
+                    },
+                },
+            )
 
         def on_progress(current: int, total: int, skill_name: str) -> None:
-            self._broadcast(scan_id, {
-                "type": "progress",
-                "current": current,
-                "total": total,
-                "skill": skill_name,
-            })
+            self._broadcast(
+                scan_id,
+                {
+                    "type": "progress",
+                    "current": current,
+                    "total": total,
+                    "skill": skill_name,
+                },
+            )
 
         def stop_flag() -> bool:
             return self._stop_flags.get(scan_id, False)
