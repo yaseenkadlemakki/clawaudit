@@ -12,7 +12,7 @@ WORKDIR /app
 # ── deps stage ────────────────────────────────────────────────────────────────
 FROM base AS deps
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 COPY sentinel/ ./sentinel/
 COPY backend/ ./backend/
 
