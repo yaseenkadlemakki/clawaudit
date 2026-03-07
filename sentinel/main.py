@@ -407,5 +407,151 @@ def report(
         console.print(content)
 
 
+@app.command()
+def remediate(
+    skill: str | None = typer.Option(None, "--skill", "-s", help="Target a specific skill by name"),
+    check: str | None = typer.Option(None, "--check", "-c", help="Target a specific check ID (e.g. ADV-001)"),
+    apply: bool = typer.Option(False, "--apply", help="Apply remediations (default: dry-run preview)"),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompts"),
+    config_path: Path | None = typer.Option(None, "--config", help="Sentinel config file"),
+) -> None:
+    """Preview or apply remediations for audit findings.
+
+    By default runs in dry-run mode — shows proposals without making changes.
+    Pass --apply to actually apply fixes, --yes to skip confirmation.
+    """
+    from sentinel.remediation.engine import RemediationEngine
+    from sentinel.remediation.rollback import SNAPSHOT_DIR
+
+    cfg = load_config(config_path)
+    skills_dir = Path(cfg.openclaw.workspace_skills_dir).expanduser()
+
+    engine = RemediationEngine(skills_dir=skills_dir, dry_run=not apply)
+
+    # Build a minimal findings list from config auditor
+    from sentinel.analyzer.config_auditor import ConfigAuditor
+    from sentinel.analyzer.skill_analyzer import SkillAnalyzer
+
+    auditor = ConfigAuditor()
+    findings_raw = asyncio.run(auditor.audit())
+
+    skill_analyzer = SkillAnalyzer()
+    skill_findings: list = []
+    skill_dir = skills_dir
+    if skill_dir.exists():
+        for skill_md in skill_dir.glob("*/SKILL.md"):
+            sname = skill_md.parent.name
+            if skill and sname != skill:
+                continue
+            profile = skill_analyzer.analyze(skill_md)
+            for f in profile.findings:
+                skill_findings.append({
+                    "id": f.id,
+                    "check_id": f.check_id,
+                    "skill_name": sname,
+                    "location": str(skill_md.parent),
+                })
+
+    all_findings = [
+        {"id": f.id, "check_id": f.check_id, "skill_name": getattr(f, "skill_name", ""), "location": ""}
+        for f in findings_raw
+    ] + skill_findings
+
+    proposals = engine.scan_for_proposals(
+        findings=all_findings,
+        check_ids=[check] if check else None,
+        skill_names=[skill] if skill else None,
+    )
+
+    if not proposals:
+        console.print("[green]✓ No remediations needed — nothing to fix.[/green]")
+        return
+
+    mode_label = "[bold red]APPLY MODE[/bold red]" if apply else "[bold yellow]DRY-RUN MODE[/bold yellow]"
+    console.print(f"\n{mode_label} — {len(proposals)} proposal(s) found\n")
+
+    from rich.table import Table as RichTable
+
+    table = RichTable(show_header=True, header_style="bold")
+    table.add_column("Check", style="cyan", width=10)
+    table.add_column("Skill", style="white", width=20)
+    table.add_column("Description", style="white")
+    table.add_column("Reversible", style="green", width=10)
+
+    for p in proposals:
+        table.add_row(
+            p.check_id,
+            p.skill_name,
+            p.description[:80] + ("…" if len(p.description) > 80 else ""),
+            "✓" if p.reversible else "✗",
+        )
+    console.print(table)
+
+    if not apply:
+        console.print("\n[dim]Run with --apply to apply these fixes.[/dim]")
+        return
+
+    if not yes:
+        confirm = typer.confirm(f"\nApply {len(proposals)} remediation(s)?", default=False)
+        if not confirm:
+            console.print("[yellow]Aborted.[/yellow]")
+            return
+
+    results = engine.apply_all(proposals)
+    success = sum(1 for r in results if r.success)
+    failed = len(results) - success
+
+    console.print(f"\n[green]✓ Applied: {success}[/green]  [red]Failed: {failed}[/red]")
+    for result in results:
+        if result.success:
+            snap = result.snapshot_path
+            console.print(f"  [green]✓[/green] {result.proposal.skill_name} ({result.proposal.check_id})"
+                          + (f" — snapshot: {snap.name}" if snap else ""))
+        else:
+            console.print(f"  [red]✗[/red] {result.proposal.skill_name}: {result.error}")
+
+    if success:
+        console.print(f"\n[dim]Snapshots saved to: {SNAPSHOT_DIR}[/dim]")
+        console.print("[dim]To rollback: sentinel snapshots rollback <snapshot-name>[/dim]")
+
+
+@app.command()
+def snapshots(
+    action: str = typer.Argument("list", help="list | rollback"),
+    name: str | None = typer.Argument(None, help="Snapshot name for rollback"),
+) -> None:
+    """Manage remediation snapshots (list or rollback)."""
+    from sentinel.remediation.rollback import SNAPSHOT_DIR, list_snapshots, restore_snapshot
+
+    if action == "list":
+        snaps = list_snapshots()
+        if not snaps:
+            console.print("[dim]No snapshots found.[/dim]")
+            return
+        from rich.table import Table as RichTable
+
+        table = RichTable(show_header=True, header_style="bold")
+        table.add_column("Snapshot", style="cyan")
+        table.add_column("Size", style="white")
+        for snap in snaps:
+            size = f"{snap.stat().st_size // 1024} KB"
+            table.add_row(snap.name, size)
+        console.print(table)
+
+    elif action == "rollback":
+        if not name:
+            console.print("[red]Error: provide a snapshot name.[/red]")
+            raise typer.Exit(1)
+        snap_path = SNAPSHOT_DIR / name
+        if not snap_path.exists():
+            console.print(f"[red]Snapshot not found: {snap_path}[/red]")
+            raise typer.Exit(1)
+        restore_snapshot(snap_path, snap_path.parent.parent)
+        console.print(f"[green]✓ Rolled back from {name}[/green]")
+    else:
+        console.print(f"[red]Unknown action: {action}. Use 'list' or 'rollback'.[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()

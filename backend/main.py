@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.routes import chat, findings, graph, policies, scans, skills, ws
+from backend.api.routes import chat, findings, graph, policies, remediation, scans, skills, ws
 from backend.api.schemas import DashboardResponse
 from backend.config import settings
 from backend.database import get_db, init_db
@@ -57,6 +57,7 @@ app.include_router(policies.router, prefix="/api/v1/policies")
 app.include_router(graph.router, prefix="/api/v1/graph")
 app.include_router(ws.router)  # WebSocket at /ws/scans/{id}/stream
 app.include_router(chat.router)  # Chat at /api/v1/chat
+app.include_router(remediation.router)  # Remediation at /api/v1/remediation
 
 
 @app.get("/api/v1/health")
