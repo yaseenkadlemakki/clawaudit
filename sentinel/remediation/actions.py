@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from enum import StrEnum
+from enum import Enum
 from pathlib import Path
 
 
-class RemediationStatus(StrEnum):
+class RemediationStatus(str, Enum):  # noqa: UP042
     PENDING = "pending"
     APPLIED = "applied"
     ROLLED_BACK = "rolled_back"
     FAILED = "failed"
 
 
-class ActionType(StrEnum):
+class ActionType(str, Enum):  # noqa: UP042
     RESTRICT_SHELL = "restrict_shell"
     REDACT_SECRET = "redact_secret"
     RESTRICT_PERMISSIONS = "restrict_permissions"

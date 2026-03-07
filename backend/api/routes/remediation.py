@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -170,7 +170,7 @@ async def apply_proposal(
         diff_preview=proposal.diff_preview,
         impact=json.dumps(proposal.impact),
         snapshot_path=str(result.snapshot_path) if result.snapshot_path else None,
-        applied_at=datetime.now(UTC),
+        applied_at=datetime.now(timezone.utc),  # noqa: UP017
         error=result.error,
     )
     db.add(event)
@@ -207,7 +207,7 @@ async def rollback(
         diff_preview="",
         impact="[]",
         snapshot_path=str(snapshot),
-        applied_at=datetime.now(UTC),
+        applied_at=datetime.now(timezone.utc),  # noqa: UP017
         error=None if success else "Rollback failed — see server logs.",
     )
     db.add(event)

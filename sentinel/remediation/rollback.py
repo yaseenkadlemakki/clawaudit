@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import tarfile
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ def create_snapshot(skill_path: Path, skill_name: str) -> Path:
         Path to the created snapshot file.
     """
     SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
-    ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")  # noqa: UP017
     snapshot = SNAPSHOT_DIR / f"{ts}-{skill_name}.tar.gz"
     with tarfile.open(snapshot, "w:gz") as tar:
         tar.add(skill_path, arcname=skill_name)
