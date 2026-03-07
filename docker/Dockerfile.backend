@@ -1,0 +1,41 @@
+# ── ClawAudit Backend ─────────────────────────────────────────────────────────
+# Multi-stage build: deps layer cached separately from source for fast rebuilds.
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /app
+
+# ── deps stage ────────────────────────────────────────────────────────────────
+FROM base AS deps
+
+COPY pyproject.toml ./
+COPY requirements-dev.txt ./
+
+RUN pip install --upgrade pip \
+ && pip install ".[backend]"
+
+# ── runtime stage ─────────────────────────────────────────────────────────────
+FROM base AS runtime
+
+# Copy installed packages from deps stage
+COPY --from=deps /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=deps /usr/local/bin /usr/local/bin
+
+# Copy application source
+COPY backend/ ./backend/
+COPY sentinel/ ./sentinel/
+
+# Create non-root user
+RUN addgroup --system clawaudit && adduser --system --ingroup clawaudit clawaudit
+USER clawaudit
+
+EXPOSE 18790
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:18790/health')"
+
+CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "18790"]
