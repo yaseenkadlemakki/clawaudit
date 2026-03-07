@@ -1,47 +1,195 @@
-"""Tests for SkillCollector permission error handling."""
-import pytest
+"""Tests for sentinel.collector.skill_collector."""
+from __future__ import annotations
+
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-from sentinel.config import SentinelConfig
-from sentinel.collector.skill_collector import SkillCollector
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileDeletedEvent, FileMovedEvent
+
+from sentinel.collector.skill_collector import _SkillHandler, SkillCollector
+from sentinel.models.event import Event
+from sentinel.models.skill import SkillProfile
 
 
-def _make_test_config() -> SentinelConfig:
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost:18789",
-            "gateway_token": "",
-            "skills_dir": "/tmp/test-skills-does-not-exist",
-            "workspace_skills_dir": "/tmp/test-workspace-does-not-exist",
-            "config_file": "/tmp/test-openclaw.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60,
-            "log_dir": "/tmp",
-            "findings_file": "/tmp/findings.jsonl",
-            "baseline_file": "/tmp/baseline.json",
-            "policies_dir": "/tmp",
-        },
-        "alerts": {"enabled": False, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
-
-
-def test_skill_collector_handles_permission_error_on_schedule(tmp_path):
-    """SkillCollector.start() does not crash when watchdog raises PermissionError."""
-    cfg = _make_test_config()
-    cfg._data["openclaw"]["skills_dir"] = str(tmp_path)
-    cfg._data["openclaw"]["workspace_skills_dir"] = str(tmp_path)
-
+def _emit_capture():
     events = []
-    collector = SkillCollector(cfg, events.append)
+    def emit(e: Event):
+        events.append(e)
+    return emit, events
 
-    mock_observer = MagicMock()
-    mock_observer.schedule.side_effect = PermissionError("no access")
 
-    with patch("sentinel.collector.skill_collector.Observer", return_value=mock_observer):
-        # Should not raise even though schedule raises PermissionError
-        collector.start()
+# ── _SkillHandler ─────────────────────────────────────────────────────────────
 
-    # No events emitted; collector gracefully skipped the dir
-    assert events == []
+class TestSkillHandler:
+    def test_ignores_non_skill_files(self, tmp_path):
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+        handler.dispatch(FileCreatedEvent(str(tmp_path / "README.md")))
+        assert events == []
+
+    def test_ignores_non_file_events(self, tmp_path):
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+        handler.dispatch(FileMovedEvent(str(tmp_path / "SKILL.md"), str(tmp_path / "other.md")))
+        assert events == []
+
+    def test_new_skill_emits_medium_event(self, tmp_path):
+        skill_file = tmp_path / "my-skill" / "SKILL.md"
+        skill_file.parent.mkdir(parents=True)
+        skill_file.write_text("# Skill")
+
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+
+        profile = MagicMock(spec=SkillProfile)
+        profile.trust_score = "TRUSTED"
+        profile.injection_risk = "LOW"
+
+        with patch.object(handler._analyzer, "analyze", return_value=profile):
+            handler.dispatch(FileCreatedEvent(str(skill_file)))
+
+        assert len(events) == 1
+        assert events[0].event_type == "new_skill"
+        assert events[0].severity == "MEDIUM"
+
+    def test_quarantine_skill_escalates_to_high(self, tmp_path):
+        skill_file = tmp_path / "bad-skill" / "SKILL.md"
+        skill_file.parent.mkdir(parents=True)
+        skill_file.write_text("# Bad Skill")
+
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+
+        profile = MagicMock(spec=SkillProfile)
+        profile.trust_score = "QUARANTINE"
+        profile.injection_risk = "HIGH"
+
+        with patch.object(handler._analyzer, "analyze", return_value=profile):
+            handler.dispatch(FileCreatedEvent(str(skill_file)))
+
+        assert events[0].severity == "HIGH"
+
+    def test_modified_skill_emits_low_event(self, tmp_path):
+        skill_file = tmp_path / "my-skill" / "SKILL.md"
+        skill_file.parent.mkdir(parents=True)
+        skill_file.write_text("# Skill")
+
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+
+        profile = MagicMock(spec=SkillProfile)
+        profile.trust_score = "TRUSTED"
+        profile.injection_risk = "LOW"
+
+        with patch.object(handler._analyzer, "analyze", return_value=profile):
+            handler.dispatch(FileModifiedEvent(str(skill_file)))
+
+        assert events[0].event_type == "modified_skill"
+        assert events[0].severity == "LOW"
+
+    def test_deleted_skill_emits_info_event(self, tmp_path):
+        skill_file = tmp_path / "my-skill" / "SKILL.md"
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+        handler.dispatch(FileDeletedEvent(str(skill_file)))
+
+        assert events[0].event_type == "deleted_skill"
+        assert events[0].severity == "INFO"
+
+    def test_skill_analysis_error_is_swallowed(self, tmp_path):
+        skill_file = tmp_path / "bad-skill" / "SKILL.md"
+        skill_file.parent.mkdir(parents=True)
+        skill_file.write_text("# Bad")
+
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+
+        with patch.object(handler._analyzer, "analyze", side_effect=RuntimeError("boom")):
+            handler.dispatch(FileCreatedEvent(str(skill_file)))
+
+        # Still emits event despite error
+        assert len(events) == 1
+
+    def test_event_entity_is_skill_name(self, tmp_path):
+        skill_file = tmp_path / "my-cool-skill" / "SKILL.md"
+        emit, events = _emit_capture()
+        handler = _SkillHandler(emit)
+        handler.dispatch(FileDeletedEvent(str(skill_file)))
+
+        assert events[0].entity == "my-cool-skill"
+
+
+# ── SkillCollector ────────────────────────────────────────────────────────────
+
+class TestSkillCollector:
+    def test_start_watches_existing_dir(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+
+        emit, _ = _emit_capture()
+        config = MagicMock()
+        config.skills_dir = skills_dir
+        config.workspace_skills_dir = tmp_path / "nonexistent"
+
+        collector = SkillCollector(config, emit)
+
+        mock_observer = MagicMock()
+        with patch("sentinel.collector.skill_collector.Observer", return_value=mock_observer):
+            collector.start()
+
+        mock_observer.schedule.assert_called_once()
+        mock_observer.start.assert_called_once()
+
+    def test_start_skips_nonexistent_dir(self, tmp_path):
+        emit, _ = _emit_capture()
+        config = MagicMock()
+        config.skills_dir = tmp_path / "nonexistent-a"
+        config.workspace_skills_dir = tmp_path / "nonexistent-b"
+
+        collector = SkillCollector(config, emit)
+
+        mock_observer = MagicMock()
+        with patch("sentinel.collector.skill_collector.Observer", return_value=mock_observer):
+            collector.start()
+
+        mock_observer.schedule.assert_not_called()
+
+    def test_start_handles_permission_error_on_schedule(self, tmp_path):
+        skills_dir = tmp_path / "skills"
+        skills_dir.mkdir()
+
+        emit, _ = _emit_capture()
+        config = MagicMock()
+        config.skills_dir = skills_dir
+        config.workspace_skills_dir = tmp_path / "nonexistent"
+
+        collector = SkillCollector(config, emit)
+
+        mock_observer = MagicMock()
+        mock_observer.schedule.side_effect = PermissionError("denied")
+        with patch("sentinel.collector.skill_collector.Observer", return_value=mock_observer):
+            collector.start()  # Should not raise
+
+    def test_stop_joins_observer(self, tmp_path):
+        emit, _ = _emit_capture()
+        config = MagicMock()
+        config.skills_dir = tmp_path / "nonexistent"
+        config.workspace_skills_dir = tmp_path / "nonexistent2"
+
+        collector = SkillCollector(config, emit)
+
+        mock_observer = MagicMock()
+        with patch("sentinel.collector.skill_collector.Observer", return_value=mock_observer):
+            collector.start()
+            collector.stop()
+
+        mock_observer.stop.assert_called_once()
+        mock_observer.join.assert_called_once()
+
+    def test_stop_is_safe_when_not_started(self):
+        emit, _ = _emit_capture()
+        config = MagicMock()
+        collector = SkillCollector(config, emit)
+        collector.stop()  # Should not raise — observer is None
