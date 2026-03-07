@@ -40,6 +40,12 @@ export default function DashboardPage() {
     <div className="p-8 space-y-8">
       <h1 className="text-xl font-bold tracking-wide text-foreground">Security Dashboard</h1>
 
+      {(stats.error || scans.error) && (
+        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
+          {(stats.error as Error)?.message ?? (scans.error as Error)?.message ?? "Failed to load dashboard data."}
+        </div>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Total Findings", value: d?.total_findings ?? "—", icon: <ShieldAlert size={16} className="text-orange-400" /> },

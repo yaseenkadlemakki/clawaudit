@@ -15,6 +15,8 @@ function FindingRow({ finding }: { finding: Finding }) {
       <tr
         className="border-b border-border/40 hover:bg-secondary/20 cursor-pointer"
         onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        role="button"
       >
         <td className="py-3 pl-4"><RiskBadge severity={finding.severity} /></td>
         <td className="py-3 px-4 font-medium text-sm">{finding.title}</td>
@@ -52,6 +54,11 @@ export default function FindingsPage() {
   const [skill, setSkill]   = useState("")
 
   const { data: skills } = useQuery({ queryKey: ["skills"], queryFn: getSkills })
+  const { data: allFindings } = useQuery({
+    queryKey: ["findings-all"],
+    queryFn:  () => getFindings({ limit: 500 }),
+    staleTime: 30_000,
+  })
   const { data: findings, isLoading } = useQuery({
     queryKey: ["findings", { q, sev, policy, skill }],
     queryFn:  () => getFindings({
@@ -63,7 +70,7 @@ export default function FindingsPage() {
     }),
   })
 
-  const policies = Array.from(new Set((findings ?? []).map(f => f.policy).filter(Boolean)))
+  const policies = Array.from(new Set((allFindings ?? []).map(f => f.policy).filter(Boolean)))
 
   return (
     <div className="p-8 space-y-6">

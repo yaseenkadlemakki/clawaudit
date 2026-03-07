@@ -5,7 +5,7 @@ import { startScan, stopScan, getScan, type ScanRun } from "@/lib/api"
 import { Play, Square, RefreshCw } from "lucide-react"
 import { cn, formatDate } from "@/lib/utils"
 
-const WS_BASE = "ws://localhost:18790/ws/scans"
+const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:18790/ws/scans"
 
 function statusBadge(s: string) {
   const map: Record<string, string> = {
@@ -22,12 +22,23 @@ function statusBadge(s: string) {
   )
 }
 
+interface LogEntry { id: number; text: string }
+
+const MAX_WS_RETRIES = 3
+
 export default function AuditPage() {
   const [activeScan, setActiveScan] = useState<ScanRun | null>(null)
-  const [logs, setLogs]             = useState<string[]>([])
+  const [logs, setLogs]             = useState<LogEntry[]>([])
   const [wsStatus, setWsStatus]     = useState<"idle" | "connecting" | "live" | "closed">("idle")
-  const wsRef     = useRef<WebSocket | null>(null)
-  const logEndRef = useRef<HTMLDivElement>(null)
+  const wsRef       = useRef<WebSocket | null>(null)
+  const logEndRef   = useRef<HTMLDivElement>(null)
+  const logIdRef    = useRef(0)
+  const retryRef    = useRef(0)
+  const retryTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const pushLog = useCallback((text: string) => {
+    setLogs(p => [...p, { id: ++logIdRef.current, text }])
+  }, [])
 
   const { data: scanData } = useQuery({
     queryKey: ["scan", activeScan?.id],
@@ -39,24 +50,54 @@ export default function AuditPage() {
   useEffect(() => { if (scanData) setActiveScan(scanData) }, [scanData])
   useEffect(() => { logEndRef.current?.scrollIntoView({ behavior: "smooth" }) }, [logs])
 
-  const connectWs = useCallback((scanId: string) => {
+  const connectWs = useCallback((scanId: string, retry = false) => {
     wsRef.current?.close()
-    setLogs([])
+    if (!retry) {
+      setLogs([])
+      logIdRef.current = 0
+      retryRef.current = 0
+    }
     setWsStatus("connecting")
     const ws = new WebSocket(`${WS_BASE}/${scanId}/stream`)
     wsRef.current = ws
-    ws.onopen    = () => { setWsStatus("live"); setLogs(p => [...p, `[connected] streaming scan ${scanId}`]) }
-    ws.onmessage = (e) => { setLogs(p => [...p, typeof e.data === "string" ? e.data : JSON.stringify(e.data)]) }
-    ws.onerror   = ()  => { setLogs(p => [...p, "[ws error]"]) }
-    ws.onclose   = ()  => { setWsStatus("closed"); setLogs(p => [...p, "[stream closed]"]) }
+    ws.onopen = () => {
+      setWsStatus("live")
+      retryRef.current = 0
+      pushLog(`[connected] streaming scan ${scanId}`)
+    }
+    ws.onmessage = (e) => {
+      pushLog(typeof e.data === "string" ? e.data : JSON.stringify(e.data))
+    }
+    ws.onerror = () => { pushLog("[ws error]") }
+    ws.onclose = () => {
+      setWsStatus("closed")
+      pushLog("[stream closed]")
+      if (retryRef.current < MAX_WS_RETRIES) {
+        const delay = Math.min(1000 * 2 ** retryRef.current, 8000)
+        retryRef.current++
+        pushLog(`[reconnecting in ${delay / 1000}s… attempt ${retryRef.current}/${MAX_WS_RETRIES}]`)
+        retryTimer.current = setTimeout(() => connectWs(scanId, true), delay)
+      }
+    }
+  }, [pushLog])
+
+  useEffect(() => {
+    return () => { if (retryTimer.current) clearTimeout(retryTimer.current) }
   }, [])
+
+  const handleReconnect = useCallback(() => {
+    if (activeScan) {
+      retryRef.current = 0
+      connectWs(activeScan.id, true)
+    }
+  }, [activeScan, connectWs])
 
   const startMut = useMutation({
     mutationFn: startScan,
     onSuccess:  (scan) => { setActiveScan(scan); connectWs(scan.id) },
   })
   const stopMut = useMutation({
-    mutationFn: () => stopScan(activeScan!.id),
+    mutationFn: () => { if (!activeScan) return Promise.resolve() as Promise<void>; return stopScan(activeScan.id) },
     onSuccess:  () => { wsRef.current?.close(); setActiveScan(s => s ? { ...s, status: "stopped" } : s) },
   })
 
@@ -119,29 +160,39 @@ export default function AuditPage() {
       <div className="bg-card border border-border rounded-lg">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">
           <span className="text-xs text-muted-foreground">Live Log Stream</span>
-          <span className={cn(
-            "text-xs px-2 py-0.5 rounded border",
-            wsStatus === "live"        ? "bg-green-500/10 text-green-400 border-green-500/30"
-            : wsStatus === "connecting" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
-            : wsStatus === "closed"     ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
-            :                             "bg-slate-500/10 text-slate-500 border-slate-700"
-          )}>
-            {wsStatus === "live" ? "● LIVE" : wsStatus.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2">
+            {wsStatus === "closed" && activeScan && (
+              <button
+                onClick={handleReconnect}
+                className="text-xs px-2 py-0.5 rounded border bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 transition-colors"
+              >
+                Reconnect
+              </button>
+            )}
+            <span className={cn(
+              "text-xs px-2 py-0.5 rounded border",
+              wsStatus === "live"        ? "bg-green-500/10 text-green-400 border-green-500/30"
+              : wsStatus === "connecting" ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+              : wsStatus === "closed"     ? "bg-slate-500/10 text-slate-400 border-slate-500/30"
+              :                             "bg-slate-500/10 text-slate-500 border-slate-700"
+            )}>
+              {wsStatus === "live" ? "● LIVE" : wsStatus.toUpperCase()}
+            </span>
+          </div>
         </div>
         <div className="h-96 overflow-y-auto p-4 log-stream bg-black/20">
           {logs.length === 0 && (
             <p className="text-muted-foreground text-xs">Start a scan to stream logs here.</p>
           )}
-          {logs.map((line, i) => (
-            <div key={i} className={cn(
+          {logs.map((entry) => (
+            <div key={entry.id} className={cn(
               "text-xs leading-relaxed",
-              line.includes("[error]") || line.includes("FAIL") ? "text-red-400"
-              : line.includes("[warn]") || line.includes("WARNING")  ? "text-yellow-400"
-              : line.includes("[ok]")  || line.includes("PASS")      ? "text-green-400"
+              entry.text.includes("[error]") || entry.text.includes("FAIL") ? "text-red-400"
+              : entry.text.includes("[warn]") || entry.text.includes("WARNING")  ? "text-yellow-400"
+              : entry.text.includes("[ok]")  || entry.text.includes("PASS")      ? "text-green-400"
               : "text-slate-300"
             )}>
-              {line}
+              {entry.text}
             </div>
           ))}
           <div ref={logEndRef} />

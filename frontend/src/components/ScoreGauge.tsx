@@ -11,7 +11,7 @@ export function ScoreGauge({ score }: Props) {
     : "#4ade80"
 
   return (
-    <div className="relative flex items-center justify-center">
+    <div className="relative flex items-center justify-center max-w-[180px] w-full aspect-square">
       <RadialBarChart
         width={180}
         height={180}

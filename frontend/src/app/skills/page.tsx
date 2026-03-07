@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { getSkills } from "@/lib/api"
@@ -10,10 +10,10 @@ export default function SkillsPage() {
   const { data: skills, isLoading } = useQuery({ queryKey: ["skills"], queryFn: getSkills })
   const [q, setQ] = useState("")
 
-  const filtered = (skills ?? []).filter(s =>
+  const filtered = useMemo(() => (skills ?? []).filter(s =>
     s.name.toLowerCase().includes(q.toLowerCase()) ||
     s.description.toLowerCase().includes(q.toLowerCase())
-  )
+  ), [skills, q])
 
   return (
     <div className="p-8 space-y-6">
