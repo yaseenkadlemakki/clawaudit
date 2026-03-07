@@ -1,4 +1,5 @@
 """Strategy for ADV-001 — Unrestricted shell execution."""
+
 from __future__ import annotations
 
 import difflib

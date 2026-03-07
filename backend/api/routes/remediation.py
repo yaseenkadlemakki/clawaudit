@@ -1,4 +1,5 @@
 """REST API routes for the Remediation Engine."""
+
 from __future__ import annotations
 
 import json
@@ -21,6 +22,7 @@ router = APIRouter(prefix="/api/v1/remediation", tags=["remediation"])
 
 
 # ── Request / Response schemas ─────────────────────────────────────────────
+
 
 class ProposalResponse(BaseModel):
     proposal_id: str
@@ -67,11 +69,13 @@ class RemediationHistoryItem(BaseModel):
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
+
 def _engine(dry_run: bool = True) -> RemediationEngine:
     return RemediationEngine(dry_run=dry_run)
 
 
 # ── Routes ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/proposals", response_model=list[ProposalResponse])
 async def get_proposals(
@@ -219,9 +223,7 @@ async def get_history(
 ) -> list[RemediationHistoryItem]:
     """Return recent remediation events."""
     result = await db.execute(
-        select(RemediationEvent)
-        .order_by(RemediationEvent.applied_at.desc())
-        .limit(limit)
+        select(RemediationEvent).order_by(RemediationEvent.applied_at.desc()).limit(limit)
     )
     events = result.scalars().all()
     return [

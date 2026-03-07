@@ -1,4 +1,5 @@
 """Strategy for overly-broad tool permissions."""
+
 from __future__ import annotations
 
 import difflib

@@ -410,8 +410,12 @@ def report(
 @app.command()
 def remediate(
     skill: str | None = typer.Option(None, "--skill", "-s", help="Target a specific skill by name"),
-    check: str | None = typer.Option(None, "--check", "-c", help="Target a specific check ID (e.g. ADV-001)"),
-    apply: bool = typer.Option(False, "--apply", help="Apply remediations (default: dry-run preview)"),
+    check: str | None = typer.Option(
+        None, "--check", "-c", help="Target a specific check ID (e.g. ADV-001)"
+    ),
+    apply: bool = typer.Option(
+        False, "--apply", help="Apply remediations (default: dry-run preview)"
+    ),
     yes: bool = typer.Option(False, "--yes", "-y", help="Skip confirmation prompts"),
     config_path: Path | None = typer.Option(None, "--config", help="Sentinel config file"),
 ) -> None:
@@ -445,15 +449,22 @@ def remediate(
                 continue
             profile = skill_analyzer.analyze(skill_md)
             for f in profile.findings:
-                skill_findings.append({
-                    "id": f.id,
-                    "check_id": f.check_id,
-                    "skill_name": sname,
-                    "location": str(skill_md.parent),
-                })
+                skill_findings.append(
+                    {
+                        "id": f.id,
+                        "check_id": f.check_id,
+                        "skill_name": sname,
+                        "location": str(skill_md.parent),
+                    }
+                )
 
     all_findings = [
-        {"id": f.id, "check_id": f.check_id, "skill_name": getattr(f, "skill_name", ""), "location": ""}
+        {
+            "id": f.id,
+            "check_id": f.check_id,
+            "skill_name": getattr(f, "skill_name", ""),
+            "location": "",
+        }
         for f in findings_raw
     ] + skill_findings
 
@@ -467,7 +478,9 @@ def remediate(
         console.print("[green]✓ No remediations needed — nothing to fix.[/green]")
         return
 
-    mode_label = "[bold red]APPLY MODE[/bold red]" if apply else "[bold yellow]DRY-RUN MODE[/bold yellow]"
+    mode_label = (
+        "[bold red]APPLY MODE[/bold red]" if apply else "[bold yellow]DRY-RUN MODE[/bold yellow]"
+    )
     console.print(f"\n{mode_label} — {len(proposals)} proposal(s) found\n")
 
     from rich.table import Table as RichTable
@@ -505,8 +518,10 @@ def remediate(
     for result in results:
         if result.success:
             snap = result.snapshot_path
-            console.print(f"  [green]✓[/green] {result.proposal.skill_name} ({result.proposal.check_id})"
-                          + (f" — snapshot: {snap.name}" if snap else ""))
+            console.print(
+                f"  [green]✓[/green] {result.proposal.skill_name} ({result.proposal.check_id})"
+                + (f" — snapshot: {snap.name}" if snap else "")
+            )
         else:
             console.print(f"  [red]✗[/red] {result.proposal.skill_name}: {result.error}")
 

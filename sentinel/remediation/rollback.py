@@ -1,4 +1,5 @@
 """Snapshot and restore SKILL.md files for rollback support."""
+
 from __future__ import annotations
 
 import logging

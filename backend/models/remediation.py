@@ -1,11 +1,12 @@
 """ORM model for remediation events."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from sqlalchemy import DateTime, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
-from sqlalchemy import String, Text, DateTime
 
 from backend.database import Base
 

@@ -1,11 +1,11 @@
 """RemediationEngine — orchestrates proposal generation, application, and rollback."""
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
 
 from sentinel.remediation.actions import (
-    ActionType,
     RemediationProposal,
     RemediationResult,
     RemediationStatus,

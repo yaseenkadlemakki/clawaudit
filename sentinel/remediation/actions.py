@@ -1,20 +1,21 @@
 """Remediation data models — proposals, results, and status."""
+
 from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 
 
-class RemediationStatus(str, Enum):
+class RemediationStatus(StrEnum):
     PENDING = "pending"
     APPLIED = "applied"
     ROLLED_BACK = "rolled_back"
     FAILED = "failed"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     RESTRICT_SHELL = "restrict_shell"
     REDACT_SECRET = "redact_secret"
     RESTRICT_PERMISSIONS = "restrict_permissions"

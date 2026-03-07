@@ -1,4 +1,5 @@
 """Strategy for ADV-005 — Credentials exposed in SKILL.md."""
+
 from __future__ import annotations
 
 import difflib
