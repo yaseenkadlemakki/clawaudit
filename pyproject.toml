@@ -82,17 +82,19 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["sentinel", "tests"]
+source = ["sentinel", "backend"]
 omit = [
-    "tests/__init__.py",
-    "tests/unit/__init__.py",
-    "tests/functional/__init__.py",
-    "tests/integration/__init__.py",
+    "tests/*",
+    # CLI entrypoints — integration-tested only, not unit-testable
+    "sentinel/main.py",
+    "backend/main.py",
+    # API schema-only modules (no logic)
+    "sentinel/api/models.py",
 ]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 60
+fail_under = 80
 
 [tool.coverage.html]
 directory = "htmlcov"
