@@ -12,6 +12,7 @@ from sentinel.config import load_config
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
 
+from backend.engine.advanced_detection import AdvancedDetector
 from backend.engine.risk_scoring import score_skill
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class AuditEngine:
     def __init__(self) -> None:
         self._config_auditor = ConfigAuditor()
         self._skill_analyzer = SkillAnalyzer()
+        self._advanced_detector = AdvancedDetector()
 
     def load_openclaw_config(self) -> dict[str, Any]:
         """Load the openclaw.json config for auditing."""
@@ -125,5 +127,15 @@ class AuditEngine:
                 all_findings.append(finding)
                 if on_finding:
                     on_finding(finding, profile.name)
+
+            # Advanced detection checks
+            try:
+                adv_findings = self._advanced_detector.run_all(profile, skill_path, run_id)
+                for finding in adv_findings:
+                    all_findings.append(finding)
+                    if on_finding:
+                        on_finding(finding, profile.name)
+            except Exception as exc:
+                logger.warning("Advanced detection error for %s: %s", skill_path, exc)
 
         return all_findings, skill_results

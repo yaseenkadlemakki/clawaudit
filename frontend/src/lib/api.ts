@@ -11,14 +11,16 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
 
 // ── Dashboard ──────────────────────────────────────────────
 export interface DashboardStats {
-  security_score: number
-  total_findings: number
-  critical: number
-  high: number
-  medium: number
-  low: number
-  total_scans: number
-  last_scan_at: string | null
+  overall_score: number
+  total_skills: number
+  critical_findings: number
+  risk_distribution: {
+    Critical: number
+    High: number
+    Medium: number
+    Low: number
+  }
+  recent_scans: ScanRun[]
 }
 
 export interface ScanRun {
@@ -26,19 +28,24 @@ export interface ScanRun {
   status: "pending" | "running" | "complete" | "failed" | "stopped"
   started_at: string
   finished_at: string | null
-  findings_count: number
+  findings_count?: number
+  total_findings?: number
   score: number | null
 }
 
 export interface Skill {
   id: string
+  scan_id: string
   name: string
-  description: string
+  source: string
+  path: string
+  shell_access: boolean
+  outbound_domains: string[]
+  injection_risk: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
+  trust_score: "TRUSTED" | "CAUTION" | "UNTRUSTED" | "QUARANTINE"
   risk_score: number
-  permissions: string[]
-  capabilities: string[]
-  policy_violations: number
-  location: string
+  risk_level: string
+  detected_at: string
 }
 
 export interface Finding {

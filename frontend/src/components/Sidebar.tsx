@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Play, Puzzle, Search, Shield } from "lucide-react"
+import { LayoutDashboard, Play, Puzzle, Search, Shield, MessageSquare } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const nav = [
@@ -9,6 +9,7 @@ const nav = [
   { href: "/audit",     label: "Full Audit",        icon: Play            },
   { href: "/skills",    label: "Skill Explorer",    icon: Puzzle          },
   { href: "/findings",  label: "Findings Explorer", icon: Search          },
+  { href: "/chat",      label: "Investigation",     icon: MessageSquare   },
 ]
 
 export function Sidebar() {
@@ -37,7 +38,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
-        Phase 2 UI · v0.1
+        Phase 3 · v0.2
       </div>
     </aside>
   )

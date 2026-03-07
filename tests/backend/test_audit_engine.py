@@ -176,10 +176,11 @@ class TestRunFullAudit:
         profile = _profile()
         profile.findings = []
 
-        with patch.object(engine, "run_config_audit", return_value=[finding]):
-            with patch.object(engine, "discover_skills", return_value=[tmp_path / "SKILL.md"]):
-                with patch.object(engine, "analyze_skill", return_value=(profile, 40, "HIGH")):
-                    findings, skills = await engine.run_full_audit("run-1")
+        with patch.object(engine._advanced_detector, "run_all", return_value=[]):
+            with patch.object(engine, "run_config_audit", return_value=[finding]):
+                with patch.object(engine, "discover_skills", return_value=[tmp_path / "SKILL.md"]):
+                    with patch.object(engine, "analyze_skill", return_value=(profile, 40, "HIGH")):
+                        findings, skills = await engine.run_full_audit("run-1")
 
         assert len(findings) == 1
         assert findings[0] is finding
@@ -197,15 +198,16 @@ class TestRunFullAudit:
 
         skill_path = tmp_path / "SKILL.md"
 
-        with patch.object(engine, "run_config_audit", return_value=[finding]):
-            with patch.object(engine, "discover_skills", return_value=[skill_path]):
-                with patch.object(engine, "analyze_skill", return_value=(profile, 20, "LOW")):
-                    await engine.run_full_audit(
-                        "run-1",
-                        on_finding=on_finding,
-                        on_skill=on_skill,
-                        on_progress=on_progress,
-                    )
+        with patch.object(engine._advanced_detector, "run_all", return_value=[]):
+            with patch.object(engine, "run_config_audit", return_value=[finding]):
+                with patch.object(engine, "discover_skills", return_value=[skill_path]):
+                    with patch.object(engine, "analyze_skill", return_value=(profile, 20, "LOW")):
+                        await engine.run_full_audit(
+                            "run-1",
+                            on_finding=on_finding,
+                            on_skill=on_skill,
+                            on_progress=on_progress,
+                        )
 
         on_finding.assert_called_once_with(finding, None)
         on_skill.assert_called_once_with(profile, 20, "LOW")
@@ -260,10 +262,11 @@ class TestRunFullAudit:
 
         on_finding = MagicMock()
 
-        with patch.object(engine, "run_config_audit", return_value=[]):
-            with patch.object(engine, "discover_skills", return_value=[skill_path]):
-                with patch.object(engine, "analyze_skill", return_value=(profile, 80, "CRITICAL")):
-                    findings, _ = await engine.run_full_audit("run-1", on_finding=on_finding)
+        with patch.object(engine._advanced_detector, "run_all", return_value=[]):
+            with patch.object(engine, "run_config_audit", return_value=[]):
+                with patch.object(engine, "discover_skills", return_value=[skill_path]):
+                    with patch.object(engine, "analyze_skill", return_value=(profile, 80, "CRITICAL")):
+                        findings, _ = await engine.run_full_audit("run-1", on_finding=on_finding)
 
         assert skill_finding in findings
         on_finding.assert_called_once_with(skill_finding, profile.name)
