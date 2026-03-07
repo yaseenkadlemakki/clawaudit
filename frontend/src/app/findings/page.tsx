@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { getFindings, getSkills, type Finding } from "@/lib/api"
 import { RiskBadge } from "@/components/RiskBadge"
-import { formatDate, cn } from "@/lib/utils"
+import { formatDate } from "@/lib/utils"
 import { Search, ChevronDown, ChevronUp } from "lucide-react"
 
 const SEVERITIES = ["critical", "high", "medium", "low", "info"]
