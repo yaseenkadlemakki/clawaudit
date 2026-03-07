@@ -195,12 +195,13 @@ be answered from the available data, say so clearly."""
         Returns:
             (answer, context_used)
         """
+        if mode == "byollm" and not api_key:
+            raise ValueError("api_key is required for byollm mode")
+
         context = await self._build_context()
         prompt = self._build_prompt(question, context)
 
         if mode == "byollm":
-            if not api_key:
-                raise ValueError("api_key is required for byollm mode")
             answer = await self._ask_anthropic(prompt, api_key)
         else:
             # Default: openclaw mode
