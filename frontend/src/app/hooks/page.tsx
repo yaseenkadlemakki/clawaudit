@@ -47,11 +47,9 @@ export default function HooksPage() {
 
   // WebSocket for live events with exponential backoff reconnection
   const connectWebSocket = useCallback(() => {
-    // Append the API token as a query param — required by the server's WS auth check.
-    // Read from env var; falls back to empty string (server will reject with 1008).
-    const apiToken = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+    // Connect without token in URL — send auth as first message (CWE-598 fix)
     const wsBase = API_BASE.replace(/^http/, "ws").replace("/api/v1", "")
-    const wsUrl = `${wsBase}/api/v1/hooks/stream?token=${encodeURIComponent(apiToken)}`
+    const wsUrl = `${wsBase}/api/v1/hooks/stream`
     let reconnectDelay = 1000
     let ws: WebSocket
 
@@ -61,11 +59,14 @@ export default function HooksPage() {
 
       ws.onopen = () => {
         reconnectDelay = 1000
+        const apiToken = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+        ws.send(JSON.stringify({ type: "auth", token: apiToken }))
       }
       ws.onmessage = (msg) => {
         try {
           const data = JSON.parse(msg.data)
           if (data.type === "ping") return
+          if (data.type === "auth_ok") return
           setLiveEvents((prev) => [data, ...prev].slice(0, 50))
         } catch { /* ignore parse errors */ }
       }
