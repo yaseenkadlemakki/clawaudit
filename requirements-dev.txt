@@ -6,7 +6,7 @@ pytest-cov==6.0.0
 pyyaml==6.0.2
 
 # Optional: lint tools invoked by CI (not imported by tests directly)
-yamllint==1.35.1
+yamllint==1.38.0
 python-dotenv==1.0.1
 watchdog>=4.0.0
 pydantic>=2.0.0
