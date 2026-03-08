@@ -8,7 +8,9 @@ import uuid
 from pathlib import Path
 
 from sentinel.analyzer.injection_detector import RISK_ORDER, InjectionDetector
+from sentinel.analyzer.script_scanner import ScriptScanner
 from sentinel.analyzer.secret_scanner import SecretScanner
+from sentinel.config import SecurityConfig
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
 
@@ -106,9 +108,13 @@ def _calculate_trust_score(profile: SkillProfile) -> tuple[int, str]:
 class SkillAnalyzer:
     """Analyzes OpenClaw skills for security risks."""
 
-    def __init__(self) -> None:
+    def __init__(self, safe_domains: frozenset[str] | None = None) -> None:
         self._secret_scanner = SecretScanner()
         self._injection_detector = InjectionDetector()
+        sec_cfg = SecurityConfig.load()
+        domains = safe_domains if safe_domains is not None else sec_cfg.safe_domains
+        self._script_scanner = ScriptScanner(safe_domains=domains)
+        self._scan_scripts = sec_cfg.scan.scan_scripts
 
     def analyze(self, skill_path: Path, run_id: str | None = None) -> SkillProfile:
         """Perform comprehensive security analysis of a SKILL.md file."""
@@ -211,6 +217,11 @@ class SkillAnalyzer:
                     run_id=run_id,
                 )
             )
+
+        # Script scanning (non-SKILL.md files in skill directory)
+        if self._scan_scripts:
+            script_findings = self._script_scanner.scan_skill(name, skill_path.parent)
+            findings.extend(script_findings)
 
         profile.findings = findings
         return profile

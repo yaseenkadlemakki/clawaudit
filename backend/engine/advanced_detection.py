@@ -6,32 +6,14 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sentinel.config import SecurityConfig as _SecurityConfig
 from sentinel.models.finding import Finding
 
 if TYPE_CHECKING:
     from sentinel.models.skill import SkillProfile
 
-# Domains considered safe for outbound access
-_SAFE_DOMAINS: frozenset[str] = frozenset(
-    {
-        "github.com",
-        "api.github.com",
-        "pypi.org",
-        "files.pythonhosted.org",
-        "npmjs.com",
-        "registry.npmjs.org",
-        "anthropic.com",
-        "api.anthropic.com",
-        "openai.com",
-        "api.openai.com",
-        "google.com",
-        "googleapis.com",
-        "ai.google.dev",
-        "huggingface.co",
-        "raw.githubusercontent.com",
-        "cloudflare.com",
-    }
-)
+# Domains considered safe for outbound access — loaded from user config
+_SAFE_DOMAINS: frozenset[str] = _SecurityConfig.load().safe_domains
 
 # Regex patterns that indicate exposed secrets in skill files
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
