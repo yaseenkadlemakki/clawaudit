@@ -93,6 +93,13 @@ class TestPolicyCollectorAlignment:
         pol_010 = next(r for r in _default_rules() if r["id"] == "POL-010")
         assert pol_010["value"] == "config_drift"
 
+    def test_pol_011_event_type_matches_session_collector_code_block(self):
+        """POL-011 must match the event_type emitted by SessionCollector for code-block detection."""
+        pol_011 = next(r for r in _default_rules() if r["id"] == "POL-011")
+        assert pol_011["value"] == "code_block_as_command"
+        assert pol_011["action"] == "BLOCK"
+        assert pol_011["severity"] == "HIGH"
+
     def test_all_policy_ids_patterned_correctly(self):
         """All rule IDs follow POL-NNN format."""
         import re
@@ -142,6 +149,21 @@ class TestPolicyEngineLoadDefault:
         decision = engine.evaluate(event)
         assert decision.action == "ALERT"
         assert "POL-008" in decision.policy_ids
+
+    def test_engine_evaluates_code_block_event_using_default_policies(self):
+        from sentinel.policy.engine import PolicyEngine
+        from sentinel.models.event import Event
+
+        engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
+        event = Event(
+            source="session_collector", event_type="code_block_as_command",
+            severity="HIGH", entity="session-xyz",
+            evidence="language=python confidence=HIGH tokens=python_from_import,python_class",
+            action_taken="ALLOW",
+        )
+        decision = engine.evaluate(event)
+        assert decision.action == "BLOCK"
+        assert "POL-011" in decision.policy_ids
 
     def test_default_policy_evaluates_finding_with_fail_result(self):
         from sentinel.policy.engine import PolicyEngine
