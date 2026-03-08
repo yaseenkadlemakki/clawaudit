@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
+import stat
 from pathlib import Path
 from unittest.mock import patch
 
@@ -109,7 +111,8 @@ async def test_post_tool_event_with_valid_hmac(client, _mock_plugin, _mock_store
 
 @pytest.mark.backend
 @pytest.mark.asyncio
-async def test_post_tool_event_invalid_hmac(client, _mock_plugin):
+async def test_hmac_rejection_returns_401(client, _mock_plugin):
+    """POST without valid HMAC must return actual HTTP 401, not 200."""
     _mock_plugin.register()
     body = json.dumps({"tool_name": "exec", "session_id": "s1"}).encode()
 
@@ -121,17 +124,14 @@ async def test_post_tool_event_invalid_hmac(client, _mock_plugin):
             "X-ClawAudit-Signature": "sha256=deadbeef",
         },
     )
-    # Should fail HMAC validation
-    assert resp.status_code == 200  # FastAPI returns the tuple as JSON body
-    data = resp.json()
-    # The route returns a tuple (dict, status_code) — FastAPI wraps it as array
-    assert isinstance(data, list)
-    assert data[1] == 401
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Invalid or missing HMAC signature"
 
 
 @pytest.mark.backend
 @pytest.mark.asyncio
-async def test_post_tool_event_missing_hmac(client, _mock_plugin):
+async def test_post_tool_event_missing_hmac_returns_401(client, _mock_plugin):
+    """POST without HMAC header must return HTTP 401."""
     _mock_plugin.register()
     body = json.dumps({"tool_name": "exec", "session_id": "s1"}).encode()
 
@@ -140,9 +140,16 @@ async def test_post_tool_event_missing_hmac(client, _mock_plugin):
         content=body,
         headers={"Content-Type": "application/json"},
     )
-    data = resp.json()
-    assert isinstance(data, list)
-    assert data[1] == 401
+    assert resp.status_code == 401
+
+
+@pytest.mark.backend
+@pytest.mark.asyncio
+async def test_event_not_found_returns_404(client):
+    """GET /events/nonexistent must return actual HTTP 404."""
+    resp = await client.get("/api/v1/hooks/events/nonexistent-id")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "Event not found"
 
 
 @pytest.mark.backend
@@ -223,9 +230,65 @@ async def test_get_single_event(client, _mock_plugin, _mock_store):
 
 @pytest.mark.backend
 @pytest.mark.asyncio
-async def test_get_event_not_found(client):
-    resp = await client.get("/api/v1/hooks/events/nonexistent-id")
+async def test_tool_event_params_summary_capped(client, _mock_plugin, _mock_store):
+    """Oversized params_summary must be truncated to 2000 chars."""
+    _mock_plugin.register()
+    manifest = _mock_plugin.read_manifest()
+    secret = manifest["secret"]
+
+    big_summary = "x" * 5000
+    body = json.dumps(
+        {
+            "tool_name": "exec",
+            "session_id": "s1",
+            "params_summary": big_summary,
+        }
+    ).encode()
+    sig = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+
+    resp = await client.post(
+        "/api/v1/hooks/tool-event",
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-ClawAudit-Signature": sig,
+        },
+    )
     assert resp.status_code == 200
-    data = resp.json()
-    assert isinstance(data, list)
-    assert data[1] == 404
+    event_id = resp.json()["event_id"]
+
+    # Fetch the event and verify summary was capped
+    get_resp = await client.get(f"/api/v1/hooks/events/{event_id}")
+    event_data = get_resp.json()
+    # sanitize_params truncates to MAX_PARAMS_LEN (200) after the 2000 cap
+    assert len(event_data["params_summary"]) <= 2000
+
+
+@pytest.mark.backend
+@pytest.mark.asyncio
+async def test_manifest_file_permissions_0o600(tmp_path: Path):
+    """Plugin manifest must be written with 0o600 permissions."""
+    from sentinel.hooks.plugin import ClawAuditPlugin
+
+    plugin = ClawAuditPlugin(manifest_path=tmp_path / "plugins" / "clawaudit.json")
+    secret_file = tmp_path / "hook-secret"
+    with patch("sentinel.hooks.plugin._SECRET_FILE", secret_file):
+        plugin.register()
+
+    mode = stat.S_IMODE(os.stat(plugin.manifest_path).st_mode)
+    assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
+
+
+@pytest.mark.backend
+@pytest.mark.asyncio
+async def test_hook_secret_file_permissions_0o600(tmp_path: Path):
+    """Hook-secret file must be written with 0o600 permissions."""
+    from sentinel.hooks.plugin import ClawAuditPlugin
+
+    secret_file = tmp_path / "hook-secret"
+    plugin = ClawAuditPlugin(manifest_path=tmp_path / "plugins" / "clawaudit.json")
+    with patch("sentinel.hooks.plugin._SECRET_FILE", secret_file):
+        plugin.register()
+
+    mode = stat.S_IMODE(os.stat(secret_file).st_mode)
+    assert mode == 0o600, f"Expected 0o600, got {oct(mode)}"
