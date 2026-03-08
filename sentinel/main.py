@@ -784,5 +784,45 @@ def skills_verify(
 app.add_typer(skills_app)
 
 
+# ── Config sub-app ─────────────────────────────────────────────────────────────
+
+config_app = typer.Typer(name="config", help="Manage sentinel configuration.")
+
+
+@config_app.command("show")
+def config_show() -> None:
+    """Print effective sentinel configuration."""
+    from sentinel.config import SecurityConfig
+
+    cfg = SecurityConfig.load()
+    console.print("[bold]Sentinel Security Configuration[/bold]\n")
+    console.print(f"Safe domains ({len(cfg.safe_domains)}):")
+    for d in sorted(cfg.safe_domains):
+        console.print(f"  - {d}")
+    console.print(f"\nScan scripts: {cfg.scan.scan_scripts}")
+    console.print(f"Severity threshold: {cfg.scan.severity_threshold}")
+    console.print(f"Max script size: {cfg.scan.max_script_size_mb} MB")
+
+
+@config_app.command("init")
+def config_init(
+    force: bool = typer.Option(False, "--force", help="Overwrite existing config."),
+) -> None:
+    """Write default config to ~/.openclaw/sentinel/config.yaml."""
+    from sentinel.config import SECURITY_CONFIG_PATH, SecurityConfig
+
+    if SECURITY_CONFIG_PATH.exists() and not force:
+        console.print(
+            f"[yellow]Config already exists at {SECURITY_CONFIG_PATH}. "
+            "Use --force to overwrite.[/yellow]"
+        )
+        raise typer.Exit(1)
+    SecurityConfig.write_defaults()
+    console.print(f"[green]Default config written to {SECURITY_CONFIG_PATH}[/green]")
+
+
+app.add_typer(config_app)
+
+
 if __name__ == "__main__":
     app()
