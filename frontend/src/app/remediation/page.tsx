@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Shield, AlertTriangle, CheckCircle, RotateCcw, Eye, Zap, Clock } from "lucide-react"
-import { API_BASE } from "@/lib/api"
+import { API_BASE, API_TOKEN } from "@/lib/api"
 
 interface Proposal {
   proposal_id: string
@@ -118,7 +118,9 @@ export default function RemediationPage() {
   const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useQuery<Proposal[]>({
     queryKey: ["remediation-proposals"],
     queryFn: async () => {
-      const r = await fetch(`${API_BASE}/remediation/proposals`)
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
+      const r = await fetch(`${API_BASE}/remediation/proposals`, { headers })
       if (!r.ok) throw new Error(`Failed to load proposals (${r.status})`)
       return r.json()
     },
@@ -127,7 +129,9 @@ export default function RemediationPage() {
   const { data: history = [], isLoading: loadingHistory, error: historyError } = useQuery<HistoryItem[]>({
     queryKey: ["remediation-history"],
     queryFn: async () => {
-      const r = await fetch(`${API_BASE}/remediation/history`)
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
+      const r = await fetch(`${API_BASE}/remediation/history`, { headers })
       if (!r.ok) throw new Error(`Failed to load history (${r.status})`)
       return r.json()
     },
@@ -146,9 +150,11 @@ export default function RemediationPage() {
 
   const applyMutation = useMutation({
     mutationFn: async (proposal: Proposal) => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" }
+      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
       const res = await fetch(`${API_BASE}/remediation/apply`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(proposal),
       })
       if (!res.ok) throw new Error(await res.text())
@@ -218,7 +224,7 @@ export default function RemediationPage() {
               Failed to load proposals. Is the backend running?
             </div>
           )}
-          {!loadingProposals && proposals.length === 0 && (
+          {!loadingProposals && !proposalsError && proposals.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
               <CheckCircle className="h-10 w-10 text-green-500" />
               <p className="text-sm font-medium">No remediations needed</p>
