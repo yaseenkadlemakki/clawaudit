@@ -191,3 +191,71 @@ class TestTokenFileSecurity:
             assert len(token) > 0
         finally:
             auth_mod.TOKEN_FILE = original
+
+
+class TestWSAuthExemption:
+    """WS endpoints that handle their own auth must not be intercepted by middleware."""
+
+    def test_ws_self_auth_paths_constant_exists(self):
+        """WS_SELF_AUTH_PATHS frozenset must exist and contain the hooks stream path."""
+        from backend.middleware.auth import WS_SELF_AUTH_PATHS
+
+        assert isinstance(WS_SELF_AUTH_PATHS, frozenset)
+        assert "/api/v1/hooks/stream" in WS_SELF_AUTH_PATHS
+
+    @pytest.mark.asyncio
+    async def test_hooks_stream_not_blocked_by_middleware(self):
+        """Requests to /api/v1/hooks/stream must pass through middleware without 401.
+
+        The endpoint handles its own auth via first-message. Middleware must
+        not reject the WS upgrade for missing ?token= query param.
+        """
+        app = _make_app()
+
+        @app.get("/api/v1/hooks/stream")
+        async def hooks_stream():
+            return {"stream": True}
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as c:
+            # No token — middleware should let it through
+            r = await c.get("/api/v1/hooks/stream")
+            assert r.status_code == 200, (
+                f"Expected 200 (middleware pass-through), got {r.status_code}"
+            )
+
+    @pytest.mark.asyncio
+    async def test_hooks_stream_ws_upgrade_not_blocked(self):
+        """WS upgrade to /api/v1/hooks/stream with Upgrade header must not get 401."""
+        app = _make_app()
+
+        @app.get("/api/v1/hooks/stream")
+        async def hooks_stream():
+            return {"stream": True}
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as c:
+            # Simulate a WebSocket upgrade header without ?token=
+            r = await c.get(
+                "/api/v1/hooks/stream",
+                headers={"Upgrade": "websocket"},
+            )
+            # Should NOT be 401 — middleware must exempt this path
+            assert r.status_code != 401, (
+                "Middleware blocked WS upgrade with 401; should exempt WS_SELF_AUTH_PATHS"
+            )
+
+    @pytest.mark.asyncio
+    async def test_regular_http_still_requires_auth(self):
+        """Non-exempt HTTP routes must still require Authorization header."""
+        app = _make_app()
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as c:
+            r = await c.get("/api/v1/data")
+            assert r.status_code == 401
