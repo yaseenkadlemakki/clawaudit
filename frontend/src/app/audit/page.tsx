@@ -1,22 +1,46 @@
 "use client"
 import { useState, useRef, useEffect, useCallback } from "react"
 import { useQuery, useMutation } from "@tanstack/react-query"
-import { startScan, stopScan, getScan, type ScanRun } from "@/lib/api"
+import { startScan, stopScan, getScan, getScans, type ScanRun } from "@/lib/api"
 import { Play, Square, RefreshCw } from "lucide-react"
 import { cn, formatDate } from "@/lib/utils"
+import Link from "next/link"
 
 const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:18790/ws/scans"
 
-function statusBadge(s: string) {
-  const map: Record<string, string> = {
-    running:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
-    complete: "bg-green-500/20 text-green-400 border-green-500/30",
-    failed:   "bg-red-500/20 text-red-400 border-red-500/30",
-    stopped:  "bg-slate-500/20 text-slate-400 border-slate-500/30",
-    pending:  "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+function StatusBadge({ status }: { status: ScanRun["status"] }) {
+  const styles: Record<string, string> = {
+    completed: "bg-green-900/50 text-green-400 border-green-700",
+    running:   "bg-yellow-900/50 text-yellow-400 border-yellow-700",
+    failed:    "bg-red-900/50 text-red-400 border-red-700",
+    stopping:  "bg-slate-900/50 text-slate-400 border-slate-700",
+    idle:      "bg-slate-900/50 text-slate-400 border-slate-700",
   }
   return (
-    <span className={cn("px-2 py-0.5 rounded text-xs border", map[s] ?? map.pending)}>
+    <span className={`px-2 py-0.5 rounded text-xs border ${styles[status] ?? styles.idle}`}>
+      {status}
+    </span>
+  )
+}
+
+function formatDuration(started: string, completed?: string | null): string {
+  if (!completed) return "—"
+  const ms = new Date(completed).getTime() - new Date(started).getTime()
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
+function statusBadge(s: string) {
+  const map: Record<string, string> = {
+    running:   "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    completed: "bg-green-500/20 text-green-400 border-green-500/30",
+    failed:    "bg-red-500/20 text-red-400 border-red-500/30",
+    stopping:  "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    idle:      "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+  }
+  return (
+    <span className={cn("px-2 py-0.5 rounded text-xs border", map[s] ?? map.idle)}>
       {s.toUpperCase()}
     </span>
   )
@@ -39,6 +63,12 @@ export default function AuditPage() {
   const pushLog = useCallback((text: string) => {
     setLogs(p => [...p, { id: ++logIdRef.current, text }])
   }, [])
+
+  const { data: scans, isLoading: scansLoading, error: scansError } = useQuery({
+    queryKey: ["scans"],
+    queryFn: getScans,
+    refetchInterval: 10_000,
+  })
 
   const { data: scanData } = useQuery({
     queryKey: ["scan", activeScan?.id],
@@ -98,7 +128,7 @@ export default function AuditPage() {
   })
   const stopMut = useMutation({
     mutationFn: () => { if (!activeScan) return Promise.resolve(null as unknown as ScanRun); return stopScan(activeScan.id) },
-    onSuccess:  (scan) => { wsRef.current?.close(); setActiveScan(s => scan ?? (s ? { ...s, status: "stopped" } : s)) },
+    onSuccess:  (scan) => { wsRef.current?.close(); setActiveScan(s => scan ?? (s ? { ...s, status: "stopping" } : s)) },
   })
 
   const isRunning = activeScan?.status === "running"
@@ -156,6 +186,63 @@ export default function AuditPage() {
           </div>
         </div>
       )}
+
+      {/* ── Previous Scans ─────────────────────────────────── */}
+      <div className="bg-card border border-border rounded-lg">
+        <div className="px-4 py-3 border-b border-border">
+          <h2 className="text-sm font-semibold">Previous Scans</h2>
+        </div>
+        <div className="p-4">
+          {scansLoading && (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="h-8 bg-muted/50 rounded animate-pulse" />
+              ))}
+            </div>
+          )}
+          {!scansLoading && scansError && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded p-3 text-sm">
+              Failed to load scan history.
+            </div>
+          )}
+          {!scansLoading && !scansError && scans?.length === 0 && (
+            <p className="text-sm text-muted-foreground">No scans yet. Run your first audit above.</p>
+          )}
+          {!scansLoading && !scansError && scans && scans.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b border-border">
+                    <th className="pb-2 pr-4">Status</th>
+                    <th className="pb-2 pr-4">Started</th>
+                    <th className="pb-2 pr-4">Duration</th>
+                    <th className="pb-2 pr-4">Findings</th>
+                    <th className="pb-2">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scans.map(scan => (
+                    <tr key={scan.id} className="border-b border-border/50 last:border-0">
+                      <td className="py-2 pr-4"><StatusBadge status={scan.status} /></td>
+                      <td className="py-2 pr-4 text-xs">{formatDate(scan.started_at)}</td>
+                      <td className="py-2 pr-4 text-xs">{formatDuration(scan.started_at, scan.completed_at)}</td>
+                      <td className="py-2 pr-4 text-xs">{scan.total_findings}</td>
+                      <td className="py-2">
+                        <Link
+                          href={`/findings?scan_id=${scan.id}`}
+                          className="text-xs text-primary hover:underline"
+                        >
+                          View Findings
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="bg-card border border-border rounded-lg">
         <div className="flex items-center justify-between px-4 py-2 border-b border-border">

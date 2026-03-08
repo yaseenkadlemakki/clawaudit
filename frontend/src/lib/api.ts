@@ -38,7 +38,7 @@ export interface DashboardStats {
 
 export interface ScanRun {
   id: string
-  status: "pending" | "running" | "complete" | "failed" | "stopped"
+  status: "idle" | "running" | "stopping" | "completed" | "failed"
   started_at: string
   completed_at: string | null
   total_findings: number

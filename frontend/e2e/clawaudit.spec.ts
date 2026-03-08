@@ -411,6 +411,91 @@ test.describe("Runtime Events", () => {
   })
 })
 
+// ─── Full Audit — Scan History ───────────────────────────────────────
+
+test.describe("Full Audit — Scan History", () => {
+  test("shows scan history table when scans exist", async ({ page }) => {
+    await page.route("**/api/v1/scans*", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          id: "test-scan-001",
+          status: "completed",
+          started_at: new Date(Date.now() - 120_000).toISOString(),
+          completed_at: new Date(Date.now() - 60_000).toISOString(),
+          total_findings: 3,
+          critical_count: 0,
+          high_count: 1,
+          medium_count: 1,
+          low_count: 1,
+          skills_scanned: 5,
+          triggered_by: "manual",
+          error_message: null,
+        }
+      ])
+    }))
+    await page.goto("/audit")
+    await page.waitForLoadState("networkidle")
+
+    await expect(page.getByText("Previous Scans")).toBeVisible()
+    await expect(page.getByText("completed")).toBeVisible()
+    await expect(page.getByRole("cell", { name: "3", exact: true })).toBeVisible()
+    await expect(page.getByRole("link", { name: /view findings/i })).toBeVisible()
+  })
+
+  test("shows empty state when no scans exist", async ({ page }) => {
+    await page.route("**/api/v1/scans*", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([])
+    }))
+    await page.goto("/audit")
+    await page.waitForLoadState("networkidle")
+
+    await expect(page.getByText(/No scans yet/i)).toBeVisible()
+    await expect(page.getByText(/failed to load/i)).not.toBeVisible()
+  })
+
+  test("shows error state exclusively when API fails", async ({ page }) => {
+    await page.route("**/api/v1/scans*", route => route.fulfill({
+      status: 500,
+      contentType: "application/json",
+      body: JSON.stringify({ detail: "Internal server error" })
+    }))
+    await page.goto("/audit")
+
+    await expect(page.getByText(/failed to load/i)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/No scans yet/i)).not.toBeVisible()
+  })
+
+  test("shows 'View Findings' link with correct scan_id", async ({ page }) => {
+    await page.route("**/api/v1/scans*", route => route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([{
+        id: "abc-123",
+        status: "complete",
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        total_findings: 5,
+        critical_count: 0,
+        high_count: 0,
+        medium_count: 0,
+        low_count: 5,
+        skills_scanned: 1,
+        triggered_by: "manual",
+        error_message: null,
+      }])
+    }))
+    await page.goto("/audit")
+    await page.waitForLoadState("networkidle")
+
+    const link = page.getByRole("link", { name: /view findings/i })
+    await expect(link).toHaveAttribute("href", "/findings?scan_id=abc-123")
+  })
+})
+
 // ─── Console Errors (cross-cutting) ─────────────────────────────────
 
 test.describe("Console Errors", () => {
