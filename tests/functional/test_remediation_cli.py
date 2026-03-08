@@ -1,10 +1,9 @@
 """Functional tests for remediation CLI commands."""
+
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from sentinel.main import app
@@ -15,14 +14,14 @@ runner = CliRunner()
 class TestRemediateCommand:
     def test_dry_run_no_findings_exits_clean(self, tmp_path):
         """When there are no applicable findings, command exits with success."""
-        import asyncio
 
         async def _empty_audit():
             return []
 
-        with patch("sentinel.main.load_config") as mock_cfg, \
-             patch("sentinel.analyzer.config_auditor.ConfigAuditor.audit", side_effect=_empty_audit):
-
+        with (
+            patch("sentinel.main.load_config") as mock_cfg,
+            patch("sentinel.analyzer.config_auditor.ConfigAuditor.audit", side_effect=_empty_audit),
+        ):
             cfg = MagicMock()
             cfg.openclaw.workspace_skills_dir = str(tmp_path)
             mock_cfg.return_value = cfg
@@ -33,7 +32,6 @@ class TestRemediateCommand:
 
     def test_dry_run_shows_proposals(self, tmp_path):
         """Dry run should list proposals without modifying files."""
-        import asyncio
 
         async def _empty_audit():
             return []
@@ -43,19 +41,21 @@ class TestRemediateCommand:
         (skill_dir / "SKILL.md").write_text("pty: true\n")
         original = (skill_dir / "SKILL.md").read_text()
 
-        with patch("sentinel.main.load_config") as mock_cfg, \
-             patch("sentinel.analyzer.config_auditor.ConfigAuditor.audit", side_effect=_empty_audit):
-
+        with (
+            patch("sentinel.main.load_config") as mock_cfg,
+            patch("sentinel.analyzer.config_auditor.ConfigAuditor.audit", side_effect=_empty_audit),
+        ):
             cfg = MagicMock()
             cfg.openclaw.workspace_skills_dir = str(tmp_path)
             mock_cfg.return_value = cfg
 
-            result = runner.invoke(app, ["remediate"])
+            runner.invoke(app, ["remediate"])
             # File must not be modified in dry-run
             assert (skill_dir / "SKILL.md").read_text() == original
 
     def test_snapshots_list_empty(self, tmp_path):
         import sentinel.remediation.rollback as rb
+
         original = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "empty-snaps"
         try:
@@ -71,6 +71,7 @@ class TestRemediateCommand:
 
     def test_snapshots_rollback_nonexistent(self, tmp_path):
         import sentinel.remediation.rollback as rb
+
         original = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snaps"
         rb.SNAPSHOT_DIR.mkdir()

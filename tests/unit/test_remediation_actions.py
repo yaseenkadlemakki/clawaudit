@@ -1,9 +1,6 @@
 """Unit tests for remediation data models."""
+
 from __future__ import annotations
-
-from pathlib import Path
-
-import pytest
 
 from sentinel.remediation.actions import (
     ActionType,
@@ -56,26 +53,46 @@ class TestRemediationProposal:
 
     def test_create_unique_ids(self, tmp_path):
         p1 = RemediationProposal.create(
-            finding_id="f1", check_id="ADV-001", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.RESTRICT_SHELL, diff_preview="",
+            finding_id="f1",
+            check_id="ADV-001",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
         )
         p2 = RemediationProposal.create(
-            finding_id="f2", check_id="ADV-001", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.RESTRICT_SHELL, diff_preview="",
+            finding_id="f2",
+            check_id="ADV-001",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
         )
         assert p1.proposal_id != p2.proposal_id
 
     def test_default_impact_is_empty(self, tmp_path):
         proposal = RemediationProposal.create(
-            finding_id="f", check_id="ADV-005", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.REDACT_SECRET, diff_preview="",
+            finding_id="f",
+            check_id="ADV-005",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.REDACT_SECRET,
+            diff_preview="",
         )
         assert proposal.impact == []
 
     def test_irreversible_proposal(self, tmp_path):
         proposal = RemediationProposal.create(
-            finding_id="f", check_id="ADV-005", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.REDACT_SECRET, diff_preview="",
+            finding_id="f",
+            check_id="ADV-005",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.REDACT_SECRET,
+            diff_preview="",
             reversible=False,
         )
         assert proposal.reversible is False
@@ -84,18 +101,30 @@ class TestRemediationProposal:
 class TestRemediationResult:
     def test_success_result(self, tmp_path):
         proposal = RemediationProposal.create(
-            finding_id="f", check_id="ADV-001", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.RESTRICT_SHELL, diff_preview="",
+            finding_id="f",
+            check_id="ADV-001",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
         )
-        result = RemediationResult(proposal=proposal, success=True, snapshot_path=tmp_path / "snap.tar.gz")
+        result = RemediationResult(
+            proposal=proposal, success=True, snapshot_path=tmp_path / "snap.tar.gz"
+        )
         assert result.success is True
         assert result.error is None
         assert result.snapshot_path is not None
 
     def test_failure_result(self, tmp_path):
         proposal = RemediationProposal.create(
-            finding_id="f", check_id="ADV-001", skill_name="s", skill_path=tmp_path,
-            description="d", action_type=ActionType.RESTRICT_SHELL, diff_preview="",
+            finding_id="f",
+            check_id="ADV-001",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
         )
         result = RemediationResult(proposal=proposal, success=False, error="Something went wrong")
         assert result.success is False

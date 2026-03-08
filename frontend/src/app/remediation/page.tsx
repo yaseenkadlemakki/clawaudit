@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Shield, AlertTriangle, CheckCircle, RotateCcw, Eye, Zap, Clock } from "lucide-react"
 import { API_BASE } from "@/lib/api"
@@ -117,14 +117,32 @@ export default function RemediationPage() {
 
   const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useQuery<Proposal[]>({
     queryKey: ["remediation-proposals"],
-    queryFn: () => fetch(`${API_BASE}/remediation/proposals`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/remediation/proposals`)
+      if (!r.ok) throw new Error(`Failed to load proposals (${r.status})`)
+      return r.json()
+    },
   })
 
-  const { data: history = [], isLoading: loadingHistory } = useQuery<HistoryItem[]>({
+  const { data: history = [], isLoading: loadingHistory, error: historyError } = useQuery<HistoryItem[]>({
     queryKey: ["remediation-history"],
-    queryFn: () => fetch(`${API_BASE}/remediation/history`).then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch(`${API_BASE}/remediation/history`)
+      if (!r.ok) throw new Error(`Failed to load history (${r.status})`)
+      return r.json()
+    },
     enabled: activeTab === "history",
   })
+
+  // Dismiss confirmation modal on Escape key
+  useEffect(() => {
+    if (!confirmProposal) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setConfirmProposal(null)
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [confirmProposal])
 
   const applyMutation = useMutation({
     mutationFn: async (proposal: Proposal) => {
@@ -224,7 +242,12 @@ export default function RemediationPage() {
       {activeTab === "history" && (
         <div className="space-y-3">
           {loadingHistory && <p className="text-sm text-muted-foreground">Loading history…</p>}
-          {!loadingHistory && history.length === 0 && (
+          {historyError && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-3 text-sm">
+              Failed to load history. Is the backend running?
+            </div>
+          )}
+          {!loadingHistory && !historyError && history.length === 0 && (
             <p className="text-sm text-muted-foreground">No remediations applied yet.</p>
           )}
           {history.map((item) => (
@@ -262,9 +285,9 @@ export default function RemediationPage() {
 
       {/* Confirmation dialog */}
       {confirmProposal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
           <div className="bg-card border border-border rounded-lg p-6 max-w-md w-full space-y-4">
-            <h2 className="text-base font-semibold flex items-center gap-2">
+            <h2 id="confirm-title" className="text-base font-semibold flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-yellow-500" />
               Confirm Remediation
             </h2>

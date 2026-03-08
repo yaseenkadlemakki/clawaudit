@@ -1,4 +1,5 @@
 """Unit tests for remediation snapshot/rollback."""
+
 from __future__ import annotations
 
 import pytest
@@ -18,6 +19,7 @@ class TestCreateSnapshot:
         (skill_dir / "SKILL.md").write_text("# My Skill\nsome content")
 
         import sentinel.remediation.rollback as rb
+
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snapshots"
 
@@ -33,6 +35,7 @@ class TestCreateSnapshot:
         import tarfile
 
         import sentinel.remediation.rollback as rb
+
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snapshots"
 
@@ -52,6 +55,7 @@ class TestCreateSnapshot:
 class TestRestoreSnapshot:
     def test_restore_overwrites_file(self, tmp_path):
         import sentinel.remediation.rollback as rb
+
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snapshots"
 
@@ -80,6 +84,7 @@ class TestRestoreSnapshot:
 class TestListSnapshots:
     def test_empty_dir_returns_empty(self, tmp_path):
         import sentinel.remediation.rollback as rb
+
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "empty-snapshots"
         try:
@@ -90,6 +95,7 @@ class TestListSnapshots:
 
     def test_returns_sorted_list(self, tmp_path):
         import sentinel.remediation.rollback as rb
+
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snaps"
         rb.SNAPSHOT_DIR.mkdir()
@@ -145,3 +151,34 @@ class TestDeleteSnapshot:
 
     def test_delete_nonexistent_returns_false(self, tmp_path):
         assert delete_snapshot(tmp_path / "ghost.tar.gz") is False
+
+
+class TestTarFilterCompat:
+    def test_restore_uses_filter_data_on_312(self, tmp_path):
+        """On Python 3.12+, filter='data' should be used; on older, TypeError fallback."""
+        import sentinel.remediation.rollback as rb
+
+        original_dir = rb.SNAPSHOT_DIR
+        rb.SNAPSHOT_DIR = tmp_path / "snapshots"
+
+        skill_dir = tmp_path / "filter-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("content for filter test")
+
+        try:
+            snap = create_snapshot(skill_dir, "filter-skill")
+            # Modify and restore — should work regardless of Python version
+            (skill_dir / "SKILL.md").write_text("modified")
+            restore_snapshot(snap, tmp_path)
+            assert (skill_dir / "SKILL.md").read_text() == "content for filter test"
+        finally:
+            rb.SNAPSHOT_DIR = original_dir
+
+    def test_restore_with_corrupt_tarball_raises(self, tmp_path):
+        """Corrupt tarball should raise an error."""
+        import tarfile
+
+        corrupt = tmp_path / "corrupt.tar.gz"
+        corrupt.write_bytes(b"not a valid tarball")
+        with pytest.raises((tarfile.ReadError, Exception)):
+            restore_snapshot(corrupt, tmp_path)

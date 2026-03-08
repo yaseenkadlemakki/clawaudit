@@ -1,4 +1,5 @@
 """Unit tests for remediation strategies."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -66,9 +67,7 @@ class TestSecretsStrategy:
         return skill_dir
 
     def test_detects_anthropic_key(self, tmp_path):
-        skill_dir = self._write_skill(
-            tmp_path, "Set the key: sk-ant-api123456789abcdefghij\n"
-        )
+        skill_dir = self._write_skill(tmp_path, "Set the key: sk-ant-api123456789abcdefghij\n")
         proposal = secrets.propose("secret-skill", skill_dir, "find-2")
         assert proposal is not None
         assert proposal.check_id == "ADV-005"
@@ -85,7 +84,11 @@ class TestSecretsStrategy:
         proposal = secrets.propose("secret-skill", skill_dir, "find-2")
         assert proposal is not None
         assert "[REDACTED]" in proposal.diff_preview
-        assert "AKIA" not in proposal.diff_preview.split("+")[-1] if "+" in proposal.diff_preview else True
+        assert (
+            "AKIA" not in proposal.diff_preview.split("+")[-1]
+            if "+" in proposal.diff_preview
+            else True
+        )
 
     def test_detects_github_token(self, tmp_path):
         skill_dir = self._write_skill(
@@ -123,18 +126,14 @@ class TestSecretsStrategy:
         assert proposal is None
 
     def test_apply_patch_redacts_key(self, tmp_path):
-        skill_dir = self._write_skill(
-            tmp_path, "token: sk-ant-api123456789abcdefghij\n"
-        )
+        skill_dir = self._write_skill(tmp_path, "token: sk-ant-api123456789abcdefghij\n")
         secrets.apply_patch(skill_dir)
         content = (skill_dir / "SKILL.md").read_text()
         assert "[REDACTED]" in content
         assert "sk-ant" not in content
 
     def test_apply_patch_atomic_no_tmp_left(self, tmp_path):
-        skill_dir = self._write_skill(
-            tmp_path, "api_key = 'supersecretpassword123456'\n"
-        )
+        skill_dir = self._write_skill(tmp_path, "api_key = 'supersecretpassword123456'\n")
         secrets.apply_patch(skill_dir)
         assert not (skill_dir / "SKILL.tmp").exists()
 
@@ -166,9 +165,7 @@ class TestPermissionsStrategy:
         assert proposal is not None
 
     def test_clean_skill_returns_none(self, tmp_path):
-        skill_dir = self._write_skill(
-            tmp_path, "allowed-tools:\n  - read\n  - write\n"
-        )
+        skill_dir = self._write_skill(tmp_path, "allowed-tools:\n  - read\n  - write\n")
         proposal = permissions.propose("clean-skill", skill_dir, "find-3")
         assert proposal is None
 
@@ -177,3 +174,65 @@ class TestPermissionsStrategy:
         permissions.apply_patch(skill_dir)
         content = (skill_dir / "SKILL.md").read_text()
         assert "# RESTRICTED:" in content
+
+    def test_detects_tool_access_unrestricted(self, tmp_path):
+        skill_dir = self._write_skill(tmp_path, "tool_access: unrestricted\n")
+        proposal = permissions.propose("perm-skill", skill_dir, "find-3")
+        assert proposal is not None
+        assert proposal.check_id == "PERM-001"
+
+    def test_missing_skill_md_returns_none(self, tmp_path):
+        skill_dir = tmp_path / "no-md"
+        skill_dir.mkdir()
+        proposal = permissions.propose("no-md", skill_dir, "find-3")
+        assert proposal is None
+
+    def test_apply_patch_atomic_no_tmp_left(self, tmp_path):
+        skill_dir = self._write_skill(tmp_path, "permissions: all\n")
+        permissions.apply_patch(skill_dir)
+        assert not (skill_dir / "SKILL.tmp").exists()
+
+    def test_multiple_wildcards_in_one_file(self, tmp_path):
+        content = "allowed-tools: '*'\npermissions: all\ntool_access: unrestricted\n"
+        skill_dir = self._write_skill(tmp_path, content)
+        proposal = permissions.propose("perm-skill", skill_dir, "find-3")
+        assert proposal is not None
+        # All three lines should be restricted
+        permissions.apply_patch(skill_dir)
+        result = (skill_dir / "SKILL.md").read_text()
+        assert result.count("# RESTRICTED:") == 3
+
+
+class TestSecretsContextBoundary:
+    """Tests for the sk- pattern context boundary fix."""
+
+    def _write_skill(self, tmp_path, content):
+        skill_dir = tmp_path / "ctx-skill"
+        skill_dir.mkdir(exist_ok=True)
+        (skill_dir / "SKILL.md").write_text(content)
+        return skill_dir
+
+    def test_sk_as_yaml_key_not_matched(self, tmp_path):
+        """A YAML key starting with sk- should not be redacted."""
+        skill_dir = self._write_skill(tmp_path, "sk-yaml-key-name-that-is-long: some_value\n")
+        proposal = secrets.propose("ctx-skill", skill_dir, "find-1")
+        assert proposal is None
+
+    def test_sk_after_colon_space_is_matched(self, tmp_path):
+        """An sk- key appearing after ': ' should be redacted."""
+        skill_dir = self._write_skill(tmp_path, "key: sk-ant-api123456789abcdefghij\n")
+        proposal = secrets.propose("ctx-skill", skill_dir, "find-1")
+        assert proposal is not None
+        assert "[REDACTED]" in proposal.diff_preview
+
+    def test_sk_after_equals_is_matched(self, tmp_path):
+        """An sk- key appearing after '=' should be redacted."""
+        skill_dir = self._write_skill(tmp_path, "KEY=sk-ant-api123456789abcdefghij\n")
+        proposal = secrets.propose("ctx-skill", skill_dir, "find-1")
+        assert proposal is not None
+
+    def test_sk_in_quotes_is_matched(self, tmp_path):
+        """An sk- key appearing inside quotes should be redacted."""
+        skill_dir = self._write_skill(tmp_path, 'token = "sk-ant-api123456789abcdefghij"\n')
+        proposal = secrets.propose("ctx-skill", skill_dir, "find-1")
+        assert proposal is not None

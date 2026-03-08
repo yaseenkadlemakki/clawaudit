@@ -37,7 +37,7 @@ def _safe_members(tar: tarfile.TarFile, target: Path) -> list[tarfile.TarInfo]:
     resolved_target = target.resolve()
     for member in tar.getmembers():
         member_path = (target / member.name).resolve()
-        if not str(member_path).startswith(str(resolved_target)):
+        if not (member_path == resolved_target or member_path.is_relative_to(resolved_target)):
             logger.warning("Skipping unsafe tar member: %s", member.name)
             continue
         safe.append(member)
@@ -54,7 +54,12 @@ def restore_snapshot(snapshot_path: Path, target_parent: Path) -> None:
     if not snapshot_path.exists():
         raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
     with tarfile.open(snapshot_path, "r:gz") as tar:
-        tar.extractall(path=target_parent, members=_safe_members(tar, target_parent))
+        safe = _safe_members(tar, target_parent)
+        try:
+            tar.extractall(path=target_parent, members=safe, filter="data")
+        except TypeError:
+            # Python < 3.12 does not support filter=
+            tar.extractall(path=target_parent, members=safe)
     logger.info("Snapshot restored: %s → %s", snapshot_path, target_parent)
 
 

@@ -62,7 +62,7 @@ class RemediationEngine:
     def is_protected(self, skill_path: Path) -> bool:
         """Return True if the skill path is a core system skill (read-only)."""
         resolved = skill_path.resolve()
-        return any(str(resolved).startswith(str(p)) for p in self._protected)
+        return any(resolved == p or resolved.is_relative_to(p) for p in self._protected)
 
     # ── Proposal generation ───────────────────────────────────────────────────
 

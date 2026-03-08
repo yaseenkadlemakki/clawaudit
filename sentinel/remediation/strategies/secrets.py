@@ -10,8 +10,8 @@ from sentinel.remediation.actions import ActionType, RemediationProposal
 
 # Patterns matching secret values — redact the value, keep the key
 _SECRET_PATTERNS: list[re.Pattern[str]] = [
-    # Anthropic / OpenAI keys (allow hyphens in key body)
-    re.compile(r"(sk-[A-Za-z0-9\-]{20,})", re.IGNORECASE),
+    # Anthropic / OpenAI keys — require value context (after =, :, ", or whitespace start)
+    re.compile(r"(?<=[=:\"\'\s])(sk-[A-Za-z0-9\-]{20,})", re.IGNORECASE),
     # AWS keys
     re.compile(r"(AKIA[A-Z0-9]{16})", re.IGNORECASE),
     # GitHub tokens
