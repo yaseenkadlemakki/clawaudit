@@ -240,8 +240,16 @@ async def event_stream(websocket: WebSocket) -> None:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
         msg = json.loads(raw)
         client_token = msg.get("token", "") if msg.get("type") == "auth" else ""
-    except (asyncio.TimeoutError, json.JSONDecodeError, Exception):
-        await websocket.close(code=4001, reason="auth timeout or invalid message")
+    except asyncio.TimeoutError:
+        await websocket.close(code=4001, reason="auth timeout")
+        return
+    except json.JSONDecodeError:
+        await websocket.close(code=4001, reason="invalid auth message")
+        return
+    except WebSocketDisconnect:
+        return  # client already gone, nothing to close
+    except Exception:
+        await websocket.close(code=4001, reason="auth error")
         return
 
     expected = _get_current_token()
@@ -257,10 +265,17 @@ async def event_stream(websocket: WebSocket) -> None:
 
     try:
         while True:
-            event_data = await queue.get()
-            await websocket.send_json(event_data)
+            try:
+                event_data = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(event_data)
+            except asyncio.TimeoutError:
+                # Send ping to detect dead connections
+                await websocket.send_json({"type": "ping"})
     except WebSocketDisconnect:
         pass
+    except Exception:
+        pass  # connection reset, etc.
     finally:
-        _ws_clients.remove(queue)
+        if queue in _ws_clients:
+            _ws_clients.remove(queue)
         logger.info("Hook stream WebSocket client disconnected")

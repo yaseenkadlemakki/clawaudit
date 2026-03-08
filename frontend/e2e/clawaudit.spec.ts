@@ -509,6 +509,9 @@ test.describe("Error and empty state exclusivity", () => {
     await page.goto("/hooks")
     await page.waitForLoadState("networkidle")
 
+    // Ensure at least one WS connection was attempted
+    expect(wsUrls.length).toBeGreaterThan(0)
+
     // Any WS connection must NOT have token in URL
     for (const url of wsUrls) {
       expect(url).not.toContain("token=")

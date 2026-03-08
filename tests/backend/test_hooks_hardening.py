@@ -1,5 +1,6 @@
 """Tests for hooks API hardening — issue #46 and #58."""
 import json
+import time
 import pytest
 from httpx import AsyncClient
 from fastapi.testclient import TestClient
@@ -46,19 +47,35 @@ class TestBodySizeLimit:
         )
         assert resp.status_code != 413
 
+    def test_malformed_content_length_does_not_500(self):
+        """Malformed Content-Length header must not cause a 500."""
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/hooks/tool-event",
+            content=b'{"tool_name": "test"}',
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": "abc",
+            },
+        )
+        assert resp.status_code != 500
+
+    def test_negative_content_length_does_not_500(self):
+        """Negative Content-Length must not cause a 500."""
+        client = TestClient(app)
+        resp = client.post(
+            "/api/v1/hooks/tool-event",
+            content=b'{"tool_name": "test"}',
+            headers={
+                "Content-Type": "application/json",
+                "Content-Length": "-1",
+            },
+        )
+        assert resp.status_code != 500
+
 
 class TestWebSocketAuth:
     """Issue #58: WS token must be sent in first message, not URL query param."""
-
-    def test_ws_rejects_no_auth_message(self):
-        """Connection must be closed if no auth message sent within timeout."""
-        # We test via direct route inspection — actual async WS test needs pytest-anyio
-        from backend.api.routes import hooks
-        import inspect
-        src = inspect.getsource(hooks.event_stream)
-        # Token must NOT be a query param anymore
-        assert "token: str" not in src, "Token must not be a URL query param"
-        assert "receive_text" in src or "receive_json" in src, "Should read first message"
 
     def test_ws_endpoint_no_token_param(self):
         """The WebSocket endpoint signature must not accept token as query param."""
@@ -66,5 +83,24 @@ class TestWebSocketAuth:
         from backend.api.routes.hooks import event_stream
         sig = inspect.signature(event_stream)
         params = list(sig.parameters.keys())
-        # 'websocket' is fine, 'token' should not be a param
         assert "token" not in params, f"token should not be a query param. Params: {params}"
+
+    def test_ws_rejects_wrong_token(self):
+        """WS connection closed on wrong token."""
+        client = TestClient(app)
+        with pytest.raises(Exception):
+            with client.websocket_connect("/api/v1/hooks/stream") as ws:
+                ws.send_json({"type": "auth", "token": "wrong-token"})
+                ws.receive_json()  # should raise on closed connection
+
+    def test_ws_accepts_valid_auth(self):
+        """WS connection proceeds with valid token."""
+        import os
+        token = os.environ.get("CLAWAUDIT_API_TOKEN", "")
+        if not token:
+            pytest.skip("CLAWAUDIT_API_TOKEN not set")
+        client = TestClient(app)
+        with client.websocket_connect("/api/v1/hooks/stream") as ws:
+            ws.send_json({"type": "auth", "token": token})
+            resp = ws.receive_json()
+            assert resp["type"] == "auth_ok"

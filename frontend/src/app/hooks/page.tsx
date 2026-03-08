@@ -71,7 +71,12 @@ export default function HooksPage() {
         } catch { /* ignore parse errors */ }
       }
       ws.onerror = (e) => console.warn("WS error", e)
-      ws.onclose = () => {
+      ws.onclose = (e) => {
+        // 4001 = auth failure — do not reconnect
+        if (e.code === 4001) {
+          console.warn("WebSocket auth failed — check NEXT_PUBLIC_API_TOKEN")
+          return
+        }
         setTimeout(() => connectWebSocket(), Math.min(reconnectDelay, 30000))
         reconnectDelay *= 2
       }

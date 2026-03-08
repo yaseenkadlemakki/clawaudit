@@ -66,12 +66,18 @@ class MaxBodySizeMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > _MAX_BODY_BYTES:
-            return Response(
-                content='{"detail": "Request body too large"}',
-                status_code=413,
-                media_type="application/json",
-            )
+        if content_length:
+            try:
+                length = int(content_length)
+            except ValueError:
+                # Malformed Content-Length — let the request through; Pydantic handles field limits
+                return await call_next(request)
+            if length > _MAX_BODY_BYTES:
+                return Response(
+                    content='{"detail": "Request body too large"}',
+                    status_code=413,
+                    media_type="application/json",
+                )
         return await call_next(request)
 
 
