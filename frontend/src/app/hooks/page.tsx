@@ -93,7 +93,11 @@ export default function HooksPage() {
 
   // WebSocket for live events with exponential backoff reconnection
   const connectWebSocket = useCallback(() => {
-    const wsUrl = API_BASE.replace(/^http/, "ws").replace("/api/v1", "") + "/api/v1/hooks/stream"
+    // Append the API token as a query param — required by the server's WS auth check.
+    // Read from env var; falls back to empty string (server will reject with 1008).
+    const apiToken = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+    const wsBase = API_BASE.replace(/^http/, "ws").replace("/api/v1", "")
+    const wsUrl = `${wsBase}/api/v1/hooks/stream?token=${encodeURIComponent(apiToken)}`
     let reconnectDelay = 1000
     let ws: WebSocket
 

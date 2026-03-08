@@ -103,7 +103,11 @@ async def ingest_tool_event(request: Request):
     if not signature or not _validate_hmac(body, signature):
         raise HTTPException(status_code=401, detail="Invalid or missing HMAC signature")
 
-    data = json.loads(body)
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
     event = ToolEvent(
         session_id=data.get("session_id", "")[:256],
         skill_name=data.get("skill_name"),
@@ -111,7 +115,8 @@ async def ingest_tool_event(request: Request):
         params_summary=sanitize_params(data.get("params_summary", "")[:2000]),
     )
 
-    # Evaluate alert rules
+    # Evaluate alert rules here — bus.publish() skips re-evaluation when
+    # alert data is already populated, preventing double rule execution.
     recent = await _store.list(session_id=event.session_id, limit=50)
     reasons = evaluate_rules(event, recent)
     if reasons:
@@ -121,7 +126,7 @@ async def ingest_tool_event(request: Request):
     # Persist
     await _store.save(event)
 
-    # Publish to bus and WebSocket clients
+    # Publish to bus (skips rule re-evaluation) and WebSocket clients
     await _bus.publish(event)
     event_dict = event.to_dict()
     for q in list(_ws_clients):

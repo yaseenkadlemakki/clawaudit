@@ -61,13 +61,20 @@ class HookBus:
             pass
 
     async def publish(self, event: ToolEvent) -> None:
-        """Evaluate rules and dispatch event to all subscribers."""
+        """Evaluate rules (if not already evaluated) and dispatch to subscribers.
+
+        If the caller already ran evaluate_rules() and populated alert_triggered /
+        alert_reasons, this method skips re-evaluation to avoid double-firing rules.
+        """
         async with self._async_lock:
-            # Run alert rules
-            reasons = evaluate_rules(event, self._recent_events)
-            if reasons:
-                event.alert_triggered = True
-                event.alert_reasons = reasons
+            # Only evaluate rules when the event hasn't been evaluated yet.
+            # The API route pre-evaluates so it can return results synchronously;
+            # the bus respects that and skips the second pass.
+            if not event.alert_triggered and not event.alert_reasons:
+                reasons = evaluate_rules(event, self._recent_events)
+                if reasons:
+                    event.alert_triggered = True
+                    event.alert_reasons = reasons
 
             # Track recent events for frequency detection
             self._recent_events.append(event)

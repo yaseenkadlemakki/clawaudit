@@ -27,11 +27,15 @@ MAX_PARAMS_LEN = 200
 
 
 def sanitize_params(raw: str) -> str:
-    """Truncate and redact secrets from a params summary string."""
-    text = raw[:MAX_PARAMS_LEN]
+    """Redact secrets then truncate — order matters to avoid leaking partial secrets.
+
+    Truncating first (then redacting) would expose leading characters of a secret
+    if it straddles the truncation boundary. Redact the full string first, then cap.
+    """
+    text = raw
     for _label, pattern in _REDACT_PATTERNS:
         text = pattern.sub("<REDACTED>", text)
-    return text
+    return text[:MAX_PARAMS_LEN]
 
 
 @dataclass
