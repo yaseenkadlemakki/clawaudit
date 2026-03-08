@@ -147,13 +147,13 @@ export default function FindingsPage() {
               </tr>
             ) : filtered.length ? (
               filtered.map(f => <FindingRow key={f.id} finding={f} />)
-            ) : (
+            ) : !findingsError && !allError ? (
               <tr>
                 <td colSpan={7} className="py-8 text-center text-muted-foreground text-xs">
                   No findings match your filters.
                 </td>
               </tr>
-            )}
+            ) : null}
           </tbody>
         </table>
       </div>
