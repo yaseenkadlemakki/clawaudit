@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,15 @@ from sentinel.lifecycle.uninstaller import SkillUninstaller
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["lifecycle"])
+
+# Allowlist for file-based installs — evaluated once at module load time.
+# Includes system temp dir to support CI, testing, and zip-based workflows.
+_ALLOWED_INSTALL_DIRS: list[Path] = [
+    Path("/tmp").resolve(),
+    Path(tempfile.gettempdir()).resolve(),
+    (Path.home() / "Downloads").resolve(),
+    (Path.home() / "Desktop").resolve(),
+]
 
 
 # ── Request / Response models ──────────────────────────────────────────────────
@@ -111,7 +121,14 @@ async def install_skill(req: InstallRequest):
         if req.source == "file":
             if not req.path:
                 raise HTTPException(status_code=400, detail="'path' is required for file installs")
-            record = installer.install_from_file(Path(req.path))
+            resolved = Path(req.path).resolve()
+            if not any(resolved.is_relative_to(allowed) for allowed in _ALLOWED_INSTALL_DIRS):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"File path must be under an allowed directory: "
+                    f"{[str(d) for d in _ALLOWED_INSTALL_DIRS]}",
+                )
+            record = installer.install_from_file(resolved)
         elif req.source == "url":
             if not req.url:
                 raise HTTPException(status_code=400, detail="'url' is required for URL installs")

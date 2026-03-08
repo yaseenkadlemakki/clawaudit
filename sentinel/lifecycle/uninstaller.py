@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
 from sentinel.lifecycle.registry import SkillRecord, SkillRegistry
 from sentinel.lifecycle.toggler import PROTECTED_PATHS
+
+# Trash dir name format: <skill-name>-<YYYYMMDD>-<HHMMSS>
+# Use a regex to reliably extract skill name even when name contains hyphens.
+_TRASH_NAME_RE = re.compile(r"^(.+)-(\d{8})-(\d{6})$")
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +71,14 @@ class SkillUninstaller:
         if not trash_path.exists():
             raise FileNotFoundError(f"Trash entry '{trash_name}' not found")
 
-        # Extract original skill name (strip timestamp suffix)
-        # Format: <name>-<YYYYMMDD-HHMMSS>
-        parts = trash_name.rsplit("-", 2)
-        if len(parts) >= 3:
-            skill_name = "-".join(parts[:-2])
+        # Extract original skill name (strip timestamp suffix).
+        # Format: <name>-<YYYYMMDD>-<HHMMSS>
+        # Use regex so hyphenated skill names (e.g. "my-cool-skill") are handled
+        # correctly — rsplit("-", 2) would only split the last 2 hyphens and
+        # would mangle names that themselves contain hyphens. (Fixes #21)
+        match = _TRASH_NAME_RE.match(trash_name)
+        if match:
+            skill_name = match.group(1)
         else:
             skill_name = trash_name
 

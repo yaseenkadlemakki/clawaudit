@@ -9,14 +9,52 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 import pytest_asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 import backend.database
 import backend.engine.scan_manager
 from backend.database import Base
 from backend.engine.scan_manager import ScanManager
+
+# ── Auth token for backend tests ───────────────────────────────────────────────
+
+TEST_API_TOKEN = "test-token-for-backend-tests"
+
+
+@pytest.fixture(autouse=True)
+def _set_test_api_token(monkeypatch):
+    """Set the API token env var so AuthMiddleware resolves to our test token.
+
+    Also forces the middleware stack to be rebuilt so the new token takes effect.
+    """
+    monkeypatch.setenv("CLAWAUDIT_API_TOKEN", TEST_API_TOKEN)
+    from backend.main import app as _app
+
+    # Force the middleware stack to be rebuilt on next request so the new
+    # AuthMiddleware instance picks up our env var.
+    _app.middleware_stack = None
+
+
+@pytest_asyncio.fixture
+async def client():
+    """Authenticated async HTTP client for backend API tests.
+
+    Individual test files may override this fixture if they need
+    different behaviour (e.g. unauthenticated client for 401 tests).
+    """
+    from httpx import ASGITransport, AsyncClient
+
+    from backend.main import app as _app
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_API_TOKEN}"},
+    ) as c:
+        yield c
 
 
 async def _noop_execute_scan(self, scan_id: str) -> None:

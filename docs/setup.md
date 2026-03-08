@@ -114,6 +114,25 @@ docker compose -f docker/docker-compose.yml down -v
 
 ---
 
+## Database Migrations
+
+ClawAudit uses [Alembic](https://alembic.sqlalchemy.org/) for schema versioning.
+
+```bash
+# Apply all pending migrations
+alembic upgrade head
+
+# Check current revision
+alembic current
+
+# View migration history
+alembic history
+```
+
+When deploying a new version, always run `alembic upgrade head` before starting the backend.
+
+---
+
 ## Running Tests
 
 ```bash

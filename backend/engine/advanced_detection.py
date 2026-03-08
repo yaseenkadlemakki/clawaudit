@@ -6,32 +6,21 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from sentinel.config import SecurityConfig as _SecurityConfig
 from sentinel.models.finding import Finding
+
+
+def _get_safe_domains() -> frozenset[str]:
+    """Load safe domains from config on each call — picks up runtime config edits."""
+    return _SecurityConfig.load().safe_domains
+
 
 if TYPE_CHECKING:
     from sentinel.models.skill import SkillProfile
 
-# Domains considered safe for outbound access
-_SAFE_DOMAINS: frozenset[str] = frozenset(
-    {
-        "github.com",
-        "api.github.com",
-        "pypi.org",
-        "files.pythonhosted.org",
-        "npmjs.com",
-        "registry.npmjs.org",
-        "anthropic.com",
-        "api.anthropic.com",
-        "openai.com",
-        "api.openai.com",
-        "google.com",
-        "googleapis.com",
-        "ai.google.dev",
-        "huggingface.co",
-        "raw.githubusercontent.com",
-        "cloudflare.com",
-    }
-)
+# Domains considered safe for outbound access — loaded from user config
+# NOTE: intentionally NOT cached at module level — use _get_safe_domains() per call
+# so that edits to config.yaml take effect without restarting the backend.
 
 # Regex patterns that indicate exposed secrets in skill files
 _SECRET_PATTERNS: list[tuple[str, re.Pattern]] = [
@@ -128,7 +117,7 @@ class AdvancedDetector:
 
     def check_supply_chain_risk(self, profile: SkillProfile, run_id: str) -> list[Finding]:
         """Flag skills contacting domains outside the known-safe allowlist."""
-        risky = [d for d in profile.outbound_domains if d not in _SAFE_DOMAINS]
+        risky = [d for d in profile.outbound_domains if d not in _get_safe_domains()]
         if not risky:
             return []
         return [
