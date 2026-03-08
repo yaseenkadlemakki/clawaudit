@@ -14,9 +14,13 @@ import hashlib
 import hmac
 import json
 import logging
+import os
+import secrets
 
-from fastapi import APIRouter, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from pydantic import BaseModel, field_validator
 
+from backend.middleware.auth import TOKEN_FILE
 from sentinel.hooks.bus import HookBus
 from sentinel.hooks.event import ToolEvent, sanitize_params
 from sentinel.hooks.plugin import ClawAuditPlugin
@@ -34,6 +38,27 @@ _plugin = ClawAuditPlugin()
 
 # WebSocket subscribers for the stream endpoint
 _ws_clients: list[asyncio.Queue[dict]] = []
+
+
+class ToolEventRequest(BaseModel):
+    """Pydantic model for tool event ingestion with size limits."""
+
+    tool_name: str
+    params_summary: str = ""
+    session_id: str = ""
+    skill_name: str | None = None
+    timestamp: str | None = None
+    hmac_signature: str = ""
+
+    @field_validator("params_summary")
+    @classmethod
+    def cap_params_summary(cls, v: str) -> str:
+        return v[:2000]
+
+    @field_validator("tool_name", "session_id")
+    @classmethod
+    def cap_short_fields(cls, v: str) -> str:
+        return v[:256]
 
 
 def _read_hmac_secret() -> str | None:
@@ -54,6 +79,18 @@ def _validate_hmac(body: bytes, signature: str) -> bool:
     return hmac.compare_digest(expected, provided)
 
 
+def _get_current_token() -> str:
+    """Read the current API token from env or file."""
+    env = os.environ.get("CLAWAUDIT_API_TOKEN", "").strip()
+    if env:
+        return env
+    if TOKEN_FILE.exists():
+        stored = TOKEN_FILE.read_text().strip()
+        if stored:
+            return stored
+    return ""
+
+
 # ── POST /tool-event ─────────────────────────────────────────────────────────
 
 
@@ -64,14 +101,14 @@ async def ingest_tool_event(request: Request):
     body = await request.body()
 
     if not signature or not _validate_hmac(body, signature):
-        return {"detail": "Invalid or missing HMAC signature"}, 401
+        raise HTTPException(status_code=401, detail="Invalid or missing HMAC signature")
 
     data = json.loads(body)
     event = ToolEvent(
-        session_id=data.get("session_id", ""),
+        session_id=data.get("session_id", "")[:256],
         skill_name=data.get("skill_name"),
-        tool_name=data.get("tool_name", ""),
-        params_summary=sanitize_params(data.get("params_summary", "")),
+        tool_name=data.get("tool_name", "")[:256],
+        params_summary=sanitize_params(data.get("params_summary", "")[:2000]),
     )
 
     # Evaluate alert rules
@@ -128,7 +165,7 @@ async def get_event(event_id: str):
     """Retrieve a single event by ID."""
     event = await _store.get(event_id)
     if event is None:
-        return {"detail": "Event not found"}, 404
+        raise HTTPException(status_code=404, detail="Event not found")
     return event.to_dict()
 
 
@@ -184,8 +221,13 @@ async def unregister_plugin():
 
 
 @router.websocket("/stream")
-async def event_stream(websocket: WebSocket):
-    """Real-time WebSocket stream of ToolEvents."""
+async def event_stream(websocket: WebSocket, token: str = ""):
+    """Real-time WebSocket stream of ToolEvents. Requires ?token= auth."""
+    expected = _get_current_token()
+    if not expected or not secrets.compare_digest(token, expected):
+        await websocket.close(code=1008)
+        return
+
     await websocket.accept()
     queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
     _ws_clients.append(queue)

@@ -58,7 +58,13 @@ class ClawAuditPlugin:
             "enabled": True,
         }
         self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        self.manifest_path.write_text(json.dumps(manifest, indent=2))
+        fd = os.open(str(self.manifest_path), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w") as fh:
+                fh.write(json.dumps(manifest, indent=2))
+        except Exception:
+            os.close(fd)
+            raise
         logger.info("ClawAudit plugin registered at %s", self.manifest_path)
         return self.manifest_path
 

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+from datetime import datetime, timedelta, timezone  # noqa: UP017
 from pathlib import Path
 
 import aiosqlite
@@ -38,6 +40,8 @@ _CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS ix_tool_events_alert ON tool_events(alert_triggered);",
 ]
 
+_RETENTION_DAYS = 30
+
 
 class EventStore:
     """Persist ToolEvents to SQLite. Separate from main clawaudit.db for isolation."""
@@ -51,12 +55,23 @@ class EventStore:
         if self._initialized:
             return
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.db_path.exists():
+            fd = os.open(str(self.db_path), os.O_WRONLY | os.O_CREAT, 0o600)
+            os.close(fd)
         async with aiosqlite.connect(str(self.db_path)) as db:
+            await db.execute("PRAGMA journal_mode=WAL")
             await db.execute(_CREATE_TABLE_SQL)
             for idx_sql in _CREATE_INDEXES_SQL:
                 await db.execute(idx_sql)
             await db.commit()
         self._initialized = True
+
+    async def _cleanup_old_events(self, db: aiosqlite.Connection) -> None:
+        """Delete events older than the retention period."""
+        cutoff = (
+            datetime.now(timezone.utc) - timedelta(days=_RETENTION_DAYS)  # noqa: UP017
+        ).isoformat()
+        await db.execute("DELETE FROM tool_events WHERE timestamp < ?", (cutoff,))
 
     async def save(self, event: ToolEvent) -> None:
         """Persist a ToolEvent to the database."""
@@ -80,6 +95,7 @@ class EventStore:
                     json.dumps(event.alert_reasons),
                 ),
             )
+            await self._cleanup_old_events(db)
             await db.commit()
 
     async def list(
