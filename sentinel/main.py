@@ -568,5 +568,175 @@ def snapshots(
         raise typer.Exit(1)
 
 
+# ── Skill lifecycle sub-app ─────────────────────────────────────────────────
+
+skills_app = typer.Typer(name="skills", help="Skill lifecycle management")
+
+
+@skills_app.command("list")
+def skills_list(
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """List all registered skills."""
+    from sentinel.lifecycle.registry import SkillRegistry
+
+    cfg = load_config(config_path)
+    registry = SkillRegistry()
+    registry.sync([cfg.skills_dir, cfg.workspace_skills_dir])
+    records = registry.list_all()
+
+    if not records:
+        console.print("[dim]No skills registered.[/dim]")
+        return
+
+    table = Table(title="Registered Skills")
+    table.add_column("Name")
+    table.add_column("Version")
+    table.add_column("Source")
+    table.add_column("Status")
+    table.add_column("Path", overflow="fold")
+
+    for r in sorted(records, key=lambda x: x.name):
+        status = "[green]enabled[/green]" if r.enabled else "[dim]disabled[/dim]"
+        table.add_row(r.name, r.version, r.source, status, r.path)
+
+    console.print(table)
+
+
+@skills_app.command("install")
+def skills_install(
+    path_or_url: str = typer.Argument(..., help="Local .skill file path or HTTP URL"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Install a skill from a .skill file or URL."""
+    from sentinel.lifecycle.installer import SkillInstaller
+    from sentinel.lifecycle.registry import SkillRegistry
+
+    cfg = load_config(config_path)
+    registry = SkillRegistry()
+    installer = SkillInstaller(cfg.workspace_skills_dir, registry)
+
+    try:
+        if path_or_url.startswith(("http://", "https://")):
+            with console.status(f"[bold green]Downloading {path_or_url}..."):
+                record = installer.install_from_url(path_or_url)
+        else:
+            record = installer.install_from_file(Path(path_or_url))
+        console.print(f"[green]Installed '{record.name}' v{record.version} → {record.path}[/green]")
+    except (ValueError, FileExistsError, FileNotFoundError) as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+
+@skills_app.command("enable")
+def skills_enable(
+    name: str = typer.Argument(..., help="Skill name"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Enable a disabled skill."""
+    from sentinel.lifecycle.registry import SkillRegistry
+    from sentinel.lifecycle.toggler import SkillToggler
+
+    load_config(config_path)
+    registry = SkillRegistry()
+    toggler = SkillToggler(registry)
+    try:
+        toggler.enable(name)
+        console.print(f"[green]Enabled '{name}'[/green]")
+    except (FileNotFoundError, PermissionError, ValueError) as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+
+@skills_app.command("disable")
+def skills_disable(
+    name: str = typer.Argument(..., help="Skill name"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Disable an enabled skill."""
+    from sentinel.lifecycle.registry import SkillRegistry
+    from sentinel.lifecycle.toggler import SkillToggler
+
+    load_config(config_path)
+    registry = SkillRegistry()
+    toggler = SkillToggler(registry)
+    try:
+        toggler.disable(name)
+        console.print(f"[yellow]Disabled '{name}'[/yellow]")
+    except (FileNotFoundError, PermissionError, ValueError) as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+
+@skills_app.command("uninstall")
+def skills_uninstall(
+    name: str = typer.Argument(..., help="Skill name"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Uninstall a skill (move to trash)."""
+    from sentinel.lifecycle.registry import SkillRegistry
+    from sentinel.lifecycle.uninstaller import SkillUninstaller
+
+    load_config(config_path)
+    registry = SkillRegistry()
+    uninstaller = SkillUninstaller(registry)
+    try:
+        trash_path = uninstaller.uninstall(name)
+        console.print(f"[yellow]Uninstalled '{name}' → {trash_path}[/yellow]")
+    except (FileNotFoundError, PermissionError) as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+
+@skills_app.command("health")
+def skills_health(
+    name: str = typer.Argument(..., help="Skill name"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Run security analysis on a single skill."""
+    from sentinel.lifecycle.registry import SkillRegistry
+
+    load_config(config_path)
+    registry = SkillRegistry()
+    record = registry.get(name)
+    if not record:
+        console.print(f"[red]Skill '{name}' not found[/red]")
+        raise typer.Exit(1)
+
+    skill_md = Path(record.path) / "SKILL.md"
+    if not skill_md.exists():
+        skill_md = Path(record.path) / "SKILL.md.disabled"
+    if not skill_md.exists():
+        console.print(f"[red]SKILL.md not found for '{name}'[/red]")
+        raise typer.Exit(1)
+
+    analyzer = SkillAnalyzer()
+    profile = analyzer.analyze(skill_md)
+    _print_skill_detail(profile)
+
+
+@skills_app.command("recover")
+def skills_recover(
+    trash_name: str = typer.Argument(..., help="Name of trash entry to recover"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Recover a previously uninstalled skill from trash."""
+    from sentinel.lifecycle.registry import SkillRegistry
+    from sentinel.lifecycle.uninstaller import SkillUninstaller
+
+    cfg = load_config(config_path)
+    registry = SkillRegistry()
+    uninstaller = SkillUninstaller(registry)
+    try:
+        record = uninstaller.recover(trash_name, cfg.workspace_skills_dir)
+        console.print(f"[green]Recovered '{record.name}' → {record.path}[/green]")
+    except FileNotFoundError as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        raise typer.Exit(1) from exc
+
+
+app.add_typer(skills_app)
+
+
 if __name__ == "__main__":
     app()

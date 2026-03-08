@@ -1,0 +1,116 @@
+"""JSON-backed skill registry for tracking installed skills."""
+
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SkillRecord:
+    """A single registered skill entry."""
+
+    name: str
+    path: str  # absolute path to skill dir
+    source: str  # "local", "clawhub", or URL
+    version: str  # from SKILL.md metadata or "unknown"
+    installed_at: str  # ISO8601
+    enabled: bool  # True if SKILL.md exists (not .disabled)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SkillRecord:
+        return cls(**{k: data[k] for k in cls.__dataclass_fields__ if k in data})
+
+
+class SkillRegistry:
+    """Manages ~/.openclaw/sentinel/skill-registry.json."""
+
+    REGISTRY_PATH = Path.home() / ".openclaw" / "sentinel" / "skill-registry.json"
+
+    def __init__(self, registry_path: Path | None = None) -> None:
+        self._path = registry_path or self.REGISTRY_PATH
+
+    def load(self) -> dict[str, SkillRecord]:
+        """Load the registry from disk. Returns empty dict if file missing."""
+        if not self._path.exists():
+            return {}
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8"))
+            return {k: SkillRecord.from_dict(v) for k, v in data.items()}
+        except (json.JSONDecodeError, KeyError, TypeError):
+            logger.warning("Corrupt registry at %s — starting fresh", self._path)
+            return {}
+
+    def save(self, records: dict[str, SkillRecord]) -> None:
+        """Atomically write registry to disk (tmp + rename)."""
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self._path.with_suffix(".tmp")
+        payload = {k: asdict(v) for k, v in records.items()}
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        tmp.replace(self._path)
+
+    def register(self, record: SkillRecord) -> None:
+        """Add or update a skill in the registry."""
+        records = self.load()
+        records[record.name] = record
+        self.save(records)
+
+    def unregister(self, name: str) -> None:
+        """Remove a skill from the registry."""
+        records = self.load()
+        records.pop(name, None)
+        self.save(records)
+
+    def get(self, name: str) -> SkillRecord | None:
+        """Retrieve a single skill record by name."""
+        return self.load().get(name)
+
+    def list_all(self) -> list[SkillRecord]:
+        """Return all registered skills."""
+        return list(self.load().values())
+
+    def sync(self, skills_dirs: list[Path]) -> None:
+        """Reconcile registry with the filesystem.
+
+        - Skills found on disk but not in registry are added.
+        - Skills in registry but missing from disk are removed.
+        """
+        records = self.load()
+
+        # Collect all skill dirs that have SKILL.md or SKILL.md.disabled
+        found: dict[str, Path] = {}
+        for d in skills_dirs:
+            if not d.exists():
+                continue
+            for child in d.iterdir():
+                if not child.is_dir():
+                    continue
+                skill_md = child / "SKILL.md"
+                skill_md_disabled = child / "SKILL.md.disabled"
+                if skill_md.exists() or skill_md_disabled.exists():
+                    found[child.name] = child
+
+        # Add missing
+        for name, path in found.items():
+            if name not in records:
+                enabled = (path / "SKILL.md").exists()
+                records[name] = SkillRecord(
+                    name=name,
+                    path=str(path),
+                    source="local",
+                    version="unknown",
+                    installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+                    enabled=enabled,
+                )
+
+        # Remove stale
+        stale = [n for n in records if n not in found]
+        for n in stale:
+            del records[n]
+
+        self.save(records)
