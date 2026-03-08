@@ -4,11 +4,24 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    import fcntl
+
+    _HAS_FCNTL = True
+except ImportError:  # Windows
+    _HAS_FCNTL = False
+
 logger = logging.getLogger(__name__)
+
+# In-process lock as a fallback (and to serialise within the same process)
+_REGISTRY_LOCK = threading.Lock()
 
 
 @dataclass
@@ -61,17 +74,38 @@ class SkillRegistry:
         tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         tmp.replace(self._path)
 
+    @contextmanager
+    def _locked(self) -> Generator[None, None, None]:
+        """Acquire in-process + optional OS-level file lock for safe read-modify-write."""
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        lock_file = self._path.with_suffix(".lock")
+        with _REGISTRY_LOCK:
+            if _HAS_FCNTL:
+                fh = lock_file.open("a+")
+                try:
+                    fcntl.flock(fh, fcntl.LOCK_EX)
+                    try:
+                        yield
+                    finally:
+                        fcntl.flock(fh, fcntl.LOCK_UN)
+                finally:
+                    fh.close()
+            else:
+                yield
+
     def register(self, record: SkillRecord) -> None:
-        """Add or update a skill in the registry."""
-        records = self.load()
-        records[record.name] = record
-        self.save(records)
+        """Add or update a skill in the registry (atomic, locked)."""
+        with self._locked():
+            records = self.load()
+            records[record.name] = record
+            self.save(records)
 
     def unregister(self, name: str) -> None:
-        """Remove a skill from the registry."""
-        records = self.load()
-        records.pop(name, None)
-        self.save(records)
+        """Remove a skill from the registry (atomic, locked)."""
+        with self._locked():
+            records = self.load()
+            records.pop(name, None)
+            self.save(records)
 
     def get(self, name: str) -> SkillRecord | None:
         """Retrieve a single skill record by name."""

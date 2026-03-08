@@ -107,11 +107,29 @@ async def install_skill(req: InstallRequest):
     skills_dir = _get_skills_dir()
     installer = SkillInstaller(skills_dir, registry)
 
+    # Allowlist for file-based installs — only permit paths under these directories.
+    # Includes the system temp dir so CI/tests and zip-based workflows are supported.
+    import tempfile
+
+    _ALLOWED_INSTALL_DIRS = [
+        Path("/tmp").resolve(),
+        Path(tempfile.gettempdir()).resolve(),
+        (Path.home() / "Downloads").resolve(),
+        (Path.home() / "Desktop").resolve(),
+    ]
+
     try:
         if req.source == "file":
             if not req.path:
                 raise HTTPException(status_code=400, detail="'path' is required for file installs")
-            record = installer.install_from_file(Path(req.path))
+            resolved = Path(req.path).resolve()
+            if not any(resolved.is_relative_to(allowed) for allowed in _ALLOWED_INSTALL_DIRS):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"File path must be under an allowed directory: "
+                    f"{[str(d) for d in _ALLOWED_INSTALL_DIRS]}",
+                )
+            record = installer.install_from_file(resolved)
         elif req.source == "url":
             if not req.url:
                 raise HTTPException(status_code=400, detail="'url' is required for URL installs")

@@ -116,14 +116,41 @@ class SkillInstaller:
         logger.info("Installed skill '%s' to %s", skill_name, dest)
         return record
 
+    @staticmethod
+    def _validate_url_ssrf(url: str) -> None:
+        """Raise ValueError if the URL resolves to a blocked (SSRF-risky) address.
+
+        Blocks: loopback, RFC-1918 private ranges, link-local (169.254.x.x).
+        """
+        import ipaddress
+        import socket
+        from urllib.parse import urlparse
+
+        parsed = urlparse(url)
+        if parsed.scheme != "https":
+            raise ValueError(f"Only https:// URLs are allowed, got: {parsed.scheme!r}")
+
+        hostname = parsed.hostname
+        if not hostname:
+            raise ValueError("URL has no hostname")
+
+        try:
+            infos = socket.getaddrinfo(hostname, None)
+        except socket.gaierror as exc:
+            raise ValueError(f"Could not resolve hostname {hostname!r}: {exc}") from exc
+
+        for *_, sockaddr in infos:
+            addr = ipaddress.ip_address(sockaddr[0])
+            if addr.is_loopback or addr.is_private or addr.is_link_local or addr.is_reserved:
+                raise ValueError(f"SSRF blocked: {hostname!r} resolves to a blocked address {addr}")
+
     def install_from_url(self, url: str, force: bool = False) -> SkillRecord:
         """Download a .skill file from a URL and install it.
 
         Raises:
-            ValueError: If the URL scheme is not http/https.
+            ValueError: If the URL is not https or resolves to a blocked address.
         """
-        if not url.startswith(("http://", "https://")):
-            raise ValueError(f"Only http/https URLs are supported, got: {url}")
+        self._validate_url_ssrf(url)
 
         try:
             import httpx
