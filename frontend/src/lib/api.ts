@@ -1,10 +1,18 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:18790/api/v1"
 export const API_BASE = BASE
 
+export const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  }
+  if (API_TOKEN) {
+    headers["Authorization"] = `Bearer ${API_TOKEN}`
+  }
   const res = await fetch(`${BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...opts,
+    headers: { ...headers, ...((opts?.headers as Record<string, string>) ?? {}) },
   })
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
   return res.json()
