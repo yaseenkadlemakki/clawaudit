@@ -11,6 +11,7 @@ WebSocket paths: accept token as ?token= query parameter
 
 from __future__ import annotations
 
+import logging
 import os
 import secrets
 from pathlib import Path
@@ -18,6 +19,8 @@ from pathlib import Path
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 TOKEN_FILE = Path.home() / ".openclaw" / "sentinel" / "api-token"
 
@@ -38,15 +41,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
         env_token = os.environ.get("CLAWAUDIT_API_TOKEN", "").strip()
         if env_token:
             return env_token
-        # 2. file
+        # 2. file — only use if non-empty
         if TOKEN_FILE.exists():
-            return TOKEN_FILE.read_text().strip()
-        # 3. generate
+            stored = TOKEN_FILE.read_text().strip()
+            if stored:
+                return stored
+        # 3. generate — write with 0o600 permissions so only owner can read
         token = secrets.token_hex(32)
         TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-        TOKEN_FILE.write_text(token)
-        print(f"[ClawAudit] Generated API token: {token}")  # noqa: T201
-        print(f"[ClawAudit] Token saved to: {TOKEN_FILE}")  # noqa: T201
+        fd = os.open(str(TOKEN_FILE), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, "w") as fh:
+                fh.write(token)
+        except Exception:
+            os.close(fd)
+            raise
+        logger.warning(
+            "[ClawAudit] Generated new API token (first %s...); saved to %s",
+            token[:8],
+            TOKEN_FILE,
+        )
         return token
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[no-untyped-def]

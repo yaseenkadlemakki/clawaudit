@@ -158,3 +158,72 @@ class TestSkillInstaller:
 
         record = installer.install_from_file(tarball)
         assert record.version == "unknown"
+
+
+class TestSSRFValidation:
+    """Tests for _validate_url_ssrf() — the most critical security function in the PR."""
+
+    def _installer(self, tmp_path):
+        from sentinel.lifecycle.installer import SkillInstaller
+        from sentinel.lifecycle.registry import SkillRegistry
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        return SkillInstaller(tmp_path / "skills", reg)
+
+    def test_rejects_http_scheme(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="https"):
+            installer._validate_url_ssrf("http://example.com/skill.skill")
+
+    def test_rejects_ftp_scheme(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="https"):
+            installer._validate_url_ssrf("ftp://example.com/skill.skill")
+
+    def test_rejects_loopback_ipv4(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="blocked"):
+            installer._validate_url_ssrf("https://127.0.0.1/skill.skill")
+
+    def test_rejects_loopback_ipv6(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="blocked"):
+            installer._validate_url_ssrf("https://[::1]/skill.skill")
+
+    def test_rejects_private_rfc1918_10x(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="blocked"):
+            installer._validate_url_ssrf("https://10.0.0.1/skill.skill")
+
+    def test_rejects_private_rfc1918_192168(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="blocked"):
+            installer._validate_url_ssrf("https://192.168.1.1/skill.skill")
+
+    def test_rejects_link_local_169254(self, tmp_path):
+        """AWS/GCP metadata endpoint — must be blocked."""
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="blocked"):
+            installer._validate_url_ssrf("https://169.254.169.254/latest/meta-data")
+
+    def test_rejects_no_hostname(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="hostname"):
+            installer._validate_url_ssrf("https:///path")
+
+    def test_rejects_unresolvable_hostname(self, tmp_path):
+        installer = self._installer(tmp_path)
+        with pytest.raises(ValueError, match="resolve"):
+            installer._validate_url_ssrf("https://this.hostname.definitely.does.not.exist.invalid/x")
+
+    def test_returns_safe_ip_for_valid_url(self, tmp_path):
+        """_validate_url_ssrf returns a non-empty IP string for a resolvable public host."""
+        import socket
+        installer = self._installer(tmp_path)
+        # Only run if DNS is available in test environment
+        try:
+            socket.getaddrinfo("one.one.one.one", 443)
+        except socket.gaierror:
+            pytest.skip("DNS not available in test environment")
+        result = installer._validate_url_ssrf("https://one.one.one.one/skill.skill")
+        assert isinstance(result, str)
+        assert len(result) > 0

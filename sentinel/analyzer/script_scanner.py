@@ -98,10 +98,15 @@ def _is_private_ip(ip_str: str) -> bool:
 class ScriptScanner:
     """Scan non-SKILL.md files in a skill directory for malicious patterns."""
 
-    def __init__(self, safe_domains: frozenset[str] | None = None) -> None:
+    def __init__(
+        self,
+        safe_domains: frozenset[str] | None = None,
+        max_file_size_mb: float = 1.0,
+    ) -> None:
         from sentinel.config import _DEFAULT_SAFE_DOMAINS
 
         self._safe_domains = safe_domains if safe_domains is not None else _DEFAULT_SAFE_DOMAINS
+        self._max_file_size = int(max_file_size_mb * 1_048_576)
 
     def scan_skill(self, skill_name: str, skill_dir: Path) -> list[Finding]:
         """Scan every eligible file in *skill_dir* and return findings."""
@@ -122,7 +127,7 @@ class ScriptScanner:
             size = file_path.stat().st_size
         except OSError:
             return []
-        if size > _MAX_FILE_SIZE:
+        if size > self._max_file_size:
             return []
         # Skip binary files
         if self._is_binary(file_path):

@@ -113,7 +113,10 @@ class SkillAnalyzer:
         self._injection_detector = InjectionDetector()
         sec_cfg = SecurityConfig.load()
         domains = safe_domains if safe_domains is not None else sec_cfg.safe_domains
-        self._script_scanner = ScriptScanner(safe_domains=domains)
+        self._script_scanner = ScriptScanner(
+            safe_domains=domains,
+            max_file_size_mb=sec_cfg.scan.max_script_size_mb,
+        )
         self._scan_scripts = sec_cfg.scan.scan_scripts
 
     def analyze(self, skill_path: Path, run_id: str | None = None) -> SkillProfile:

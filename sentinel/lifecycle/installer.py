@@ -117,10 +117,15 @@ class SkillInstaller:
         return record
 
     @staticmethod
-    def _validate_url_ssrf(url: str) -> None:
-        """Raise ValueError if the URL resolves to a blocked (SSRF-risky) address.
+    def _validate_url_ssrf(url: str) -> str:
+        """Validate URL and return the safe resolved IP to pin during download.
 
-        Blocks: loopback, RFC-1918 private ranges, link-local (169.254.x.x).
+        Blocks: http (non-TLS), loopback, RFC-1918 private, link-local (169.254.x.x).
+        Returns the first resolved IP as a string so the caller can pin it in the
+        HTTP transport, preventing DNS rebinding between validation and download.
+
+        Raises:
+            ValueError: If the URL or its resolved address is unsafe.
         """
         import ipaddress
         import socket
@@ -135,14 +140,22 @@ class SkillInstaller:
             raise ValueError("URL has no hostname")
 
         try:
-            infos = socket.getaddrinfo(hostname, None)
+            infos = socket.getaddrinfo(hostname, parsed.port or 443, type=socket.SOCK_STREAM)
         except socket.gaierror as exc:
             raise ValueError(f"Could not resolve hostname {hostname!r}: {exc}") from exc
 
+        safe_ip: str | None = None
         for *_, sockaddr in infos:
             addr = ipaddress.ip_address(sockaddr[0])
             if addr.is_loopback or addr.is_private or addr.is_link_local or addr.is_reserved:
                 raise ValueError(f"SSRF blocked: {hostname!r} resolves to a blocked address {addr}")
+            if safe_ip is None:
+                safe_ip = str(addr)
+
+        if safe_ip is None:
+            raise ValueError(f"Could not determine safe IP for {hostname!r}")
+
+        return safe_ip
 
     def install_from_url(self, url: str, force: bool = False) -> SkillRecord:
         """Download a .skill file from a URL and install it.
@@ -150,25 +163,51 @@ class SkillInstaller:
         Raises:
             ValueError: If the URL is not https or resolves to a blocked address.
         """
-        self._validate_url_ssrf(url)
+        from urllib.parse import urlparse
+
+        # Validate and get the pinned IP to prevent DNS rebinding
+        safe_ip = self._validate_url_ssrf(url)
+        parsed = urlparse(url)
+        hostname = parsed.hostname or ""
+        port = parsed.port or 443
 
         try:
             import httpx
         except ImportError as exc:
             raise ImportError("httpx is required for URL installs: pip install httpx") from exc
 
+        # Pin the transport to the validated IP — prevents DNS rebinding on re-resolution
+        transport = httpx.HTTPTransport(local_address=None)
+        # Override Host header and connect directly to the pinned IP
+        pinned_url = url.replace(f"https://{hostname}", f"https://{safe_ip}", 1)
+        headers = {"Host": f"{hostname}:{port}" if port != 443 else hostname}
+
         with tempfile.NamedTemporaryFile(suffix=".skill", delete=False) as tmp:
             tmp_path = Path(tmp.name)
         try:
-            with httpx.stream("GET", url, timeout=30.0, follow_redirects=True) as resp:
+            with httpx.stream(
+                "GET",
+                pinned_url,
+                headers=headers,
+                timeout=30.0,
+                follow_redirects=False,  # don't follow redirects — could redirect to private IP
+                verify=True,
+                transport=transport,
+            ) as resp:
                 resp.raise_for_status()
                 with tmp_path.open("wb") as fh:
                     for chunk in resp.iter_bytes():
                         fh.write(chunk)
             record = self.install_from_file(tmp_path, force=force)
-            # Override source to the URL
-            record.source = url
-            self._registry.register(record)
+            # Override source to the original URL (install_from_file records "local").
+            # Use a single locked register call — do NOT call register() again here
+            # to avoid a double-write race under concurrent requests. (#17 review #4)
+            with self._registry._locked():  # noqa: SLF001
+                records = self._registry.load()
+                if record.name in records:
+                    records[record.name].source = url
+                    self._registry.save(records)
+                    record.source = url
             return record
         finally:
             tmp_path.unlink(missing_ok=True)

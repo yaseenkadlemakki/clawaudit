@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,15 @@ from sentinel.lifecycle.uninstaller import SkillUninstaller
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["lifecycle"])
+
+# Allowlist for file-based installs — evaluated once at module load time.
+# Includes system temp dir to support CI, testing, and zip-based workflows.
+_ALLOWED_INSTALL_DIRS: list[Path] = [
+    Path("/tmp").resolve(),
+    Path(tempfile.gettempdir()).resolve(),
+    (Path.home() / "Downloads").resolve(),
+    (Path.home() / "Desktop").resolve(),
+]
 
 
 # ── Request / Response models ──────────────────────────────────────────────────
@@ -106,17 +116,6 @@ async def install_skill(req: InstallRequest):
     registry = _get_registry()
     skills_dir = _get_skills_dir()
     installer = SkillInstaller(skills_dir, registry)
-
-    # Allowlist for file-based installs — only permit paths under these directories.
-    # Includes the system temp dir so CI/tests and zip-based workflows are supported.
-    import tempfile
-
-    _ALLOWED_INSTALL_DIRS = [
-        Path("/tmp").resolve(),
-        Path(tempfile.gettempdir()).resolve(),
-        (Path.home() / "Downloads").resolve(),
-        (Path.home() / "Desktop").resolve(),
-    ]
 
     try:
         if req.source == "file":

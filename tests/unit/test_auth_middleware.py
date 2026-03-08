@@ -149,3 +149,45 @@ async def test_websocket_accepts_query_param_token():
     ) as c:
         r = await c.get(f"/ws/test?token={TOKEN}")
         assert r.status_code == 200
+
+
+class TestTokenFileSecurity:
+    def test_generated_token_file_has_restrictive_permissions(self, tmp_path, monkeypatch):
+        """Token file must be written with 0o600 — not world-readable."""
+        import stat
+        from backend.middleware.auth import AuthMiddleware
+
+        token_file = tmp_path / "api-token"
+        monkeypatch.delenv("CLAWAUDIT_API_TOKEN", raising=False)
+
+        # Patch TOKEN_FILE to our tmp location
+        import backend.middleware.auth as auth_mod
+        original = auth_mod.TOKEN_FILE
+        auth_mod.TOKEN_FILE = token_file
+        try:
+            from unittest.mock import MagicMock
+            middleware = AuthMiddleware.__new__(AuthMiddleware)
+            middleware._token = middleware._resolve_token.__func__(middleware)
+            assert token_file.exists()
+            mode = oct(stat.S_IMODE(token_file.stat().st_mode))
+            assert mode == oct(0o600), f"Token file permissions {mode} should be 0o600"
+        finally:
+            auth_mod.TOKEN_FILE = original
+
+    def test_empty_token_file_triggers_generation(self, tmp_path, monkeypatch):
+        """An empty token file should be treated as missing and regenerate."""
+        from backend.middleware.auth import AuthMiddleware
+
+        token_file = tmp_path / "api-token"
+        token_file.write_text("")  # empty
+        monkeypatch.delenv("CLAWAUDIT_API_TOKEN", raising=False)
+
+        import backend.middleware.auth as auth_mod
+        original = auth_mod.TOKEN_FILE
+        auth_mod.TOKEN_FILE = token_file
+        try:
+            middleware = AuthMiddleware.__new__(AuthMiddleware)
+            token = middleware._resolve_token.__func__(middleware)
+            assert len(token) > 0
+        finally:
+            auth_mod.TOKEN_FILE = original
