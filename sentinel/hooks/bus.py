@@ -36,6 +36,7 @@ class HookBus:
                 cls._instance._subscribers = []
                 cls._instance._recent_events: list[ToolEvent] = []
                 cls._instance._max_recent = 200
+                cls._instance._async_lock = asyncio.Lock()
             return cls._instance
 
     @classmethod
@@ -61,16 +62,17 @@ class HookBus:
 
     async def publish(self, event: ToolEvent) -> None:
         """Evaluate rules and dispatch event to all subscribers."""
-        # Run alert rules
-        reasons = evaluate_rules(event, self._recent_events)
-        if reasons:
-            event.alert_triggered = True
-            event.alert_reasons = reasons
+        async with self._async_lock:
+            # Run alert rules
+            reasons = evaluate_rules(event, self._recent_events)
+            if reasons:
+                event.alert_triggered = True
+                event.alert_reasons = reasons
 
-        # Track recent events for frequency detection
-        self._recent_events.append(event)
-        if len(self._recent_events) > self._max_recent:
-            self._recent_events = self._recent_events[-self._max_recent :]
+            # Track recent events for frequency detection
+            self._recent_events.append(event)
+            if len(self._recent_events) > self._max_recent:
+                self._recent_events = self._recent_events[-self._max_recent :]
 
         # Fan out to subscribers
         for cb in self._subscribers:
