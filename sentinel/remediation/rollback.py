@@ -31,6 +31,19 @@ def create_snapshot(skill_path: Path, skill_name: str) -> Path:
     return snapshot
 
 
+def _safe_members(tar: tarfile.TarFile, target: Path) -> list[tarfile.TarInfo]:
+    """Filter tar members to prevent path traversal attacks."""
+    safe = []
+    resolved_target = target.resolve()
+    for member in tar.getmembers():
+        member_path = (target / member.name).resolve()
+        if not str(member_path).startswith(str(resolved_target)):
+            logger.warning("Skipping unsafe tar member: %s", member.name)
+            continue
+        safe.append(member)
+    return safe
+
+
 def restore_snapshot(snapshot_path: Path, target_parent: Path) -> None:
     """Restore a skill from a snapshot.
 
@@ -41,7 +54,7 @@ def restore_snapshot(snapshot_path: Path, target_parent: Path) -> None:
     if not snapshot_path.exists():
         raise FileNotFoundError(f"Snapshot not found: {snapshot_path}")
     with tarfile.open(snapshot_path, "r:gz") as tar:
-        tar.extractall(path=target_parent)  # noqa: S202 — trusted snapshots only
+        tar.extractall(path=target_parent, members=_safe_members(tar, target_parent))
     logger.info("Snapshot restored: %s → %s", snapshot_path, target_parent)
 
 

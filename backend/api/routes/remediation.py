@@ -18,6 +18,35 @@ from backend.storage.repository import FindingRepository, ScanRepository
 from sentinel.remediation.engine import RemediationEngine
 
 logger = logging.getLogger(__name__)
+
+# Allowed parent directories for skill paths and snapshots
+_ALLOWED_SKILL_PARENTS = [
+    Path.home() / ".openclaw" / "workspace",
+    Path.home() / ".openclaw" / "skills",
+]
+_ALLOWED_SNAPSHOT_DIR = Path.home() / ".openclaw" / "sentinel" / "snapshots"
+
+
+def _validate_skill_path(raw_path: str) -> Path:
+    """Validate that a skill path is within allowed directories."""
+    path = Path(raw_path).resolve()
+    if not any(str(path).startswith(str(p.resolve())) for p in _ALLOWED_SKILL_PARENTS):
+        raise HTTPException(
+            status_code=400,
+            detail="Skill path must be within an allowed skills directory.",
+        )
+    return path
+
+
+def _validate_snapshot_path(raw_path: str) -> Path:
+    """Validate that a snapshot path is within the snapshots directory."""
+    path = Path(raw_path).resolve()
+    if not str(path).startswith(str(_ALLOWED_SNAPSHOT_DIR.resolve())):
+        raise HTTPException(
+            status_code=400,
+            detail="Snapshot path must be within the snapshots directory.",
+        )
+    return path
 router = APIRouter(prefix="/api/v1/remediation", tags=["remediation"])
 
 
@@ -86,13 +115,13 @@ async def get_proposals(
     """Generate remediation proposals for the latest completed scan."""
     # Get latest scan findings
     scan_repo = ScanRepository(db)
-    scans = await scan_repo.list_scans(limit=1)
+    scans = await scan_repo.list(limit=1)
     if not scans:
         return []
 
     latest_scan = scans[0]
     finding_repo = FindingRepository(db)
-    findings_orm = await finding_repo.list_findings(scan_id=latest_scan.id)
+    findings_orm = await finding_repo.list(scan_id=latest_scan.id)
 
     # Convert ORM findings to dicts the engine expects
     findings = [
@@ -143,12 +172,14 @@ async def apply_proposal(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown action_type: {req.action_type}")
 
+    skill_path = _validate_skill_path(req.skill_path)
+
     proposal = RemediationProposal(
         proposal_id=req.proposal_id,
         finding_id=req.finding_id,
         check_id=req.check_id,
         skill_name=req.skill_name,
-        skill_path=Path(req.skill_path),
+        skill_path=skill_path,
         description=req.description,
         action_type=action_type,
         diff_preview=req.diff_preview,
@@ -189,7 +220,7 @@ async def rollback(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     """Rollback a remediation using a snapshot path."""
-    snapshot = Path(req.snapshot_path)
+    snapshot = _validate_snapshot_path(req.snapshot_path)
     if not snapshot.exists():
         raise HTTPException(status_code=404, detail=f"Snapshot not found: {req.snapshot_path}")
 

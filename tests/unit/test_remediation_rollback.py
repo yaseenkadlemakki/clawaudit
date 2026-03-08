@@ -1,8 +1,6 @@
 """Unit tests for remediation snapshot/rollback."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from sentinel.remediation.rollback import (
@@ -33,6 +31,7 @@ class TestCreateSnapshot:
 
     def test_snapshot_is_readable(self, tmp_path):
         import tarfile
+
         import sentinel.remediation.rollback as rb
         original_dir = rb.SNAPSHOT_DIR
         rb.SNAPSHOT_DIR = tmp_path / "snapshots"
@@ -107,6 +106,34 @@ class TestListSnapshots:
             assert len(snaps) == 3
         finally:
             rb.SNAPSHOT_DIR = original_dir
+
+
+class TestSafeMembers:
+    def test_rejects_path_traversal_member(self, tmp_path):
+        """Tar members with path traversal (../) should be filtered out."""
+        import io
+        import tarfile
+
+        from sentinel.remediation.rollback import _safe_members
+
+        # Create a tar with a path traversal member
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            # Normal member
+            info = tarfile.TarInfo(name="skill/SKILL.md")
+            info.size = 4
+            tar.addfile(info, io.BytesIO(b"safe"))
+            # Malicious member
+            info2 = tarfile.TarInfo(name="../../../etc/passwd")
+            info2.size = 7
+            tar.addfile(info2, io.BytesIO(b"malicious"))
+
+        buf.seek(0)
+        with tarfile.open(fileobj=buf, mode="r:gz") as tar:
+            safe = _safe_members(tar, tmp_path)
+            names = [m.name for m in safe]
+            assert "skill/SKILL.md" in names
+            assert "../../../etc/passwd" not in names
 
 
 class TestDeleteSnapshot:

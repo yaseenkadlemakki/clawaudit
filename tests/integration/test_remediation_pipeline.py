@@ -3,9 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-from sentinel.remediation.actions import ActionType, RemediationStatus
+from sentinel.remediation.actions import ActionType
 from sentinel.remediation.engine import RemediationEngine
 
 
@@ -139,6 +137,93 @@ class TestProtectedSkills:
         result = engine.apply_proposal(proposal)
         assert result.success is False
         assert "protected" in (result.error or "").lower()
+
+
+class TestApplyAll:
+    def test_apply_all_returns_results_for_each(self, tmp_path):
+        _make_skill(tmp_path, "skill-a", "pty: true\n")
+        _make_skill(tmp_path, "skill-b", "pty: true\n")
+
+        import sentinel.remediation.rollback as rb
+        original_snap_dir = rb.SNAPSHOT_DIR
+        rb.SNAPSHOT_DIR = tmp_path / "snapshots"
+
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=False)
+        findings = [
+            {"id": "f1", "check_id": "ADV-001", "skill_name": "skill-a", "location": str(tmp_path / "skill-a")},
+            {"id": "f2", "check_id": "ADV-001", "skill_name": "skill-b", "location": str(tmp_path / "skill-b")},
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        assert len(proposals) == 2
+
+        try:
+            results = engine.apply_all(proposals)
+            assert len(results) == 2
+            assert all(r.success for r in results)
+            # Verify both files were actually modified
+            assert "pty: false" in (tmp_path / "skill-a" / "SKILL.md").read_text()
+            assert "pty: false" in (tmp_path / "skill-b" / "SKILL.md").read_text()
+        finally:
+            rb.SNAPSHOT_DIR = original_snap_dir
+
+    def test_apply_all_dry_run_returns_all_failed(self, tmp_path):
+        _make_skill(tmp_path, "skill-a", "pty: true\n")
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=True)
+        findings = [
+            {"id": "f1", "check_id": "ADV-001", "skill_name": "skill-a", "location": str(tmp_path / "skill-a")},
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        results = engine.apply_all(proposals)
+        assert all(not r.success for r in results)
+        assert all("dry_run" in (r.error or "") for r in results)
+
+
+class TestEngineErrorPaths:
+    def test_apply_with_unknown_strategy_fails(self, tmp_path):
+        """Applying a proposal with a check_id not in _STRATEGY_MAP should fail gracefully."""
+        from sentinel.remediation.actions import RemediationProposal
+
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=False)
+        proposal = RemediationProposal.create(
+            finding_id="f1",
+            check_id="UNKNOWN-999",
+            skill_name="test",
+            skill_path=tmp_path,
+            description="test",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
+        )
+        result = engine.apply_proposal(proposal)
+        assert result.success is False
+        assert "No strategy" in (result.error or "")
+
+    def test_extra_protected_paths(self, tmp_path):
+        custom_protected = tmp_path / "protected"
+        custom_protected.mkdir()
+        engine = RemediationEngine(
+            skills_dir=tmp_path,
+            dry_run=False,
+            extra_protected_paths=[custom_protected],
+        )
+        assert engine.is_protected(custom_protected / "my-skill") is True
+        assert engine.is_protected(tmp_path / "my-skill") is False
+
+    def test_finding_with_missing_skill_name_skipped(self, tmp_path):
+        _make_skill(tmp_path, "some-skill", "pty: true\n")
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=True)
+        findings = [
+            {"id": "f1", "check_id": "ADV-001", "skill_name": "", "location": str(tmp_path / "some-skill")},
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        assert proposals == []
+
+    def test_finding_with_nonexistent_dir_skipped(self, tmp_path):
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=True)
+        findings = [
+            {"id": "f1", "check_id": "ADV-001", "skill_name": "ghost", "location": "/nonexistent/path"},
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        assert proposals == []
 
 
 class TestFilteredProposals:

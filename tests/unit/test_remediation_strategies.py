@@ -3,10 +3,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from sentinel.remediation.actions import ActionType
-from sentinel.remediation.strategies import shell_access, secrets, permissions
+from sentinel.remediation.strategies import permissions, secrets, shell_access
 
 
 class TestShellAccessStrategy:
@@ -82,6 +80,37 @@ class TestSecretsStrategy:
         proposal = secrets.propose("secret-skill", skill_dir, "find-2")
         assert proposal is not None
 
+    def test_detects_aws_key(self, tmp_path):
+        skill_dir = self._write_skill(tmp_path, "aws_key: AKIAIOSFODNN7EXAMPLE\n")
+        proposal = secrets.propose("secret-skill", skill_dir, "find-2")
+        assert proposal is not None
+        assert "[REDACTED]" in proposal.diff_preview
+        assert "AKIA" not in proposal.diff_preview.split("+")[-1] if "+" in proposal.diff_preview else True
+
+    def test_detects_github_token(self, tmp_path):
+        skill_dir = self._write_skill(
+            tmp_path, "token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmn\n"
+        )
+        proposal = secrets.propose("secret-skill", skill_dir, "find-2")
+        assert proposal is not None
+        assert "[REDACTED]" in proposal.diff_preview
+
+    def test_detects_bearer_token(self, tmp_path):
+        skill_dir = self._write_skill(
+            tmp_path, "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.abc123\n"
+        )
+        proposal = secrets.propose("secret-skill", skill_dir, "find-2")
+        assert proposal is not None
+        assert "[REDACTED]" in proposal.diff_preview
+
+    def test_bearer_redaction_preserves_prefix(self, tmp_path):
+        skill_dir = self._write_skill(
+            tmp_path, "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.abc123\n"
+        )
+        secrets.apply_patch(skill_dir)
+        content = (skill_dir / "SKILL.md").read_text()
+        assert "Bearer [REDACTED]" in content
+
     def test_clean_skill_returns_none(self, tmp_path):
         skill_dir = self._write_skill(tmp_path, "---\nname: clean\n---\nNo secrets here.\n")
         proposal = secrets.propose("clean-skill", skill_dir, "find-2")
@@ -101,6 +130,13 @@ class TestSecretsStrategy:
         content = (skill_dir / "SKILL.md").read_text()
         assert "[REDACTED]" in content
         assert "sk-ant" not in content
+
+    def test_apply_patch_atomic_no_tmp_left(self, tmp_path):
+        skill_dir = self._write_skill(
+            tmp_path, "api_key = 'supersecretpassword123456'\n"
+        )
+        secrets.apply_patch(skill_dir)
+        assert not (skill_dir / "SKILL.tmp").exists()
 
     def test_proposal_impact_mentions_rotation(self, tmp_path):
         skill_dir = self._write_skill(tmp_path, "api_key = 'mykey12345678901234'\n")

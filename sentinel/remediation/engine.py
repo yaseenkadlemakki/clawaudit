@@ -15,11 +15,19 @@ from sentinel.remediation.strategies import permissions, secrets, shell_access
 
 logger = logging.getLogger(__name__)
 
-# Mapping from check_id to (strategy module, apply_patch function)
-_STRATEGY_MAP: dict[str, object] = {
-    "ADV-001": shell_access,
-    "ADV-005": secrets,
-    "PERM-001": permissions,
+
+class _Strategy:
+    """Structural type for strategy modules (propose + apply_patch)."""
+
+    propose: staticmethod
+    apply_patch: staticmethod
+
+
+# Mapping from check_id to strategy module
+_STRATEGY_MAP: dict[str, _Strategy] = {
+    "ADV-001": shell_access,  # type: ignore[dict-item]
+    "ADV-005": secrets,  # type: ignore[dict-item]
+    "PERM-001": permissions,  # type: ignore[dict-item]
 }
 
 # Paths that are considered protected (core system skills — never modify)
@@ -71,7 +79,7 @@ class RemediationEngine:
             logger.debug("No strategy for check_id=%s", check_id)
             return []
 
-        proposal = strategy.propose(  # type: ignore[attr-defined]
+        proposal = strategy.propose(
             skill_name=skill_name,
             skill_path=skill_path,
             finding_id=finding_id,
@@ -161,7 +169,7 @@ class RemediationEngine:
             if strategy is None:
                 raise ValueError(f"No strategy for check_id={proposal.check_id}")
 
-            strategy.apply_patch(proposal.skill_path)  # type: ignore[attr-defined]
+            strategy.apply_patch(proposal.skill_path)
             proposal.status = RemediationStatus.APPLIED
             logger.info(
                 "Applied remediation %s for %s (%s)",
@@ -190,11 +198,16 @@ class RemediationEngine:
 
     # ── Rollback ──────────────────────────────────────────────────────────────
 
-    def rollback(self, snapshot_path: Path) -> bool:
-        """Restore a skill from a snapshot. Returns True on success."""
+    def rollback(self, snapshot_path: Path, target_parent: Path | None = None) -> bool:
+        """Restore a skill from a snapshot. Returns True on success.
+
+        Args:
+            snapshot_path: Path to the .tar.gz snapshot file.
+            target_parent: Directory to extract into. Defaults to skills_dir.
+        """
         try:
-            target_parent = snapshot_path.parent.parent  # snapshots/<ts>-<name>.tar.gz → ...
-            restore_snapshot(snapshot_path, target_parent)
+            restore_target = target_parent or self._skills_dir
+            restore_snapshot(snapshot_path, restore_target)
             logger.info("Rolled back from snapshot: %s", snapshot_path)
             return True
         except Exception as exc:
