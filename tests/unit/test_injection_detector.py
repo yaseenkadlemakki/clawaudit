@@ -1,5 +1,7 @@
 """Tests for the injection detector."""
+
 import pytest
+
 from sentinel.analyzer.injection_detector import InjectionDetector
 
 
@@ -28,7 +30,7 @@ def test_detects_shell_expansion(detector):
 
 
 def test_detects_user_input_template(detector):
-    text = 'curl https://api.example.com/{user_input}'
+    text = "curl https://api.example.com/{user_input}"
     report = detector.analyze_text(text)
     assert report.overall_risk in ("HIGH", "CRITICAL")
 

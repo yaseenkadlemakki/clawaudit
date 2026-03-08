@@ -6,6 +6,7 @@ are correctly reflected in all other files that reference them. Catches
 drift when a check is added to the registry but not documented in domains.md,
 or when a rule is defined in two places with conflicting content.
 """
+
 import re
 
 import pytest
@@ -55,11 +56,12 @@ class TestAbsentHandlingSourceOfTruth:
         The rule lives in the Detection Logic section, not the check table itself.
         """
         import re
+
         # The rule is in the Detection Logic section — search there, not from the
         # first table occurrence of "CONF-01" (which is too far from the PASS text).
         assert "Detection Logic" in domains_md
         det_idx = domains_md.index("Detection Logic")
-        detection_section = domains_md[det_idx: det_idx + 1200]
+        detection_section = domains_md[det_idx : det_idx + 1200]
         # Use regex to confirm the rule co-locates CONF-01 with absent and PASS,
         # preventing a false pass when the three words appear for unrelated reasons.
         assert re.search(r"CONF-01.{0,120}absent.{0,120}PASS", detection_section, re.DOTALL), (
@@ -112,7 +114,7 @@ class TestWebFetchCrossReferences:
         """
         assert "SC-03" in domains_md
         idx = domains_md.index("SC-03")
-        context = domains_md[idx: idx + 300]
+        context = domains_md[idx : idx + 300]
         assert "web_fetch" in context or "UNKNOWN" in context, (
             "SC-03 row in domains.md must document web_fetch usage or UNKNOWN fallback"
         )
@@ -123,7 +125,7 @@ class TestWebFetchCrossReferences:
         """
         assert "SC-05" in domains_md
         idx = domains_md.index("SC-05")
-        context = domains_md[idx: idx + 300]
+        context = domains_md[idx : idx + 300]
         assert "web_fetch" in context or "UNKNOWN" in context, (
             "SC-05 row in domains.md must document web_fetch usage or UNKNOWN fallback"
         )
@@ -159,7 +161,7 @@ class TestSafetyRuleConsistency:
         It was replaced with scoped suppression (WARN for documentation-context matches).
         """
         safety_idx = skill_body.index("Safety Rules")
-        safety_section = skill_body[safety_idx: safety_idx + 2500]
+        safety_section = skill_body[safety_idx : safety_idx + 2500]
         has_scoped = (
             "scoped" in safety_section.lower()
             or "documentation context" in safety_section.lower()
@@ -182,11 +184,7 @@ class TestSafetyRuleConsistency:
 
 class TestVersionConsistency:
     def test_skill_version_matches_changelog(self, skill_frontmatter, changelog_md):
-        version = (
-            skill_frontmatter.get("metadata", {})
-            .get("openclaw", {})
-            .get("version", "")
-        )
+        version = skill_frontmatter.get("metadata", {}).get("openclaw", {}).get("version", "")
         assert version, "SKILL.md metadata.openclaw.version must be set"
         assert version in changelog_md, (
             f"Version '{version}' from SKILL.md not found in CHANGELOG.md — keep them in sync"

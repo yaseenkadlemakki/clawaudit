@@ -7,8 +7,8 @@ sequence is correct, check counts are internally consistent across files,
 version numbers are kept in sync, and the architecture diagram matches
 the actual directory structure.
 """
+
 import re
-from pathlib import Path
 
 import pytest
 
@@ -65,9 +65,7 @@ class TestRequiredFilesExist:
     def test_no_nested_skill_md(self, repo_root):
         """There must be exactly one SKILL.md at the repository root."""
         nested = [p for p in repo_root.rglob("SKILL.md") if p.parent != repo_root]
-        assert not nested, (
-            f"SKILL.md found in subdirectory (duplicate): {[str(p) for p in nested]}"
-        )
+        assert not nested, f"SKILL.md found in subdirectory (duplicate): {[str(p) for p in nested]}"
 
 
 class TestGitignore:
@@ -91,11 +89,7 @@ class TestGitignore:
 
 class TestVersionSync:
     def test_skill_version_in_changelog(self, skill_frontmatter, changelog_md):
-        version = (
-            skill_frontmatter.get("metadata", {})
-            .get("openclaw", {})
-            .get("version", "")
-        )
+        version = skill_frontmatter.get("metadata", {}).get("openclaw", {}).get("version", "")
         assert version, "SKILL.md metadata.openclaw.version not set"
         assert version in changelog_md, (
             f"SKILL.md version '{version}' not found in CHANGELOG.md — keep in sync"
@@ -113,11 +107,7 @@ class TestVersionSync:
         assert hardening_rules.get("version"), "hardening-rules.yaml must have a version field"
 
     def test_skill_version_matches_yaml_registry_version(self, skill_frontmatter, hardening_rules):
-        skill_version = (
-            skill_frontmatter.get("metadata", {})
-            .get("openclaw", {})
-            .get("version", "")
-        )
+        skill_version = skill_frontmatter.get("metadata", {}).get("openclaw", {}).get("version", "")
         yaml_version = hardening_rules.get("version", "")
         assert skill_version == yaml_version, (
             f"Version mismatch: SKILL.md has '{skill_version}', "
@@ -131,7 +121,6 @@ class TestOrchestrationPhaseSequence:
         assert phase in skill_body, f"Phase '{phase}' missing from SKILL.md orchestration"
 
     def test_phases_appear_in_ascending_order(self, skill_body):
-        import re
         # Search for section headings specifically (e.g. "### Phase 0 —") to avoid
         # matching prose references like "skip Phase 2 and Phase 5" in Phase 0 body.
         positions = []
@@ -183,6 +172,7 @@ class TestCheckCountConsistency:
 
     def test_per_domain_counts_sum_to_total(self, checks):
         from collections import Counter
+
         counts = Counter(c.get("domain") for c in checks)
         total = sum(counts.values())
         assert total == EXPECTED_TOTAL_CHECKS, (
@@ -205,8 +195,13 @@ class TestArchitectureDiagramAccuracy:
     def test_skill_md_diagram_files_exist(self, skill_body, repo_root):
         """Files mentioned in the SKILL.md architecture diagram must exist on disk."""
         diagram_files = [
-            "SKILL.md", "domains.md", "scoring.md", "report-template.md",
-            "secret-patterns.md", "injection-patterns.md", "hardening-rules.yaml",
+            "SKILL.md",
+            "domains.md",
+            "scoring.md",
+            "report-template.md",
+            "secret-patterns.md",
+            "injection-patterns.md",
+            "hardening-rules.yaml",
         ]
         missing = [f for f in diagram_files if not list(repo_root.rglob(f))]
         assert not missing, (
@@ -215,13 +210,14 @@ class TestArchitectureDiagramAccuracy:
 
     def test_readme_references_key_files(self, readme_md):
         key_files = [
-            "SKILL.md", "hardening-rules.yaml", "domains.md",
-            "scoring.md", "report-template.md",
+            "SKILL.md",
+            "hardening-rules.yaml",
+            "domains.md",
+            "scoring.md",
+            "report-template.md",
         ]
         missing = [f for f in key_files if f not in readme_md]
-        assert not missing, (
-            f"README.md architecture section missing references to: {missing}"
-        )
+        assert not missing, f"README.md architecture section missing references to: {missing}"
 
 
 class TestInstallDocumentCompleteness:

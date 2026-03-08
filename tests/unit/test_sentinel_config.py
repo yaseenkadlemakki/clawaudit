@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from sentinel.config import (
+    _DEFAULT_SAFE_DOMAINS,
     ScanConfig,
     SecurityConfig,
-    _DEFAULT_SAFE_DOMAINS,
 )
 
 pytestmark = pytest.mark.unit

@@ -1,34 +1,43 @@
 """Unit tests for CronCollector unauthorized cron detection."""
-import json
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
+from unittest.mock import AsyncMock, patch
 
 import httpx
+import pytest
 
-from sentinel.config import SentinelConfig
 from sentinel.collector.cron_collector import CronCollector
-from sentinel.models.event import Event
+from sentinel.config import SentinelConfig
 
 
 def _cfg() -> SentinelConfig:
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost:18789", "gateway_token": "tok",
-            "skills_dir": "/s", "workspace_skills_dir": "/w", "config_file": "/c.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60, "log_dir": "/l",
-            "findings_file": "/f.jsonl", "baseline_file": "/b.json", "policies_dir": "/p",
-        },
-        "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost:18789",
+                "gateway_token": "tok",
+                "skills_dir": "/s",
+                "workspace_skills_dir": "/w",
+                "config_file": "/c.json",
+            },
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": "/l",
+                "findings_file": "/f.jsonl",
+                "baseline_file": "/b.json",
+                "policies_dir": "/p",
+            },
+            "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 def _mock_fetch(crons: list):
     """Patch _fetch_crons to return a fixed list."""
+
     async def _fetch(self):
         return crons
+
     return patch.object(CronCollector, "_fetch_crons", _fetch)
 
 

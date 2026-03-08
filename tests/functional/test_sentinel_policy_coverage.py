@@ -1,7 +1,9 @@
 """Functional tests — Sentinel policy consistency and cross-system alignment."""
+
+from pathlib import Path
+
 import pytest
 import yaml
-from pathlib import Path
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
 
@@ -18,6 +20,7 @@ def _default_rules() -> list:
 
 
 # ── policy file structure ─────────────────────────────────────────────────────
+
 
 @pytest.mark.functional
 class TestDefaultPolicyStructure:
@@ -36,7 +39,9 @@ class TestDefaultPolicyStructure:
 
     def test_all_rule_ids_unique(self):
         ids = [r["id"] for r in _default_rules()]
-        assert len(ids) == len(set(ids)), f"Duplicate policy IDs: {[x for x in ids if ids.count(x) > 1]}"
+        assert len(ids) == len(set(ids)), (
+            f"Duplicate policy IDs: {[x for x in ids if ids.count(x) > 1]}"
+        )
 
     def test_all_rules_have_required_fields(self):
         required = ("id", "domain", "check", "condition", "value", "severity", "action")
@@ -58,8 +63,18 @@ class TestDefaultPolicyStructure:
             assert action in valid, f"Rule {rule['id']} has invalid action: {action}"
 
     def test_all_conditions_known(self):
-        known = {"equals", "not_equals", "contains", "not_contains", "gt", "gte",
-                 "in", "not_in", "exists", "not_exists"}
+        known = {
+            "equals",
+            "not_equals",
+            "contains",
+            "not_contains",
+            "gt",
+            "gte",
+            "in",
+            "not_in",
+            "exists",
+            "not_exists",
+        }
         for rule in _default_rules():
             assert rule["condition"] in known, (
                 f"Rule {rule['id']} has unknown condition: {rule['condition']}"
@@ -68,11 +83,13 @@ class TestDefaultPolicyStructure:
 
 # ── policy ↔ collector alignment ──────────────────────────────────────────────
 
+
 @pytest.mark.functional
 class TestPolicyCollectorAlignment:
     def test_pol_007_threshold_matches_session_collector(self):
         """POL-007 rate limit must match SessionCollector.TOOL_CALL_LIMIT_PER_MINUTE."""
         from sentinel.collector.session_collector import TOOL_CALL_LIMIT_PER_MINUTE
+
         pol_007 = next(r for r in _default_rules() if r["id"] == "POL-007")
         assert int(pol_007["value"]) == TOOL_CALL_LIMIT_PER_MINUTE, (
             f"POL-007 value ({pol_007['value']}) != TOOL_CALL_LIMIT_PER_MINUTE ({TOOL_CALL_LIMIT_PER_MINUTE})"
@@ -103,6 +120,7 @@ class TestPolicyCollectorAlignment:
     def test_all_policy_ids_patterned_correctly(self):
         """All rule IDs follow POL-NNN format."""
         import re
+
         pattern = re.compile(r"^POL-\d{3}$")
         for rule in _default_rules():
             assert pattern.match(rule["id"]), (
@@ -112,23 +130,27 @@ class TestPolicyCollectorAlignment:
 
 # ── policy engine loads default policies ─────────────────────────────────────
 
+
 @pytest.mark.functional
 class TestPolicyEngineLoadDefault:
     def test_engine_loads_all_default_rules(self):
         from sentinel.policy.engine import PolicyEngine
+
         engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
         assert len(engine.rules) == len(_default_rules()), (
             f"Engine loaded {len(engine.rules)} rules, expected {len(_default_rules())}"
         )
 
     def test_engine_evaluates_runaway_event_using_default_policies(self):
-        from sentinel.policy.engine import PolicyEngine
         from sentinel.models.event import Event
+        from sentinel.policy.engine import PolicyEngine
 
         engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
         event = Event(
-            source="session_collector", event_type="runaway_agent",
-            severity="HIGH", entity="session-abc",
+            source="session_collector",
+            event_type="runaway_agent",
+            severity="HIGH",
+            entity="session-abc",
             evidence="tool_calls_per_minute=45 threshold=30",
             action_taken="ALLOW",
         )
@@ -137,27 +159,32 @@ class TestPolicyEngineLoadDefault:
         assert "POL-007" in decision.policy_ids
 
     def test_engine_evaluates_cron_event_using_default_policies(self):
-        from sentinel.policy.engine import PolicyEngine
         from sentinel.models.event import Event
+        from sentinel.policy.engine import PolicyEngine
 
         engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
         event = Event(
-            source="cron_collector", event_type="unauthorized_cron",
-            severity="HIGH", entity="evil-cron",
-            evidence="new_cron_id=evil-cron", action_taken="ALLOW",
+            source="cron_collector",
+            event_type="unauthorized_cron",
+            severity="HIGH",
+            entity="evil-cron",
+            evidence="new_cron_id=evil-cron",
+            action_taken="ALLOW",
         )
         decision = engine.evaluate(event)
         assert decision.action == "ALERT"
         assert "POL-008" in decision.policy_ids
 
     def test_engine_evaluates_code_block_event_using_default_policies(self):
-        from sentinel.policy.engine import PolicyEngine
         from sentinel.models.event import Event
+        from sentinel.policy.engine import PolicyEngine
 
         engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
         event = Event(
-            source="session_collector", event_type="code_block_as_command",
-            severity="HIGH", entity="session-xyz",
+            source="session_collector",
+            event_type="code_block_as_command",
+            severity="HIGH",
+            entity="session-xyz",
             evidence="language=python confidence=HIGH tokens=python_from_import,python_class",
             action_taken="ALLOW",
         )
@@ -166,15 +193,21 @@ class TestPolicyEngineLoadDefault:
         assert "POL-011" in decision.policy_ids
 
     def test_default_policy_evaluates_finding_with_fail_result(self):
-        from sentinel.policy.engine import PolicyEngine
         from sentinel.models.finding import Finding
+        from sentinel.policy.engine import PolicyEngine
 
         engine = PolicyEngine(DEFAULT_POLICY_FILE.parent)
         finding = Finding(
-            check_id="CONF-01", domain="config", title="Discord open",
-            description="", severity="CRITICAL", result="FAIL",
-            evidence="groupPolicy=open", location="openclaw.json",
-            remediation="", run_id="r",
+            check_id="CONF-01",
+            domain="config",
+            title="Discord open",
+            description="",
+            severity="CRITICAL",
+            result="FAIL",
+            evidence="groupPolicy=open",
+            location="openclaw.json",
+            remediation="",
+            run_id="r",
         )
         decision = engine.evaluate_finding(finding)
         # Default rule: FAIL + HIGH/CRITICAL → ALERT
@@ -183,30 +216,45 @@ class TestPolicyEngineLoadDefault:
 
 # ── renderer output is parseable ─────────────────────────────────────────────
 
+
 @pytest.mark.functional
 class TestRendererOutputFormat:
     def _findings(self, n=3):
         from sentinel.models.finding import Finding
+
         return [
-            Finding(check_id=f"C-{i}", domain="config", title=f"F{i}",
-                    description="d", severity="HIGH", result="FAIL",
-                    evidence="e", location="loc", remediation="r", run_id="r1")
+            Finding(
+                check_id=f"C-{i}",
+                domain="config",
+                title=f"F{i}",
+                description="d",
+                severity="HIGH",
+                result="FAIL",
+                evidence="e",
+                location="loc",
+                remediation="r",
+                run_id="r1",
+            )
             for i in range(n)
         ]
 
     def test_markdown_output_has_h1_header(self):
         from sentinel.reporter.renderer import render_markdown
+
         md = render_markdown(self._findings(), "run-001")
         assert md.startswith("#")
 
     def test_markdown_output_has_findings_section(self):
         from sentinel.reporter.renderer import render_markdown
+
         md = render_markdown(self._findings(), "run-001")
         assert "## Findings" in md
 
     def test_json_output_schema(self):
         import json
+
         from sentinel.reporter.renderer import render_json
+
         data = json.loads(render_json(self._findings(2), "run-001"))
         assert "run_id" in data
         assert "findings" in data
@@ -214,16 +262,34 @@ class TestRendererOutputFormat:
         assert data["total"] == 2
 
     def test_finding_severity_order_in_markdown(self):
-        from sentinel.reporter.renderer import render_markdown
         from sentinel.models.finding import Finding
+        from sentinel.reporter.renderer import render_markdown
 
         findings = [
-            Finding(check_id="LOW-01", domain="config", title="Low finding",
-                    description="", severity="LOW", result="FAIL",
-                    evidence="", location="", remediation="", run_id="r"),
-            Finding(check_id="CRIT-01", domain="config", title="Critical finding",
-                    description="", severity="CRITICAL", result="FAIL",
-                    evidence="", location="", remediation="", run_id="r"),
+            Finding(
+                check_id="LOW-01",
+                domain="config",
+                title="Low finding",
+                description="",
+                severity="LOW",
+                result="FAIL",
+                evidence="",
+                location="",
+                remediation="",
+                run_id="r",
+            ),
+            Finding(
+                check_id="CRIT-01",
+                domain="config",
+                title="Critical finding",
+                description="",
+                severity="CRITICAL",
+                result="FAIL",
+                evidence="",
+                location="",
+                remediation="",
+                run_id="r",
+            ),
         ]
         md = render_markdown(findings, "r")
         # CRITICAL should appear before LOW

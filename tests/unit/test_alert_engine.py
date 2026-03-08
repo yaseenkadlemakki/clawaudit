@@ -1,10 +1,10 @@
 """Unit tests for AlertEngine — routing and deduplication."""
+
 import json
-import pytest
-import tempfile
 import time
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 from sentinel.alerts.engine import AlertEngine
 from sentinel.config import SentinelConfig
@@ -13,39 +13,50 @@ from sentinel.models.policy import PolicyDecision
 
 
 def _make_config(alerts_enabled=True, dedup_window=300, tmp_path=None) -> SentinelConfig:
-    alerts_path = str(tmp_path / "alerts.jsonl") if tmp_path else "~/.openclaw/sentinel/alerts.jsonl"
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost:18789",
-            "gateway_token": "",
-            "skills_dir": "/tmp/skills",
-            "workspace_skills_dir": "/tmp/workspace",
-            "config_file": "/tmp/config.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60,
-            "log_dir": "/tmp/logs",
-            "findings_file": "/tmp/findings.jsonl",
-            "baseline_file": "/tmp/baseline.json",
-            "policies_dir": "/tmp/policies",
-        },
-        "alerts": {
-            "enabled": alerts_enabled,
-            "dedup_window_seconds": dedup_window,
-            "channels": {
-                "file": {"enabled": True, "path": alerts_path},
-                "openclaw": {"enabled": False},
+    alerts_path = (
+        str(tmp_path / "alerts.jsonl") if tmp_path else "~/.openclaw/sentinel/alerts.jsonl"
+    )
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost:18789",
+                "gateway_token": "",
+                "skills_dir": "/tmp/skills",
+                "workspace_skills_dir": "/tmp/workspace",
+                "config_file": "/tmp/config.json",
             },
-        },
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": "/tmp/logs",
+                "findings_file": "/tmp/findings.jsonl",
+                "baseline_file": "/tmp/baseline.json",
+                "policies_dir": "/tmp/policies",
+            },
+            "alerts": {
+                "enabled": alerts_enabled,
+                "dedup_window_seconds": dedup_window,
+                "channels": {
+                    "file": {"enabled": True, "path": alerts_path},
+                    "openclaw": {"enabled": False},
+                },
+            },
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 def _finding(**kwargs) -> Finding:
     defaults = dict(
-        check_id="CONF-01", domain="config", title="Test",
-        description="", severity="HIGH", result="FAIL",
-        evidence="ev", location="openclaw.json", remediation="", run_id="r1",
+        check_id="CONF-01",
+        domain="config",
+        title="Test",
+        description="",
+        severity="HIGH",
+        result="FAIL",
+        evidence="ev",
+        location="openclaw.json",
+        remediation="",
+        run_id="r1",
     )
     defaults.update(kwargs)
     return Finding(**defaults)
@@ -56,6 +67,7 @@ def _decision(action="ALERT") -> PolicyDecision:
 
 
 # ── routing ──────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestAlertEngineRouting:
@@ -106,6 +118,7 @@ class TestAlertEngineRouting:
 
 
 # ── deduplication ─────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestAlertEngineDedup:

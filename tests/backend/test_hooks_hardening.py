@@ -1,9 +1,8 @@
 """Tests for hooks API hardening — issue #46 and #58."""
-import json
-import time
+
 import pytest
-from httpx import AsyncClient
 from fastapi.testclient import TestClient
+
 from backend.main import app
 
 
@@ -80,7 +79,9 @@ class TestWebSocketAuth:
     def test_ws_endpoint_no_token_param(self):
         """The WebSocket endpoint signature must not accept token as query param."""
         import inspect
+
         from backend.api.routes.hooks import event_stream
+
         sig = inspect.signature(event_stream)
         params = list(sig.parameters.keys())
         assert "token" not in params, f"token should not be a query param. Params: {params}"
@@ -96,6 +97,7 @@ class TestWebSocketAuth:
     def test_ws_accepts_valid_auth(self):
         """WS connection proceeds with valid token."""
         import os
+
         token = os.environ.get("CLAWAUDIT_API_TOKEN", "")
         if not token:
             pytest.skip("CLAWAUDIT_API_TOKEN not set")

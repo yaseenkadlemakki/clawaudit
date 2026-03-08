@@ -4,7 +4,7 @@ Shared test fixtures for the ClawAudit test suite.
 All fixtures are session-scoped: each file is read once per test run and
 shared across all tests, keeping the suite fast even as it grows.
 """
-import re
+
 from pathlib import Path
 
 import pytest
@@ -15,6 +15,7 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _parse_frontmatter(path: Path) -> dict:
     """Parse YAML frontmatter delimited by --- lines from a markdown file."""
@@ -46,7 +47,7 @@ def _get_body(path: Path) -> str:
             break
     if closing is None:
         return text
-    return "\n".join(lines[closing + 1:]).strip()
+    return "\n".join(lines[closing + 1 :]).strip()
 
 
 def _read(relpath: str) -> str:
@@ -58,6 +59,7 @@ def _read(relpath: str) -> str:
 
 
 # ── Session fixtures ────────────────────────────────────────────────────────────
+
 
 @pytest.fixture(scope="session")
 def repo_root() -> Path:

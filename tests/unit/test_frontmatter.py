@@ -4,6 +4,7 @@ Unit tests for SKILL.md frontmatter.
 Validates: required keys, allowed-tools list (including web_fetch regression),
 metadata field completeness, and author identity correctness.
 """
+
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -41,9 +42,7 @@ class TestAllowedTools:
     @pytest.mark.parametrize("tool", sorted(REQUIRED_TOOLS))
     def test_required_tool_present(self, skill_frontmatter, tool):
         tools = skill_frontmatter.get("allowed-tools", [])
-        assert tool in tools, (
-            f"Required tool '{tool}' not in allowed-tools. Current list: {tools}"
-        )
+        assert tool in tools, f"Required tool '{tool}' not in allowed-tools. Current list: {tools}"
 
     def test_web_fetch_present(self, skill_frontmatter):
         """
@@ -75,10 +74,14 @@ class TestMetadata:
         assert self._openclaw(skill_frontmatter).get("emoji"), "metadata.openclaw.emoji must be set"
 
     def test_version_present_and_non_empty(self, skill_frontmatter):
-        assert self._openclaw(skill_frontmatter).get("version"), "metadata.openclaw.version must be set"
+        assert self._openclaw(skill_frontmatter).get("version"), (
+            "metadata.openclaw.version must be set"
+        )
 
     def test_author_present_and_non_empty(self, skill_frontmatter):
-        assert self._openclaw(skill_frontmatter).get("author"), "metadata.openclaw.author must be set"
+        assert self._openclaw(skill_frontmatter).get("author"), (
+            "metadata.openclaw.author must be set"
+        )
 
     def test_author_is_not_skill_name(self, skill_frontmatter):
         """
@@ -99,6 +102,7 @@ class TestMetadata:
 
     def test_version_is_semver(self, skill_frontmatter):
         import re
+
         version = self._openclaw(skill_frontmatter).get("version", "")
         assert re.match(r"^\d+\.\d+\.\d+$", str(version)), (
             f"metadata.openclaw.version must be a semver string (e.g. '1.0.0'), got: '{version}'"

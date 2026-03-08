@@ -1,0 +1,70 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - generic [ref=e3]:
+      - img [ref=e4]
+      - generic [ref=e6]: CLAWAUDIT
+    - navigation [ref=e7]:
+      - link "Dashboard" [ref=e8] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e9]
+        - text: Dashboard
+      - link "Full Audit" [ref=e14] [cursor=pointer]:
+        - /url: /audit
+        - img [ref=e15]
+        - text: Full Audit
+      - link "Skill Explorer" [ref=e17] [cursor=pointer]:
+        - /url: /skills
+        - img [ref=e18]
+        - text: Skill Explorer
+      - link "Findings Explorer" [ref=e20] [cursor=pointer]:
+        - /url: /findings
+        - img [ref=e21]
+        - text: Findings Explorer
+      - link "Investigation" [ref=e24] [cursor=pointer]:
+        - /url: /chat
+        - img [ref=e25]
+        - text: Investigation
+      - link "Remediation" [ref=e27] [cursor=pointer]:
+        - /url: /remediation
+        - img [ref=e28]
+        - text: Remediation
+      - link "Runtime Events" [ref=e30] [cursor=pointer]:
+        - /url: /hooks
+        - img [ref=e31]
+        - text: Runtime Events
+    - generic [ref=e33]: Phase 7b · v0.3
+  - main [ref=e34]:
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - heading "Findings Explorer" [level=1] [ref=e37]
+        - generic [ref=e38]: 0 results
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - img [ref=e41]
+          - textbox "Search findings…" [ref=e44]
+        - combobox [ref=e45]:
+          - option "All Severities" [selected]
+          - option "Critical"
+          - option "High"
+          - option "Medium"
+          - option "Low"
+          - option "Info"
+        - combobox [ref=e46]:
+          - option "All Domains" [selected]
+      - generic [ref=e47]: "Error: API 500: {\"detail\":\"Internal server error\"}"
+      - table [ref=e49]:
+        - rowgroup [ref=e50]:
+          - row "Severity Title Check ID Domain Skill Detected" [ref=e51]:
+            - columnheader "Severity" [ref=e52]
+            - columnheader "Title" [ref=e53]
+            - columnheader "Check ID" [ref=e54]
+            - columnheader "Domain" [ref=e55]
+            - columnheader "Skill" [ref=e56]
+            - columnheader "Detected" [ref=e57]
+            - columnheader [ref=e58]
+        - rowgroup
+  - alert [ref=e59]
+```

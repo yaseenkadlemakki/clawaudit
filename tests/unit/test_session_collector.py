@@ -1,28 +1,35 @@
 """Unit tests for SessionCollector runaway agent detection."""
-import json
-import pytest
-import tempfile
-from datetime import datetime, timedelta
-from pathlib import Path
 
-from sentinel.config import SentinelConfig
+import json
+from datetime import datetime, timedelta
+
+import pytest
+
 from sentinel.collector.session_collector import SessionCollector
-from sentinel.models.event import Event
+from sentinel.config import SentinelConfig
 
 
 def _cfg() -> SentinelConfig:
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost", "gateway_token": "",
-            "skills_dir": "/s", "workspace_skills_dir": "/w", "config_file": "/c.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60, "log_dir": "/l",
-            "findings_file": "/f.jsonl", "baseline_file": "/b.json", "policies_dir": "/p",
-        },
-        "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost",
+                "gateway_token": "",
+                "skills_dir": "/s",
+                "workspace_skills_dir": "/w",
+                "config_file": "/c.json",
+            },
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": "/l",
+                "findings_file": "/f.jsonl",
+                "baseline_file": "/b.json",
+                "policies_dir": "/p",
+            },
+            "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 def _make_session_jsonl(n_calls: int, window_seconds: int = 30) -> str:

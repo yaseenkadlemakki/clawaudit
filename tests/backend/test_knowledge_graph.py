@@ -1,7 +1,7 @@
 """Tests for the in-memory knowledge graph."""
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
 
 from backend.engine.knowledge_graph import SecurityKnowledgeGraph
@@ -68,6 +68,7 @@ def test_query_skills_by_tool():
 def test_export_graph_serializable():
     g = SecurityKnowledgeGraph()
     import json
+
     g.add_skill(make_profile("skill-a", domains=["a.com"]), risk_score=5, risk_level="Low")
     export = g.export_graph()
     json.dumps(export)  # should not raise

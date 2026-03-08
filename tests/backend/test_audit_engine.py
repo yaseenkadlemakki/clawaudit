@@ -1,9 +1,9 @@
 """Tests for backend.engine.audit_engine — covers previously uncovered lines."""
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -11,8 +11,8 @@ from backend.engine.audit_engine import AuditEngine
 from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
 
-
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 def _finding(severity: str = "HIGH") -> Finding:
     return Finding(
@@ -29,13 +29,12 @@ def _finding(severity: str = "HIGH") -> Finding:
     )
 
 
-
 def _profile(name: str = "test-skill") -> SkillProfile:
     return SkillProfile(name=name, path="/tmp/test-skill/SKILL.md")
 
 
-
 # ── load_openclaw_config ───────────────────────────────────────────────────────
+
 
 class TestLoadOpenclawConfig:
     def test_returns_dict_when_file_exists(self, tmp_path):
@@ -78,6 +77,7 @@ class TestLoadOpenclawConfig:
 
 # ── run_config_audit ──────────────────────────────────────────────────────────
 
+
 class TestRunConfigAudit:
     def test_returns_findings_from_auditor(self):
         engine = AuditEngine()
@@ -98,6 +98,7 @@ class TestRunConfigAudit:
 
 
 # ── discover_skills ───────────────────────────────────────────────────────────
+
 
 class TestDiscoverSkills:
     def test_finds_skill_md_files(self, tmp_path):
@@ -149,6 +150,7 @@ class TestDiscoverSkills:
 
 # ── analyze_skill ─────────────────────────────────────────────────────────────
 
+
 class TestAnalyzeSkill:
     def test_returns_profile_and_score(self, tmp_path):
         skill_file = tmp_path / "SKILL.md"
@@ -167,6 +169,7 @@ class TestAnalyzeSkill:
 
 
 # ── run_full_audit ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 class TestRunFullAudit:
@@ -265,7 +268,9 @@ class TestRunFullAudit:
         with patch.object(engine._advanced_detector, "run_all", return_value=[]):
             with patch.object(engine, "run_config_audit", return_value=[]):
                 with patch.object(engine, "discover_skills", return_value=[skill_path]):
-                    with patch.object(engine, "analyze_skill", return_value=(profile, 80, "CRITICAL")):
+                    with patch.object(
+                        engine, "analyze_skill", return_value=(profile, 80, "CRITICAL")
+                    ):
                         findings, _ = await engine.run_full_audit("run-1", on_finding=on_finding)
 
         assert skill_finding in findings

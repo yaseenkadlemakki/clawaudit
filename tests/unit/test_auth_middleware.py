@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -155,6 +153,7 @@ class TestTokenFileSecurity:
     def test_generated_token_file_has_restrictive_permissions(self, tmp_path, monkeypatch):
         """Token file must be written with 0o600 — not world-readable."""
         import stat
+
         from backend.middleware.auth import AuthMiddleware
 
         token_file = tmp_path / "api-token"
@@ -162,10 +161,10 @@ class TestTokenFileSecurity:
 
         # Patch TOKEN_FILE to our tmp location
         import backend.middleware.auth as auth_mod
+
         original = auth_mod.TOKEN_FILE
         auth_mod.TOKEN_FILE = token_file
         try:
-            from unittest.mock import MagicMock
             middleware = AuthMiddleware.__new__(AuthMiddleware)
             middleware._token = middleware._resolve_token.__func__(middleware)
             assert token_file.exists()
@@ -183,6 +182,7 @@ class TestTokenFileSecurity:
         monkeypatch.delenv("CLAWAUDIT_API_TOKEN", raising=False)
 
         import backend.middleware.auth as auth_mod
+
         original = auth_mod.TOKEN_FILE
         auth_mod.TOKEN_FILE = token_file
         try:

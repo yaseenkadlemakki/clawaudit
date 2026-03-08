@@ -1,45 +1,58 @@
 """Unit tests for SessionCollector code-block-as-command detection (issue #39233)."""
-import json
-import pytest
-from datetime import datetime
-from pathlib import Path
 
-from sentinel.config import SentinelConfig
+import json
+from datetime import datetime
+
+import pytest
+
 from sentinel.collector.session_collector import SessionCollector
+from sentinel.config import SentinelConfig
 from sentinel.models.event import Event
 
 
 def _cfg() -> SentinelConfig:
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost", "gateway_token": "",
-            "skills_dir": "/s", "workspace_skills_dir": "/w", "config_file": "/c.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60, "log_dir": "/l",
-            "findings_file": "/f.jsonl", "baseline_file": "/b.json", "policies_dir": "/p",
-        },
-        "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost",
+                "gateway_token": "",
+                "skills_dir": "/s",
+                "workspace_skills_dir": "/w",
+                "config_file": "/c.json",
+            },
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": "/l",
+                "findings_file": "/f.jsonl",
+                "baseline_file": "/b.json",
+                "policies_dir": "/p",
+            },
+            "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 def _make_tool_use_record(command: str, tool_name: str = "bash") -> str:
-    return json.dumps({
-        "type": "tool_use",
-        "name": tool_name,
-        "ts": "2025-01-01T12:00:00",
-        "input": {"command": command},
-    })
+    return json.dumps(
+        {
+            "type": "tool_use",
+            "name": tool_name,
+            "ts": "2025-01-01T12:00:00",
+            "input": {"command": command},
+        }
+    )
 
 
 def _make_tool_result_record(output: str) -> str:
-    return json.dumps({
-        "type": "tool_result",
-        "role": "tool",
-        "ts": "2025-01-01T12:00:01",
-        "output": output,
-    })
+    return json.dumps(
+        {
+            "type": "tool_result",
+            "role": "tool",
+            "ts": "2025-01-01T12:00:01",
+            "output": output,
+        }
+    )
 
 
 @pytest.mark.unit
@@ -100,11 +113,7 @@ class TestSessionCollectorCodeBlock:
     def test_non_bash_tool_not_inspected(self, tmp_path):
         """Tool calls to non-shell tools (e.g. 'write', 'read') should be skipped."""
         col, events = self._collector_and_events()
-        python_code = (
-            "from pathlib import Path\n"
-            "class Config:\n"
-            "    pass\n"
-        )
+        python_code = "from pathlib import Path\nclass Config:\n    pass\n"
         session = tmp_path / "session-write.jsonl"
         session.write_text(_make_tool_use_record(python_code, tool_name="write"))
         col._analyze_session_file(session)
@@ -127,12 +136,7 @@ class TestSessionCollectorCodeBlock:
 
     def test_entity_is_session_id(self, tmp_path):
         col, events = self._collector_and_events()
-        python_code = (
-            "from pathlib import Path\n"
-            "import json\n"
-            "class Loader:\n"
-            "    pass\n"
-        )
+        python_code = "from pathlib import Path\nimport json\nclass Loader:\n    pass\n"
         session = tmp_path / "my-session-99.jsonl"
         session.write_text(_make_tool_use_record(python_code))
         col._analyze_session_file(session)
@@ -142,11 +146,7 @@ class TestSessionCollectorCodeBlock:
     def test_dedup_same_code_block(self, tmp_path):
         """Same code block in same session should only emit one event."""
         col, events = self._collector_and_events()
-        python_code = (
-            "from typing import Optional\n"
-            "class Foo:\n"
-            "    pass\n"
-        )
+        python_code = "from typing import Optional\nclass Foo:\n    pass\n"
         record = _make_tool_use_record(python_code)
         session = tmp_path / "session-dup.jsonl"
         session.write_text(record + "\n" + record)
@@ -172,18 +172,15 @@ class TestSessionCollectorCodeBlock:
     def test_input_as_string_not_dict(self, tmp_path):
         """Handle case where input is a plain string, not a dict."""
         col, events = self._collector_and_events()
-        python_code = (
-            "from os import path\n"
-            "class Builder:\n"
-            "    def build(self):\n"
-            "        pass\n"
+        python_code = "from os import path\nclass Builder:\n    def build(self):\n        pass\n"
+        record = json.dumps(
+            {
+                "type": "tool_use",
+                "name": "bash",
+                "ts": "2025-01-01T12:00:00",
+                "input": python_code,
+            }
         )
-        record = json.dumps({
-            "type": "tool_use",
-            "name": "bash",
-            "ts": "2025-01-01T12:00:00",
-            "input": python_code,
-        })
         session = tmp_path / "session-str.jsonl"
         session.write_text(record)
         col._analyze_session_file(session)
@@ -193,16 +190,18 @@ class TestSessionCollectorCodeBlock:
     def test_tool_result_with_list_content(self, tmp_path):
         """Handle tool_result where content is a list of text blocks."""
         col, events = self._collector_and_events()
-        record = json.dumps({
-            "type": "tool_result",
-            "role": "tool",
-            "ts": "2025-01-01T12:00:01",
-            "content": [
-                {"type": "text", "text": "zsh:1: command not found: from"},
-                {"type": "text", "text": "zsh:2: command not found: class"},
-                {"type": "text", "text": "zsh:3: no matches found: Enum"},
-            ],
-        })
+        record = json.dumps(
+            {
+                "type": "tool_result",
+                "role": "tool",
+                "ts": "2025-01-01T12:00:01",
+                "content": [
+                    {"type": "text", "text": "zsh:1: command not found: from"},
+                    {"type": "text", "text": "zsh:2: command not found: class"},
+                    {"type": "text", "text": "zsh:3: no matches found: Enum"},
+                ],
+            }
+        )
         session = tmp_path / "session-list.jsonl"
         session.write_text(record)
         col._analyze_session_file(session)
@@ -227,14 +226,11 @@ class TestSessionCollectorCodeBlock:
         base = datetime(2025, 1, 1, 12, 0, 0)
         for i in range(35):
             from datetime import timedelta
+
             ts = (base + timedelta(seconds=i)).isoformat()
             lines.append(json.dumps({"type": "tool_use", "ts": ts}))
         # Add a code-block tool call
-        python_code = (
-            "from enum import Enum\n"
-            "class Status(Enum):\n"
-            "    OK = 'ok'\n"
-        )
+        python_code = "from enum import Enum\nclass Status(Enum):\n    OK = 'ok'\n"
         lines.append(_make_tool_use_record(python_code))
         session = tmp_path / "session-both.jsonl"
         session.write_text("\n".join(lines))

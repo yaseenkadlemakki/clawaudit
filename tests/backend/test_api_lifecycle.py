@@ -85,7 +85,9 @@ def _make_tarball(tmp_path: Path, name: str) -> Path:
 @pytest.mark.asyncio
 @pytest.mark.backend
 class TestLifecycleAPI:
-    async def test_list_skills_returns_array(self, client, mock_registry, registered_skill, tmp_path):
+    async def test_list_skills_returns_array(
+        self, client, mock_registry, registered_skill, tmp_path
+    ):
         # Point workspace_skills_dir at the parent of the registered skill's
         # directory so that sync() finds it on disk and does not prune it.
         mock_cfg = MagicMock()

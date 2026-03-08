@@ -1,37 +1,42 @@
 """Integration tests — full audit pipeline: config + skills → reporter → renderer."""
+
 from __future__ import annotations
+
 import json
-import pytest
-import tempfile
 from pathlib import Path
 
-from sentinel.config import SentinelConfig
+import pytest
+
 from sentinel.analyzer.config_auditor import ConfigAuditor
+from sentinel.config import SentinelConfig
 from sentinel.reporter.compliance import ComplianceReporter
-from sentinel.reporter.renderer import render_markdown, render_json
-from sentinel.reporter.delta import load_findings_from_jsonl, compute_delta
+from sentinel.reporter.delta import compute_delta, load_findings_from_jsonl
 
 
 def _make_config(tmp_path: Path, config_data: dict | None = None) -> SentinelConfig:
     config_file = tmp_path / "openclaw.json"
     if config_data is not None:
         config_file.write_text(json.dumps(config_data))
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost:18789", "gateway_token": "",
-            "skills_dir": str(tmp_path / "skills"),
-            "workspace_skills_dir": str(tmp_path / "workspace"),
-            "config_file": str(config_file),
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60, "log_dir": str(tmp_path / "logs"),
-            "findings_file": str(tmp_path / "findings.jsonl"),
-            "baseline_file": str(tmp_path / "baseline.json"),
-            "policies_dir": str(tmp_path / "policies"),
-        },
-        "alerts": {"enabled": False, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost:18789",
+                "gateway_token": "",
+                "skills_dir": str(tmp_path / "skills"),
+                "workspace_skills_dir": str(tmp_path / "workspace"),
+                "config_file": str(config_file),
+            },
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": str(tmp_path / "logs"),
+                "findings_file": str(tmp_path / "findings.jsonl"),
+                "baseline_file": str(tmp_path / "baseline.json"),
+                "policies_dir": str(tmp_path / "policies"),
+            },
+            "alerts": {"enabled": False, "dedup_window_seconds": 300, "channels": {}},
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 @pytest.mark.integration
@@ -151,13 +156,22 @@ class TestComplianceReporterPipeline:
 class TestRenderAndDeltaPipeline:
     def test_render_then_load_roundtrip(self, tmp_path):
         """render_json → write JSONL → load_findings_from_jsonl preserves findings."""
+
         from sentinel.models.finding import Finding
-        import uuid
 
         findings = [
-            Finding(check_id=f"C-{i}", domain="config", title=f"Finding {i}",
-                    description="d", severity="HIGH", result="FAIL",
-                    evidence="e", location="loc", remediation="r", run_id="run1")
+            Finding(
+                check_id=f"C-{i}",
+                domain="config",
+                title=f"Finding {i}",
+                description="d",
+                severity="HIGH",
+                result="FAIL",
+                evidence="e",
+                location="loc",
+                remediation="r",
+                run_id="run1",
+            )
             for i in range(5)
         ]
         jsonl_path = tmp_path / "findings.jsonl"
@@ -171,9 +185,18 @@ class TestRenderAndDeltaPipeline:
         from sentinel.models.finding import Finding
 
         def make_f(check_id, location="loc"):
-            return Finding(check_id=check_id, domain="config", title="t",
-                           description="", severity="HIGH", result="FAIL",
-                           evidence="", location=location, remediation="", run_id="r")
+            return Finding(
+                check_id=check_id,
+                domain="config",
+                title="t",
+                description="",
+                severity="HIGH",
+                result="FAIL",
+                evidence="",
+                location=location,
+                remediation="",
+                run_id="r",
+            )
 
         prev = [make_f("A"), make_f("B")]
         curr = [make_f("A"), make_f("B"), make_f("C")]
@@ -186,9 +209,18 @@ class TestRenderAndDeltaPipeline:
         from sentinel.models.finding import Finding
 
         def make_f(check_id):
-            return Finding(check_id=check_id, domain="config", title="t",
-                           description="", severity="HIGH", result="FAIL",
-                           evidence="", location="loc", remediation="", run_id="r")
+            return Finding(
+                check_id=check_id,
+                domain="config",
+                title="t",
+                description="",
+                severity="HIGH",
+                result="FAIL",
+                evidence="",
+                location="loc",
+                remediation="",
+                run_id="r",
+            )
 
         prev = [make_f("A"), make_f("B")]
         curr = [make_f("A")]

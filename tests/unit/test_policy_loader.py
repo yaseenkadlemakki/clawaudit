@@ -1,12 +1,11 @@
 """Unit tests for YAML policy loader."""
-import pytest
-import tempfile
+
 from pathlib import Path
 
+import pytest
 import yaml
 
-from sentinel.policy.loader import PolicyLoader, load_policy_file, _parse_rule
-from sentinel.models.policy import Rule
+from sentinel.policy.loader import PolicyLoader, _parse_rule, load_policy_file
 
 
 def _write_policy(path: Path, data: dict) -> None:
@@ -15,15 +14,21 @@ def _write_policy(path: Path, data: dict) -> None:
 
 def _rule_data(**kwargs) -> dict:
     defaults = dict(
-        id="R1", domain="config", check="gateway.bind",
-        condition="not_in", value="loopback,localhost",
-        severity="HIGH", action="ALERT", message="exposed",
+        id="R1",
+        domain="config",
+        check="gateway.bind",
+        condition="not_in",
+        value="loopback,localhost",
+        severity="HIGH",
+        action="ALERT",
+        message="exposed",
     )
     defaults.update(kwargs)
     return defaults
 
 
 # ── _parse_rule ───────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestParseRule:
@@ -60,12 +65,12 @@ class TestParseRule:
 
 # ── load_policy_file ──────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestLoadPolicyFile:
     def test_loads_valid_yaml(self, tmp_path):
         p = tmp_path / "pol.yaml"
-        _write_policy(p, {"name": "test", "version": "1",
-                           "rules": [_rule_data()]})
+        _write_policy(p, {"name": "test", "version": "1", "rules": [_rule_data()]})
         policy = load_policy_file(p)
         assert policy is not None
         assert policy.name == "test"
@@ -104,6 +109,7 @@ class TestLoadPolicyFile:
 
 
 # ── PolicyLoader ──────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestPolicyLoader:

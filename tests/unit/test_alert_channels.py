@@ -1,9 +1,9 @@
 """Unit tests for alert delivery channels."""
+
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import AsyncMock, patch, MagicMock
 
 from sentinel.alerts.channels.file import FileAlertChannel
 from sentinel.alerts.channels.webhook import WebhookAlertChannel
@@ -13,20 +13,31 @@ from sentinel.models.policy import PolicyDecision
 
 def _finding(**kwargs) -> Finding:
     defaults = dict(
-        check_id="CONF-01", domain="config", title="Test",
-        description="", severity="HIGH", result="FAIL",
-        evidence="ev", location="loc", remediation="", run_id="r1",
+        check_id="CONF-01",
+        domain="config",
+        title="Test",
+        description="",
+        severity="HIGH",
+        result="FAIL",
+        evidence="ev",
+        location="loc",
+        remediation="",
+        run_id="r1",
     )
     defaults.update(kwargs)
     return Finding(**defaults)
 
 
 def _decision(**kwargs) -> PolicyDecision:
-    return PolicyDecision(action=kwargs.get("action", "ALERT"),
-                          reason="test", policy_ids=kwargs.get("policy_ids", ["POL-001"]))
+    return PolicyDecision(
+        action=kwargs.get("action", "ALERT"),
+        reason="test",
+        policy_ids=kwargs.get("policy_ids", ["POL-001"]),
+    )
 
 
 # ── FileAlertChannel ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestFileAlertChannel:
@@ -49,7 +60,15 @@ class TestFileAlertChannel:
         ch = FileAlertChannel(p)
         ch.send("alert message", _finding(), _decision())
         record = json.loads(p.read_text().strip())
-        for field in ("ts", "finding_id", "check_id", "severity", "action", "message", "policy_ids"):
+        for field in (
+            "ts",
+            "finding_id",
+            "check_id",
+            "severity",
+            "action",
+            "message",
+            "policy_ids",
+        ):
             assert field in record, f"Missing field: {field}"
 
     def test_send_severity_stored(self, tmp_path):
@@ -84,6 +103,7 @@ class TestFileAlertChannel:
 
 
 # ── WebhookAlertChannel ───────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestWebhookAlertChannel:
@@ -122,6 +142,7 @@ class TestWebhookAlertChannel:
 
     async def test_send_async_silences_http_errors(self):
         import httpx
+
         ch = WebhookAlertChannel("http://localhost/hook")
         with patch("httpx.AsyncClient") as mock_cls:
             mock_client = AsyncMock()

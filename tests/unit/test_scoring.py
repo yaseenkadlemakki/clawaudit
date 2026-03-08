@@ -6,6 +6,7 @@ criteria (single canonical source, scoped shell exec allowed for TRUSTED),
 scoring formulas (including the Adjusted Score added in PR review),
 N/A domain handling, severity-weighting caveat, and emoji mapping.
 """
+
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -76,10 +77,7 @@ class TestScoringFormulas:
 
     def test_adjusted_score_excludes_unknown_from_denominator(self, scoring_md):
         text_lower = scoring_md.lower()
-        has_denominator_note = (
-            "total checks" in text_lower
-            and ("unknown" in text_lower)
-        )
+        has_denominator_note = "total checks" in text_lower and ("unknown" in text_lower)
         has_formula = "Total − UNKNOWN" in scoring_md or "Total checks −" in scoring_md
         assert has_denominator_note or has_formula, (
             "Adjusted Score formula must explicitly exclude UNKNOWN from the denominator"

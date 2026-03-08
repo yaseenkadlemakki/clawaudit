@@ -240,7 +240,7 @@ async def event_stream(websocket: WebSocket) -> None:
         raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
         msg = json.loads(raw)
         client_token = msg.get("token", "") if msg.get("type") == "auth" else ""
-    except asyncio.TimeoutError:
+    except TimeoutError:
         await websocket.close(code=4001, reason="auth timeout")
         return
     except json.JSONDecodeError:
@@ -268,7 +268,7 @@ async def event_stream(websocket: WebSocket) -> None:
             try:
                 event_data = await asyncio.wait_for(queue.get(), timeout=30.0)
                 await websocket.send_json(event_data)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 # Send ping to detect dead connections
                 await websocket.send_json({"type": "ping"})
     except WebSocketDisconnect:

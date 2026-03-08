@@ -17,9 +17,7 @@ from sentinel.lifecycle.registry import SkillRegistry
 pytestmark = pytest.mark.unit
 
 
-def _make_skill_tarball(
-    tmp_path: Path, name: str = "demo", extra_content: str = ""
-) -> Path:
+def _make_skill_tarball(tmp_path: Path, name: str = "demo", extra_content: str = "") -> Path:
     """Create a valid .skill tarball."""
     skill_dir = tmp_path / "build" / name
     skill_dir.mkdir(parents=True)

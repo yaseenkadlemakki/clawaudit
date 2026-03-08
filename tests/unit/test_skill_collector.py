@@ -1,26 +1,27 @@
 """Tests for sentinel.collector.skill_collector."""
+
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
+from watchdog.events import FileCreatedEvent, FileDeletedEvent, FileModifiedEvent, FileMovedEvent
 
-from watchdog.events import FileCreatedEvent, FileModifiedEvent, FileDeletedEvent, FileMovedEvent
-
-from sentinel.collector.skill_collector import _SkillHandler, SkillCollector
+from sentinel.collector.skill_collector import SkillCollector, _SkillHandler
 from sentinel.models.event import Event
 from sentinel.models.skill import SkillProfile
 
 
 def _emit_capture():
     events = []
+
     def emit(e: Event):
         events.append(e)
+
     return emit, events
 
 
 # ── _SkillHandler ─────────────────────────────────────────────────────────────
+
 
 class TestSkillHandler:
     def test_ignores_non_skill_files(self, tmp_path):
@@ -122,6 +123,7 @@ class TestSkillHandler:
 
 
 # ── SkillCollector ────────────────────────────────────────────────────────────
+
 
 class TestSkillCollector:
     def test_start_watches_existing_dir(self, tmp_path):
