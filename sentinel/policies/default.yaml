@@ -112,3 +112,14 @@ rules:
     auto_remediate: false
     description: "Config hash must match baseline — drift triggers alert"
     message: "Configuration drift detected — config hash changed from baseline"
+
+  - id: POL-011
+    domain: runtime
+    check: "event_type"
+    condition: equals
+    value: "code_block_as_command"
+    severity: HIGH
+    action: BLOCK
+    auto_remediate: false
+    description: "Code blocks must be written to files, not executed as shell commands"
+    message: "Agent executed code block content as a shell command instead of writing to a file — task aborted"

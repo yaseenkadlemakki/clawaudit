@@ -47,6 +47,8 @@ def _validate_snapshot_path(raw_path: str) -> Path:
             detail="Snapshot path must be within the snapshots directory.",
         )
     return path
+
+
 router = APIRouter(prefix="/api/v1/remediation", tags=["remediation"])
 
 
