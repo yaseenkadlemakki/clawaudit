@@ -3,34 +3,13 @@
 import { useEffect, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { Shield, AlertTriangle, CheckCircle, RotateCcw, Eye, Zap, Clock } from "lucide-react"
-import { API_BASE, API_TOKEN } from "@/lib/api"
-
-interface Proposal {
-  proposal_id: string
-  finding_id: string
-  check_id: string
-  skill_name: string
-  skill_path: string
-  description: string
-  action_type: string
-  diff_preview: string
-  impact: string[]
-  reversible: boolean
-  status: string
-}
-
-interface HistoryItem {
-  id: string
-  proposal_id: string
-  skill_name: string
-  check_id: string
-  action_type: string
-  status: string
-  description: string
-  snapshot_path: string | null
-  applied_at: string
-  error: string | null
-}
+import {
+  getRemediationProposals,
+  getRemediationHistory,
+  applyRemediation,
+  type Proposal,
+  type HistoryItem,
+} from "@/lib/api"
 
 const SEVERITY_COLORS: Record<string, string> = {
   "ADV-001": "text-orange-400 bg-orange-400/10 border-orange-400/30",
@@ -117,24 +96,12 @@ export default function RemediationPage() {
 
   const { data: proposals = [], isLoading: loadingProposals, error: proposalsError } = useQuery<Proposal[]>({
     queryKey: ["remediation-proposals"],
-    queryFn: async () => {
-      const headers: Record<string, string> = { "Content-Type": "application/json" }
-      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
-      const r = await fetch(`${API_BASE}/remediation/proposals`, { headers })
-      if (!r.ok) throw new Error(`Failed to load proposals (${r.status})`)
-      return r.json()
-    },
+    queryFn: getRemediationProposals,
   })
 
   const { data: history = [], isLoading: loadingHistory, error: historyError } = useQuery<HistoryItem[]>({
     queryKey: ["remediation-history"],
-    queryFn: async () => {
-      const headers: Record<string, string> = { "Content-Type": "application/json" }
-      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
-      const r = await fetch(`${API_BASE}/remediation/history`, { headers })
-      if (!r.ok) throw new Error(`Failed to load history (${r.status})`)
-      return r.json()
-    },
+    queryFn: getRemediationHistory,
     enabled: activeTab === "history",
   })
 
@@ -149,17 +116,7 @@ export default function RemediationPage() {
   }, [confirmProposal])
 
   const applyMutation = useMutation({
-    mutationFn: async (proposal: Proposal) => {
-      const headers: Record<string, string> = { "Content-Type": "application/json" }
-      if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
-      const res = await fetch(`${API_BASE}/remediation/apply`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(proposal),
-      })
-      if (!res.ok) throw new Error(await res.text())
-      return res.json()
-    },
+    mutationFn: applyRemediation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["remediation-proposals"] })
       queryClient.invalidateQueries({ queryKey: ["remediation-history"] })

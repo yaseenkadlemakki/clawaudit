@@ -71,7 +71,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center gap-2">
           <h2 className="text-sm text-muted-foreground self-start">Overall Risk Score</h2>
-          <ScoreGauge score={d?.overall_score ?? 0} />
+          {error ? (
+            <div className="flex items-center justify-center w-[180px] h-[180px]">
+              <span className="text-muted-foreground text-sm">Unavailable</span>
+            </div>
+          ) : (
+            <ScoreGauge score={d?.overall_score ?? 0} />
+          )}
           <p className="text-xs text-muted-foreground">
             {lastScan ? `Last scan ${formatDate(lastScan.started_at)}` : "No scans yet"}
           </p>

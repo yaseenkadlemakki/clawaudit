@@ -1,6 +1,9 @@
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:18790/api/v1"
 export const API_BASE = BASE
 
+// Intentionally client-side — ClawAudit runs on localhost only.
+// NEXT_PUBLIC_* vars are inlined into the client JS bundle at build time.
+// If this tool is ever deployed remotely, move auth to a server-side proxy / API route.
 export const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
 
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
@@ -12,7 +15,8 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
   }
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
-    headers: { ...headers, ...((opts?.headers as Record<string, string>) ?? {}) },
+    // Built-in headers (including Authorization) spread last so callers cannot override auth.
+    headers: { ...((opts?.headers as Record<string, string>) ?? {}), ...headers },
   })
   if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
   return res.json()
@@ -128,3 +132,74 @@ export const enableSkill          = (name: string) => req<{ name: string; enable
 export const disableSkill         = (name: string) => req<{ name: string; enabled: boolean }>(`/lifecycle/${name}/disable`, { method: "POST" })
 export const uninstallSkill       = (name: string) => req<{ name: string; trash_path: string }>(`/lifecycle/${name}`, { method: "DELETE" })
 export const getSkillHealth       = (name: string) => req<SkillHealth>(`/lifecycle/${name}/health`)
+
+// ── Hooks ────────────────────────────────────────────────
+export interface ToolEvent {
+  id: string
+  session_id: string
+  skill_name: string | null
+  tool_name: string
+  params_summary: string
+  timestamp: string
+  duration_ms: number | null
+  outcome: string
+  alert_triggered: boolean
+  alert_reasons: string[]
+}
+
+export interface HookStats {
+  total_events: number
+  total_alerts: number
+  events_by_tool: Record<string, number>
+  events_by_skill: Record<string, number>
+}
+
+export const getHookEvents = (params: {
+  limit?: number
+  alerts_only?: boolean
+  session_id?: string
+  skill_name?: string
+} = {}) => {
+  const qs = new URLSearchParams()
+  if (params.limit) qs.set("limit", String(params.limit))
+  if (params.alerts_only) qs.set("alerts_only", "true")
+  if (params.session_id) qs.set("session_id", params.session_id)
+  if (params.skill_name) qs.set("skill_name", params.skill_name)
+  const q = qs.toString()
+  return req<ToolEvent[]>(`/hooks/events${q ? "?" + q : ""}`)
+}
+
+export const getHookStats = () => req<HookStats>("/hooks/stats")
+
+// ── Remediation ──────────────────────────────────────────
+export interface Proposal {
+  proposal_id: string
+  finding_id: string
+  check_id: string
+  skill_name: string
+  skill_path: string
+  description: string
+  action_type: string
+  diff_preview: string
+  impact: string[]
+  reversible: boolean
+  status: string
+}
+
+export interface HistoryItem {
+  id: string
+  proposal_id: string
+  skill_name: string
+  check_id: string
+  action_type: string
+  status: string
+  description: string
+  snapshot_path: string | null
+  applied_at: string
+  error: string | null
+}
+
+export const getRemediationProposals = () => req<Proposal[]>("/remediation/proposals")
+export const getRemediationHistory   = () => req<HistoryItem[]>("/remediation/history")
+export const applyRemediation        = (proposal: Proposal) =>
+  req<unknown>("/remediation/apply", { method: "POST", body: JSON.stringify(proposal) })

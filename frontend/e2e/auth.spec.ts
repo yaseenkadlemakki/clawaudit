@@ -18,7 +18,7 @@ test.describe("API Authentication", () => {
     // Visit all pages that make API calls
     for (const path of ["/dashboard", "/skills", "/findings", "/remediation", "/hooks"]) {
       await page.goto(path)
-      await page.waitForTimeout(1500)
+      await page.waitForResponse((resp) => resp.url().includes("/api/v1/"))
     }
 
     console.log("Authenticated requests:", authRequests.length)
@@ -27,19 +27,22 @@ test.describe("API Authentication", () => {
   })
 
   test("401 responses show error banners not silent failures", async ({ page }) => {
-    // Navigate to each page and verify it renders without crashing
+    // Intercept all API calls and force 401 responses
+    await page.route("**/api/v1/**", (route) =>
+      route.fulfill({ status: 401, body: "Unauthorized" })
+    )
+
     const pages = [
-      { path: "/dashboard", errorSelector: ".border-red-500, .text-red-400" },
+      { path: "/dashboard", errorSelector: ".border-red-500" },
       { path: "/skills", errorSelector: ".border-red-500, .text-red-400" },
-      { path: "/findings", errorSelector: ".border-red-500, .text-red-400" },
-      { path: "/remediation", errorSelector: ".border-red-500, .text-red-400" },
-      { path: "/hooks", errorSelector: ".border-red-500, .text-red-400" },
+      { path: "/findings", errorSelector: ".border-red-500" },
+      { path: "/remediation", errorSelector: ".border-red-500" },
+      { path: "/hooks", errorSelector: ".border-red-500" },
     ]
-    for (const { path } of pages) {
+    for (const { path, errorSelector } of pages) {
       await page.goto(path)
-      await page.waitForTimeout(1000)
-      // Page should render without crashing
-      await expect(page.locator("body")).not.toBeEmpty()
+      // Wait for error banner to appear
+      await expect(page.locator(errorSelector).first()).toBeVisible({ timeout: 5000 })
     }
   })
 
@@ -51,7 +54,7 @@ test.describe("API Authentication", () => {
       }
     })
     await page.goto("/dashboard")
-    await page.waitForTimeout(2000)
+    await page.waitForResponse((resp) => resp.url().includes("/api/v1/"))
     expect(authHeaderSeen).toBe(true)
   })
 
@@ -63,27 +66,26 @@ test.describe("API Authentication", () => {
       }
     })
     await page.goto("/hooks")
-    await page.waitForTimeout(2000)
+    await page.waitForResponse((resp) => resp.url().includes("/hooks/"))
     expect(hooksRequestAuthenticated).toBe(true)
   })
 
   test("Findings Explorer shows error banner on API failure", async ({ page }) => {
+    // Force 401 to guarantee error state
+    await page.route("**/api/v1/**", (route) =>
+      route.fulfill({ status: 401, body: "Unauthorized" })
+    )
     await page.goto("/findings")
-    await page.waitForTimeout(3000)
-
-    const hasData = await page.locator("table tbody tr").count() > 0
-    const hasError = await page.locator(".border-red-500, .text-red-400").first().isVisible().catch(() => false)
-    const hasNoResults = await page.getByText("No findings match").isVisible().catch(() => false)
-
-    // If no data and showing "no results", error banner must be visible
-    if (!hasData && hasNoResults) {
-      expect(hasError).toBe(true)
-    }
+    await expect(page.locator(".border-red-500").first()).toBeVisible({ timeout: 5000 })
+    // "No findings match your filters" should NOT appear alongside the error
+    await expect(page.getByText("No findings match")).not.toBeVisible()
   })
 
   test("Skill Explorer heading and Install button visible even on error", async ({ page }) => {
+    await page.route("**/api/v1/**", (route) =>
+      route.fulfill({ status: 401, body: "Unauthorized" })
+    )
     await page.goto("/skills")
-    await page.waitForTimeout(2000)
 
     // Page heading must ALWAYS be visible
     await expect(page.locator("h1, h2").first()).toBeVisible()
@@ -93,15 +95,18 @@ test.describe("API Authentication", () => {
   })
 
   test("Dashboard stat cards show dash not zero on API error", async ({ page }) => {
+    // Force 401 to guarantee error state
+    await page.route("**/api/v1/**", (route) =>
+      route.fulfill({ status: 401, body: "Unauthorized" })
+    )
     await page.goto("/dashboard")
-    await page.waitForTimeout(2000)
 
-    const errorVisible = await page.locator(".border-red-500, .text-red-400").first().isVisible().catch(() => false)
-    if (errorVisible) {
-      // On error: stat cards should show "—" not "0"
-      const statValues = await page.locator(".text-2xl").allTextContents()
-      const allZeros = statValues.every((v) => v.trim() === "0")
-      expect(allZeros).toBe(false) // at least one should show "—"
-    }
+    // Error banner must be visible
+    await expect(page.locator(".border-red-500").first()).toBeVisible({ timeout: 5000 })
+
+    // Stat cards should show "—" not "0"
+    const statValues = await page.locator(".text-2xl").allTextContents()
+    const allZeros = statValues.every((v) => v.trim() === "0")
+    expect(allZeros).toBe(false) // at least one should show "—"
   })
 })
