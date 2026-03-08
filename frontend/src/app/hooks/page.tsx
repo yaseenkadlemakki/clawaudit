@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Activity, AlertTriangle, Shield, Zap, Filter } from "lucide-react"
-import { API_BASE } from "@/lib/api"
+import { API_BASE, API_TOKEN } from "@/lib/api"
 
 interface ToolEvent {
   id: string
@@ -36,17 +36,17 @@ async function fetchEvents(params: {
   if (params.alerts_only) qs.set("alerts_only", "true")
   if (params.session_id) qs.set("session_id", params.session_id)
   if (params.skill_name) qs.set("skill_name", params.skill_name)
-  const res = await fetch(`${API_BASE}/hooks/events?${qs}`, {
-    headers: { "Content-Type": "application/json" },
-  })
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
+  const res = await fetch(`${API_BASE}/hooks/events?${qs}`, { headers })
   if (!res.ok) throw new Error(`API ${res.status}`)
   return res.json()
 }
 
 async function fetchStats(): Promise<HookStats> {
-  const res = await fetch(`${API_BASE}/hooks/stats`, {
-    headers: { "Content-Type": "application/json" },
-  })
+  const headers: Record<string, string> = { "Content-Type": "application/json" }
+  if (API_TOKEN) headers["Authorization"] = `Bearer ${API_TOKEN}`
+  const res = await fetch(`${API_BASE}/hooks/stats`, { headers })
   if (!res.ok) throw new Error(`API ${res.status}`)
   return res.json()
 }
@@ -75,13 +75,13 @@ export default function HooksPage() {
   const [liveEvents, setLiveEvents] = useState<ToolEvent[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
-  const { data: stats } = useQuery({
+  const { data: stats, error: statsError } = useQuery({
     queryKey: ["hook-stats"],
     queryFn: fetchStats,
     refetchInterval: 10000,
   })
 
-  const { data: events } = useQuery({
+  const { data: events, error: eventsError } = useQuery({
     queryKey: ["hook-events", alertsOnly, skillFilter],
     queryFn: () => fetchEvents({
       limit: 100,
@@ -157,6 +157,12 @@ export default function HooksPage() {
           </span>
         )}
       </div>
+
+      {(statsError || eventsError) && (
+        <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
+          {String(statsError ?? eventsError)}
+        </div>
+      )}
 
       {/* Stats cards */}
       <div className="grid grid-cols-4 gap-4">
