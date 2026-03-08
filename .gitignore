@@ -25,3 +25,4 @@ clawaudit-report-*.json
 # Environment files (never commit)
 .env
 .env.local
+frontend/test-results/
