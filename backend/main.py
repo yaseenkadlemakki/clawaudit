@@ -15,6 +15,7 @@ from backend.api.routes import (
     chat,
     findings,
     graph,
+    hooks,
     lifecycle,
     policies,
     remediation,
@@ -74,6 +75,7 @@ app.include_router(ws.router)  # WebSocket at /ws/scans/{id}/stream
 app.include_router(chat.router)  # Chat at /api/v1/chat
 app.include_router(remediation.router)  # Remediation at /api/v1/remediation
 app.include_router(lifecycle.router, prefix="/api/v1/lifecycle")  # Skill lifecycle management
+app.include_router(hooks.router, prefix="/api/v1/hooks")  # Runtime hook integration
 
 
 @app.get("/api/v1/health")
