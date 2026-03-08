@@ -16,7 +16,13 @@ from backend.models.skill import SkillRecord
 
 @pytest_asyncio.fixture
 async def client():
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+    from tests.backend.conftest import TEST_API_TOKEN
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_API_TOKEN}"},
+    ) as c:
         yield c
 
 

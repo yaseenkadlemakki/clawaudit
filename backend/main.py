@@ -50,6 +50,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Bearer token auth — must come before CORS so auth runs first
+from backend.middleware.auth import AuthMiddleware  # noqa: E402
+
+app.add_middleware(AuthMiddleware)
+
 # CORS — allow_credentials=True requires explicit origins (never "*")
 app.add_middleware(
     CORSMiddleware,
