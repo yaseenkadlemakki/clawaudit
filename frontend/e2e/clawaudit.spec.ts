@@ -421,7 +421,7 @@ test.describe("Full Audit — Scan History", () => {
       body: JSON.stringify([
         {
           id: "test-scan-001",
-          status: "complete",
+          status: "completed",
           started_at: new Date(Date.now() - 120_000).toISOString(),
           completed_at: new Date(Date.now() - 60_000).toISOString(),
           total_findings: 3,
@@ -439,7 +439,7 @@ test.describe("Full Audit — Scan History", () => {
     await page.waitForLoadState("networkidle")
 
     await expect(page.getByText("Previous Scans")).toBeVisible()
-    await expect(page.getByText("complete")).toBeVisible()
+    await expect(page.getByText("completed")).toBeVisible()
     await expect(page.getByRole("cell", { name: "3", exact: true })).toBeVisible()
     await expect(page.getByRole("link", { name: /view findings/i })).toBeVisible()
   })

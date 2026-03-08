@@ -10,14 +10,14 @@ const WS_BASE = process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:18790/ws/scans
 
 function StatusBadge({ status }: { status: ScanRun["status"] }) {
   const styles: Record<string, string> = {
-    complete:  "bg-green-900/50 text-green-400 border-green-700",
+    completed: "bg-green-900/50 text-green-400 border-green-700",
     running:   "bg-yellow-900/50 text-yellow-400 border-yellow-700",
     failed:    "bg-red-900/50 text-red-400 border-red-700",
-    stopped:   "bg-slate-900/50 text-slate-400 border-slate-700",
-    pending:   "bg-yellow-900/50 text-yellow-400 border-yellow-700",
+    stopping:  "bg-slate-900/50 text-slate-400 border-slate-700",
+    idle:      "bg-slate-900/50 text-slate-400 border-slate-700",
   }
   return (
-    <span className={`px-2 py-0.5 rounded text-xs border ${styles[status] ?? styles.pending}`}>
+    <span className={`px-2 py-0.5 rounded text-xs border ${styles[status] ?? styles.idle}`}>
       {status}
     </span>
   )
@@ -33,14 +33,14 @@ function formatDuration(started: string, completed?: string | null): string {
 
 function statusBadge(s: string) {
   const map: Record<string, string> = {
-    running:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
-    complete: "bg-green-500/20 text-green-400 border-green-500/30",
-    failed:   "bg-red-500/20 text-red-400 border-red-500/30",
-    stopped:  "bg-slate-500/20 text-slate-400 border-slate-500/30",
-    pending:  "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    running:   "bg-blue-500/20 text-blue-400 border-blue-500/30",
+    completed: "bg-green-500/20 text-green-400 border-green-500/30",
+    failed:    "bg-red-500/20 text-red-400 border-red-500/30",
+    stopping:  "bg-slate-500/20 text-slate-400 border-slate-500/30",
+    idle:      "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
   }
   return (
-    <span className={cn("px-2 py-0.5 rounded text-xs border", map[s] ?? map.pending)}>
+    <span className={cn("px-2 py-0.5 rounded text-xs border", map[s] ?? map.idle)}>
       {s.toUpperCase()}
     </span>
   )
@@ -128,7 +128,7 @@ export default function AuditPage() {
   })
   const stopMut = useMutation({
     mutationFn: () => { if (!activeScan) return Promise.resolve(null as unknown as ScanRun); return stopScan(activeScan.id) },
-    onSuccess:  (scan) => { wsRef.current?.close(); setActiveScan(s => scan ?? (s ? { ...s, status: "stopped" } : s)) },
+    onSuccess:  (scan) => { wsRef.current?.close(); setActiveScan(s => scan ?? (s ? { ...s, status: "stopping" } : s)) },
   })
 
   const isRunning = activeScan?.status === "running"

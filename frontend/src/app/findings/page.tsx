@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useQuery } from "@tanstack/react-query"
 import { getFindings, getSkills, type Finding } from "@/lib/api"
 import { RiskBadge } from "@/components/RiskBadge"
@@ -55,20 +56,24 @@ function FindingRow({ finding }: { finding: Finding }) {
 }
 
 export default function FindingsPage() {
+  const searchParams = useSearchParams()
+  const scanIdParam = searchParams.get("scan_id") ?? undefined
+
   const [q, setQ]             = useState("")
   const [sev, setSev]         = useState("")
   const [domain, setDomain]   = useState("")
 
   const { data: allFindings, error: allError } = useQuery({
-    queryKey: ["findings-all"],
-    queryFn:  () => getFindings({ limit: 500 }),
+    queryKey: ["findings-all", scanIdParam],
+    queryFn:  () => getFindings({ limit: 500, scan_id: scanIdParam }),
     staleTime: 30_000,
   })
   const { data: findings, isLoading, error: findingsError } = useQuery({
-    queryKey: ["findings", { sev, domain }],
+    queryKey: ["findings", { sev, domain, scanIdParam }],
     queryFn:  () => getFindings({
       severity: sev    || undefined,
       domain:   domain || undefined,
+      scan_id:  scanIdParam,
       limit: 100,
     }),
   })
