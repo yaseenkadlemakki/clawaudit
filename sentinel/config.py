@@ -1,17 +1,121 @@
 """Sentinel configuration loader.
 
 Loads from ~/.openclaw/sentinel/sentinel.yaml or environment variables.
+Also provides ``SecurityConfig`` (safe-domains + scan settings) loaded from
+~/.openclaw/sentinel/config.yaml for script scanning and advanced detection.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 from dotenv import load_dotenv
+
+logger = logging.getLogger(__name__)
+
+# ── Security / scan configuration ──────────────────────────────────────────────
+
+SECURITY_CONFIG_PATH = Path.home() / ".openclaw" / "sentinel" / "config.yaml"
+
+_DEFAULT_SAFE_DOMAINS: frozenset[str] = frozenset(
+    {
+        "github.com",
+        "api.github.com",
+        "raw.githubusercontent.com",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "npmjs.com",
+        "registry.npmjs.org",
+        "anthropic.com",
+        "api.anthropic.com",
+        "openai.com",
+        "api.openai.com",
+        "google.com",
+        "googleapis.com",
+        "ai.google.dev",
+        "huggingface.co",
+        "cloudflare.com",
+        "clawhub.com",
+    }
+)
+
+
+@dataclass
+class ScanConfig:
+    """Knobs for the script / skill scanner."""
+
+    severity_threshold: str = "low"
+    scan_scripts: bool = True
+    max_script_size_mb: float = 1.0
+
+
+@dataclass
+class SecurityConfig:
+    """User-configurable safe domains and scan settings.
+
+    Loaded from ``~/.openclaw/sentinel/config.yaml``.  Falls back to
+    built-in defaults when the file is absent or corrupt.
+    """
+
+    safe_domains: frozenset[str] = field(default_factory=lambda: _DEFAULT_SAFE_DOMAINS)
+    scan: ScanConfig = field(default_factory=ScanConfig)
+
+    @classmethod
+    def load(cls, path: Path | None = None) -> SecurityConfig:
+        """Load from *path* (default ``SECURITY_CONFIG_PATH``), falling back to defaults."""
+        path = path or SECURITY_CONFIG_PATH
+        if not path.exists():
+            return cls()
+        try:
+            raw = yaml.safe_load(path.read_text()) or {}
+            domains = frozenset(raw.get("safe_domains", list(_DEFAULT_SAFE_DOMAINS)))
+            scan_raw = raw.get("scan", {})
+            scan = ScanConfig(
+                severity_threshold=scan_raw.get("severity_threshold", "low"),
+                scan_scripts=scan_raw.get("scan_scripts", True),
+                max_script_size_mb=scan_raw.get("max_script_size_mb", 1.0),
+            )
+            return cls(safe_domains=domains, scan=scan)
+        except Exception as exc:
+            logger.warning("Failed to load security config from %s: %s — using defaults", path, exc)
+            return cls()
+
+    @classmethod
+    def write_defaults(cls, path: Path | None = None) -> None:
+        """Write a default config.yaml to *path*."""
+        path = path or SECURITY_CONFIG_PATH
+        path.parent.mkdir(parents=True, exist_ok=True)
+        lines = [
+            "# Sentinel configuration",
+            "# Edit this file to customise ClawAudit behaviour.",
+            "",
+            "# Domains considered safe for outbound connections in skills.",
+            "# Add your own providers here.",
+            "safe_domains:",
+        ]
+        for d in sorted(_DEFAULT_SAFE_DOMAINS):
+            lines.append(f"  - {d}")
+        lines += [
+            "",
+            "scan:",
+            "  # Minimum severity to report: low | medium | high | critical",
+            "  severity_threshold: low",
+            "  # Scan script files (non-SKILL.md) in skill directories",
+            "  scan_scripts: true",
+            "  # Maximum script file size to scan (MB)",
+            "  max_script_size_mb: 1.0",
+            "",
+        ]
+        path.write_text("\n".join(lines))
+
+
+# ── Main sentinel configuration (sentinel.yaml) ───────────────────────────────
 
 _DEFAULT_CONFIG: dict[str, Any] = {
     "openclaw": {
