@@ -12,15 +12,16 @@ function collectConsoleErrors(page: Page): string[] {
   return errors
 }
 
-/** Check if any error indicator is visible on the page */
-async function hasErrorIndicator(page: Page): Promise<boolean> {
-  const errorByClass = await page.locator('[class*="error"]').count()
-  const errorByDestructive = await page.locator('[class*="destructive"]').count()
-  const errorByRole = await page.locator('[role="alert"]').count()
-  const errorByText = await page.getByText(/error/i).count()
-  const errorBy401 = await page.getByText("401").count()
-  const errorByFailed = await page.getByText(/failed/i).count()
-  return (errorByClass + errorByDestructive + errorByRole + errorByText + errorBy401 + errorByFailed) > 0
+/** Intercept all API calls and force 401 */
+async function mockAllApi401(page: Page) {
+  await page.route("**/api/v1/**", (route) =>
+    route.fulfill({ status: 401, body: "Unauthorized" })
+  )
+}
+
+/** Wait for at least one API response (or networkidle as fallback) */
+async function waitForApi(page: Page) {
+  await page.waitForLoadState("networkidle")
 }
 
 // ─── Navigation ──────────────────────────────────────────────────────
@@ -94,29 +95,22 @@ test.describe("Dashboard", () => {
 
   test("scan history table renders with headers", async ({ page }) => {
     await page.goto("/dashboard")
-    await page.waitForTimeout(2000)
-    await expect(page.getByText("Scan History")).toBeVisible()
+    await expect(page.getByText("Scan History")).toBeVisible({ timeout: 5000 })
     const headers = ["ID", "Status", "Started", "Finished", "Skills", "Findings"]
     for (const h of headers) {
       await expect(page.locator(`th:has-text("${h}")`).first()).toBeVisible({ timeout: 5000 })
     }
   })
 
-  test("stat cards show data or error (not perpetual loading)", async ({ page }) => {
+  test("stat cards show dash (not zero) on API error", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/dashboard")
-    await page.waitForTimeout(5000) // give extra time for API call to resolve
+    await waitForApi(page)
 
-    const hasError = await hasErrorIndicator(page)
-    // Check if stat card values are still showing loading dots
+    // Stat cards should show "—" not "0" when API fails
     const statValues = await page.locator(".text-2xl").allTextContents()
-    const allLoading = statValues.length > 0 && statValues.every(
-      (v) => v.trim() === "..." || v.trim() === "•••" || v.trim() === ""
-    )
-
-    if (allLoading && !hasError) {
-      // Stat cards stuck in loading state with no error — silent failure
-      expect(allLoading && !hasError).toBe(false)
-    }
+    const allZeros = statValues.every((v) => v.trim() === "0")
+    expect(allZeros).toBe(false)
   })
 })
 
@@ -138,9 +132,9 @@ test.describe("Full Audit", () => {
     await startBtn.click()
 
     // After clicking: either scan starts (status shown) or error appears
-    await page.waitForTimeout(3000)
+    await page.waitForLoadState("networkidle")
     const hasStatus = await page.getByText(/running|pending|complete/i).count() > 0
-    const hasError = await hasErrorIndicator(page)
+    const hasError = await page.locator('[role="alert"], [class*="error"], [class*="destructive"]').count() > 0
     const hasStopBtn = await page.getByRole("button", { name: /Stop Scan/i }).count() > 0
 
     expect(hasStatus || hasError || hasStopBtn).toBeTruthy()
@@ -166,43 +160,31 @@ test.describe("Full Audit", () => {
 // ─── Skill Explorer ──────────────────────────────────────────────────
 
 test.describe("Skill Explorer", () => {
-  test("page heading always visible (even on error)", async ({ page }) => {
+  test("page heading always visible even on error", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/skills")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
-    // The heading should ALWAYS be visible, even when API fails
-    const hasHeading = await page.getByRole("heading", { name: /Skill Explorer/i }).count() > 0
-    const hasError = await hasErrorIndicator(page)
-
-    // If there's an error but no heading, that's a bug — error replaces entire page
-    if (hasError && !hasHeading) {
-      expect(hasHeading).toBe(true) // fail with clear message
-    }
-    // If neither heading nor error, something is wrong
-    expect(hasHeading || hasError).toBeTruthy()
+    // The heading must ALWAYS be visible, even when API fails
+    await expect(page.getByRole("heading", { name: /Skill Explorer/i })).toBeVisible()
   })
 
-  test("Install Skill button visible (even on error)", async ({ page }) => {
+  test("Install Skill button visible even on error", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/skills")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
-    const hasInstallBtn = await page.getByRole("button", { name: /Install Skill/i }).count() > 0
-    const hasError = await hasErrorIndicator(page)
-
-    // If auth fails, Install Skill button should still be visible
-    if (hasError && !hasInstallBtn) {
-      expect(hasInstallBtn).toBe(true) // fail — controls hidden by error
-    }
+    await expect(page.getByRole("button", { name: /Install Skill/i })).toBeVisible()
   })
 
   test("shows skills list or error (not blank page)", async ({ page }) => {
     await page.goto("/skills")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
     const hasSkills = await page.locator('[class*="card"]').count() > 0
     const hasEmpty = await page.getByText(/no skills/i).count() > 0
-    const hasError = await hasErrorIndicator(page)
-    const hasLoading = await page.locator('[class*="skeleton"]').or(page.locator('[class*="animate-pulse"]')).count() > 0
+    const hasError = await page.locator('[role="alert"], [class*="error"], [class*="destructive"]').or(page.getByText(/error|failed/i)).count() > 0
+    const hasLoading = await page.locator('[class*="skeleton"], [class*="animate-pulse"]').count() > 0
 
     expect(hasSkills || hasEmpty || hasError || hasLoading).toBeTruthy()
   })
@@ -213,10 +195,10 @@ test.describe("Skill Explorer", () => {
 test.describe("Skill Detail", () => {
   test("navigating to /skills/test-id shows detail or error", async ({ page }) => {
     await page.goto("/skills/test-id")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
     const hasBackLink = await page.getByText("Back").or(page.locator('[href="/skills"]')).count() > 0
-    const hasError = await hasErrorIndicator(page)
+    const hasError = await page.locator('[role="alert"], [class*="error"], [class*="destructive"]').or(page.getByText(/error|failed/i)).count() > 0
     const hasContent = await page.getByText(/risk|trust/i).count() > 0
 
     expect(hasBackLink || hasError || hasContent).toBeTruthy()
@@ -247,7 +229,6 @@ test.describe("Findings Explorer", () => {
 
   test("findings table headers render", async ({ page }) => {
     await page.goto("/findings")
-    await page.waitForTimeout(2000)
     const expectedHeaders = ["Severity", "Title", "Check ID", "Domain"]
     for (const h of expectedHeaders) {
       await expect(page.locator(`th:has-text("${h}")`).first()).toBeVisible({ timeout: 5000 })
@@ -255,23 +236,17 @@ test.describe("Findings Explorer", () => {
   })
 
   test("shows error banner on auth failure (not silent zero results)", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/findings")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
-    const hasError = await hasErrorIndicator(page)
-    const hasFindings = await page.locator("table tbody tr").count() > 0
+    // Error indicator must be visible
+    const errorLocator = page.locator('[role="alert"], [class*="error"], [class*="destructive"]')
+      .or(page.getByText(/error|failed|401/i))
+    await expect(errorLocator.first()).toBeVisible({ timeout: 5000 })
 
-    // Check for "0 results" text
-    const resultCountEl = await page.getByText(/\d+ results/i).textContent().catch(() => "")
-    const showsZeroResults = resultCountEl?.includes("0")
-
-    // Check for "No findings match" empty state
-    const hasEmptyMsg = await page.getByText("No findings match your filters").count() > 0
-
-    // Silent failure = showing "0 results" / empty msg with no error indicator
-    if (!hasFindings && !hasError && (showsZeroResults || hasEmptyMsg)) {
-      expect(false).toBe(true) // FAIL: silent auth failure — no error shown to user
-    }
+    // "No findings match" empty state must NOT appear alongside the error
+    await expect(page.getByText("No findings match your filters")).not.toBeVisible()
   })
 })
 
@@ -289,7 +264,7 @@ test.describe("Investigation Chat", () => {
 
   test("suggestion chips visible when no messages", async ({ page }) => {
     await page.goto("/chat")
-    await page.waitForTimeout(2000)
+    await waitForApi(page)
 
     // Look for suggestion cards in the grid
     const suggestions = page.locator('[class*="grid"] button').or(page.locator('[class*="grid"] [class*="card"]'))
@@ -305,14 +280,15 @@ test.describe("Investigation Chat", () => {
 
   test("clicking suggestion chip populates input or sends message", async ({ page }) => {
     await page.goto("/chat")
-    await page.waitForTimeout(2000)
+    await waitForApi(page)
 
     const firstSuggestion = page.locator('[class*="grid"] button').or(page.locator('[class*="grid"] [class*="card"]')).first()
     await firstSuggestion.click()
 
-    await page.waitForTimeout(1000)
+    // Wait for either input population or message rendering
+    await page.waitForLoadState("networkidle")
     const chatInput = page.locator("textarea").last()
-    const inputValue = await chatInput.inputValue().catch(() => "")
+    const inputValue = await chatInput.inputValue()
     const hasMessages = await page.locator('[class*="message"]').or(page.locator('[class*="chat"]')).count() > 0
 
     expect(inputValue.length > 0 || hasMessages).toBeTruthy()
@@ -320,7 +296,7 @@ test.describe("Investigation Chat", () => {
 
   test("typing message and sending shows response or error", async ({ page }) => {
     await page.goto("/chat")
-    await page.waitForTimeout(1000)
+    await waitForApi(page)
 
     const chatInput = page.locator("textarea").last()
     await chatInput.fill("What are the current security findings?")
@@ -328,10 +304,11 @@ test.describe("Investigation Chat", () => {
     const sendBtn = page.locator('button[type="submit"]').or(page.getByRole("button", { name: /send/i })).first()
     await sendBtn.click()
 
-    await page.waitForTimeout(5000)
+    // Wait for network activity to settle (LLM may take time)
+    await page.waitForLoadState("networkidle", { timeout: 15000 })
 
     const hasResponse = await page.locator('[class*="message"]').or(page.locator('[class*="border"]')).count() > 1
-    const hasError = await hasErrorIndicator(page)
+    const hasError = await page.locator('[role="alert"], [class*="error"], [class*="destructive"]').or(page.getByText(/error|failed/i)).count() > 0
 
     expect(hasResponse || hasError).toBeTruthy()
   })
@@ -340,7 +317,6 @@ test.describe("Investigation Chat", () => {
     await page.goto("/chat")
     const byollmBtn = page.getByText("BYOLLM")
     await byollmBtn.click()
-    await page.waitForTimeout(500)
 
     const apiKeyInput = page.locator('input[type="password"]')
     await expect(apiKeyInput).toBeVisible()
@@ -365,34 +341,24 @@ test.describe("Remediation", () => {
     await expect(historyTab).toBeVisible()
 
     await historyTab.click()
-    await page.waitForTimeout(1000)
+    await waitForApi(page)
 
     await proposalsTab.click()
-    await page.waitForTimeout(1000)
+    await waitForApi(page)
   })
 
   test("does not show error AND empty state simultaneously", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/remediation")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
-    const hasErrorBanner = await page.locator('[class*="destructive"]').count()
-    // Only count [role="alert"] elements that have visible text content
-    const alertElements = await page.locator('[role="alert"]').all()
-    let visibleAlerts = 0
-    for (const el of alertElements) {
-      const text = await el.textContent()
-      if (text && text.trim().length > 0) visibleAlerts++
-    }
-    const hasFailedText = await page.getByText(/failed/i).count()
-    const hasNoRemediations = await page.getByText(/No remediations/i).count()
+    // Error banner must be visible when API fails
+    const errorLocator = page.locator('[class*="destructive"], [role="alert"]')
+      .or(page.getByText(/failed/i))
+    await expect(errorLocator.first()).toBeVisible({ timeout: 5000 })
 
-    const hasError = hasErrorBanner + visibleAlerts + hasFailedText > 0
-    const hasEmpty = hasNoRemediations > 0
-
-    // Bug: should NOT show error + empty state at the same time
-    if (hasError && hasEmpty) {
-      expect(false).toBe(true) // FAIL: dual error+empty state shown
-    }
+    // "No remediations needed" must NOT appear alongside the error
+    await expect(page.getByText(/No remediations/i)).not.toBeVisible()
   })
 })
 
@@ -413,7 +379,6 @@ test.describe("Runtime Events", () => {
 
   test("filter bar renders with skill dropdown and alerts checkbox", async ({ page }) => {
     await page.goto("/hooks")
-    await page.waitForTimeout(2000)
 
     const skillFilter = page.locator("select").first()
     await expect(skillFilter).toBeVisible()
@@ -424,7 +389,6 @@ test.describe("Runtime Events", () => {
 
   test("events table renders with headers", async ({ page }) => {
     await page.goto("/hooks")
-    await page.waitForTimeout(2000)
 
     const headers = ["Timestamp", "Session", "Skill", "Tool", "Outcome", "Alert"]
     for (const h of headers) {
@@ -433,24 +397,17 @@ test.describe("Runtime Events", () => {
   })
 
   test("shows error on auth failure (not silent zeros)", async ({ page }) => {
+    await mockAllApi401(page)
     await page.goto("/hooks")
-    await page.waitForTimeout(3000)
+    await waitForApi(page)
 
-    const hasError = await hasErrorIndicator(page)
-    const hasEvents = await page.locator("table tbody tr").count() > 0
-    const hasEmptyState = await page.getByText(/No events recorded/i).count() > 0
+    // Error indicator must be visible
+    const errorLocator = page.locator('[role="alert"], [class*="error"], [class*="destructive"]')
+      .or(page.getByText(/error|failed|401/i))
+    await expect(errorLocator.first()).toBeVisible({ timeout: 5000 })
 
-    // If showing empty state with zeros and no error, it's a silent auth failure
-    if (!hasEvents && !hasError && hasEmptyState) {
-      // Check if stat values are all zero
-      const statValues = await page.locator(".text-2xl").allTextContents()
-      const allZero = statValues.length > 0 && statValues.every(
-        (v) => v.trim() === "0" || v.trim() === "0%" || v.trim() === "—" || v.trim() === "-"
-      )
-      if (allZero) {
-        expect(false).toBe(true) // FAIL: silent auth failure — zeros with no error
-      }
-    }
+    // Empty state must NOT appear alongside the error
+    await expect(page.getByText(/No events recorded/i)).not.toBeVisible()
   })
 })
 
@@ -473,7 +430,7 @@ test.describe("Console Errors", () => {
       page.on("pageerror", (err) => uncaughtErrors.push(err.message))
 
       await page.goto(path)
-      await page.waitForTimeout(3000)
+      await waitForApi(page)
 
       // Filter out known/expected errors (like 401 fetch errors)
       const unexpectedErrors = uncaughtErrors.filter(
@@ -485,11 +442,10 @@ test.describe("Console Errors", () => {
   }
 })
 
-// ─── NEW: Exclusive error/empty state tests (Issues #56, #57) ───────
+// ─── Exclusive error/empty state tests (Issues #56, #57) ────────────
 
 test.describe("Error and empty state exclusivity", () => {
   test("Runtime Events shows ONLY error state when API fails (not empty state too)", async ({ page }) => {
-    // Intercept BEFORE navigating
     await page.route("**/api/v1/hooks/**", route => route.fulfill({
       status: 500,
       contentType: "application/json",
