@@ -146,7 +146,7 @@ export default function HooksPage() {
   const displayEvents = events ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       <div className="flex items-center gap-3">
         <Shield className="text-primary" size={24} />
         <h1 className="text-2xl font-bold">Runtime Events</h1>

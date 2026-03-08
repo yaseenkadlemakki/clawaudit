@@ -20,17 +20,24 @@ function FindingRow({ finding }: { finding: Finding }) {
       >
         <td className="py-3 pl-4"><RiskBadge severity={finding.severity} /></td>
         <td className="py-3 px-4 font-medium text-sm">{finding.title}</td>
-        <td className="py-3 px-4 text-xs text-muted-foreground">{finding.policy}</td>
+        <td className="py-3 px-4 text-xs text-muted-foreground font-mono">{finding.check_id}</td>
+        <td className="py-3 px-4 text-xs text-muted-foreground">{finding.domain}</td>
         <td className="py-3 px-4 text-xs text-muted-foreground">{finding.skill_name ?? "—"}</td>
-        <td className="py-3 px-4 text-xs text-muted-foreground">{formatDate(finding.created_at)}</td>
+        <td className="py-3 px-4 text-xs text-muted-foreground">{finding.detected_at ? formatDate(finding.detected_at) : "—"}</td>
         <td className="py-3 pr-4">
           {open ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
         </td>
       </tr>
       {open && (
         <tr className="bg-secondary/10 border-b border-border/40">
-          <td colSpan={6} className="px-4 py-3 space-y-2">
+          <td colSpan={7} className="px-4 py-3 space-y-2">
             <p className="text-sm text-muted-foreground">{finding.description}</p>
+            {finding.evidence && (
+              <div className="bg-card border border-border rounded p-3">
+                <p className="text-xs text-muted-foreground mb-1">Evidence</p>
+                <p className="text-xs font-mono">{finding.evidence}</p>
+              </div>
+            )}
             {finding.remediation && (
               <div className="bg-card border border-border rounded p-3">
                 <p className="text-xs text-muted-foreground mb-1">Remediation</p>
@@ -38,7 +45,7 @@ function FindingRow({ finding }: { finding: Finding }) {
               </div>
             )}
             <p className="text-xs text-muted-foreground font-mono">
-              scan: {finding.scan_id.slice(0, 12)}…
+              scan: {finding.scan_id.slice(0, 12)}… · location: {finding.location}
             </p>
           </td>
         </tr>
@@ -48,36 +55,41 @@ function FindingRow({ finding }: { finding: Finding }) {
 }
 
 export default function FindingsPage() {
-  const [q, setQ]           = useState("")
-  const [sev, setSev]       = useState("")
-  const [policy, setPolicy] = useState("")
-  const [skill, setSkill]   = useState("")
+  const [q, setQ]             = useState("")
+  const [sev, setSev]         = useState("")
+  const [domain, setDomain]   = useState("")
 
-  const { data: skills } = useQuery({ queryKey: ["skills"], queryFn: getSkills })
   const { data: allFindings } = useQuery({
     queryKey: ["findings-all"],
     queryFn:  () => getFindings({ limit: 500 }),
     staleTime: 30_000,
   })
   const { data: findings, isLoading } = useQuery({
-    queryKey: ["findings", { q, sev, policy, skill }],
+    queryKey: ["findings", { sev, domain }],
     queryFn:  () => getFindings({
-      q:        q      || undefined,
       severity: sev    || undefined,
-      policy:   policy || undefined,
-      skill:    skill  || undefined,
+      domain:   domain || undefined,
       limit: 100,
     }),
   })
 
-  const policies = Array.from(new Set((allFindings ?? []).map(f => f.policy).filter(Boolean)))
+  const domains = Array.from(new Set((allFindings ?? []).map(f => f.domain).filter(Boolean)))
+
+  // Client-side text search on title/description/check_id
+  const filtered = q
+    ? (findings ?? []).filter(f =>
+        f.title.toLowerCase().includes(q.toLowerCase()) ||
+        f.check_id.toLowerCase().includes(q.toLowerCase()) ||
+        f.description.toLowerCase().includes(q.toLowerCase())
+      )
+    : (findings ?? [])
 
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide">Findings Explorer</h1>
         <span className="text-xs text-muted-foreground">
-          {findings?.length ?? 0} result{findings?.length !== 1 ? "s" : ""}
+          {filtered.length} result{filtered.length !== 1 ? "s" : ""}
         </span>
       </div>
 
@@ -103,19 +115,11 @@ export default function FindingsPage() {
         </select>
         <select
           className="bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          value={policy}
-          onChange={e => setPolicy(e.target.value)}
+          value={domain}
+          onChange={e => setDomain(e.target.value)}
         >
-          <option value="">All Policies</option>
-          {policies.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-        <select
-          className="bg-card border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-          value={skill}
-          onChange={e => setSkill(e.target.value)}
-        >
-          <option value="">All Skills</option>
-          {(skills ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          <option value="">All Domains</option>
+          {domains.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
 
@@ -123,7 +127,7 @@ export default function FindingsPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-muted-foreground text-xs">
-              {["Severity", "Title", "Policy", "Skill", "Detected", ""].map((h, i) => (
+              {["Severity", "Title", "Check ID", "Domain", "Skill", "Detected", ""].map((h, i) => (
                 <th key={i} className="text-left px-4 py-3">{h}</th>
               ))}
             </tr>
@@ -131,15 +135,15 @@ export default function FindingsPage() {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-muted-foreground text-xs">
+                <td colSpan={7} className="py-8 text-center text-muted-foreground text-xs">
                   Loading findings…
                 </td>
               </tr>
-            ) : findings?.length ? (
-              findings.map(f => <FindingRow key={f.id} finding={f} />)
+            ) : filtered.length ? (
+              filtered.map(f => <FindingRow key={f.id} finding={f} />)
             ) : (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-muted-foreground text-xs">
+                <td colSpan={7} className="py-8 text-center text-muted-foreground text-xs">
                   No findings match your filters.
                 </td>
               </tr>

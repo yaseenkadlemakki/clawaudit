@@ -40,7 +40,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
-        Phase 3 · v0.2
+        Phase 7b · v0.3
       </div>
     </aside>
   )
