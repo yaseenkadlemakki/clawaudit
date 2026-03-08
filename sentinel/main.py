@@ -824,5 +824,134 @@ def config_init(
 app.add_typer(config_app)
 
 
+# ── Hooks sub-app ─────────────────────────────────────────────────────────────
+
+hooks_app = typer.Typer(name="hooks", help="Runtime hook integration — plugin events & monitoring")
+
+
+@hooks_app.command("status")
+def hooks_status() -> None:
+    """Show plugin registration status and recent event count."""
+    from sentinel.hooks.plugin import ClawAuditPlugin
+    from sentinel.hooks.store import EventStore
+
+    plugin = ClawAuditPlugin()
+    registered = plugin.is_registered()
+
+    console.print("[bold]Runtime Hook Status[/bold]\n")
+    if registered:
+        console.print("[green]Plugin: registered[/green]")
+        manifest = plugin.read_manifest()
+        if manifest:
+            console.print(f"  Endpoint: {manifest.get('endpoint', 'N/A')}")
+            console.print(f"  Hooks: {', '.join(manifest.get('hooks', []))}")
+    else:
+        console.print("[yellow]Plugin: not registered[/yellow]")
+    console.print(f"  Manifest: {plugin.manifest_path}")
+
+    store = EventStore()
+    stats = asyncio.run(store.stats())
+    console.print(f"\n  Total events: {stats['total_events']}")
+    console.print(f"  Total alerts: {stats['total_alerts']}")
+
+
+@hooks_app.command("register")
+def hooks_register() -> None:
+    """Register ClawAudit as an OpenClaw plugin."""
+    from sentinel.hooks.plugin import ClawAuditPlugin
+
+    plugin = ClawAuditPlugin()
+    path = plugin.register()
+    console.print(f"[green]Plugin registered at {path}[/green]")
+
+
+@hooks_app.command("unregister")
+def hooks_unregister() -> None:
+    """Remove the ClawAudit plugin registration."""
+    from sentinel.hooks.plugin import ClawAuditPlugin
+
+    plugin = ClawAuditPlugin()
+    plugin.unregister()
+    console.print("[yellow]Plugin unregistered[/yellow]")
+
+
+@hooks_app.command("events")
+def hooks_events(
+    limit: int = typer.Option(20, "--limit", "-n", help="Number of events to show"),
+    alerts_only: bool = typer.Option(False, "--alerts-only", help="Show only alerted events"),
+    session: str | None = typer.Option(None, "--session", "-s", help="Filter by session ID"),
+) -> None:
+    """List recent tool events."""
+    from sentinel.hooks.store import EventStore
+
+    store = EventStore()
+    events = asyncio.run(store.list(session_id=session, limit=limit, alerts_only=alerts_only))
+
+    if not events:
+        console.print("[dim]No events recorded yet.[/dim]")
+        return
+
+    table = Table(title=f"Recent Tool Events (last {limit})", show_lines=True)
+    table.add_column("Time")
+    table.add_column("Session")
+    table.add_column("Skill")
+    table.add_column("Tool")
+    table.add_column("Outcome")
+    table.add_column("Alert")
+
+    for e in events:
+        alert_badge = "[red]ALERT[/red]" if e.alert_triggered else "[dim]—[/dim]"
+        outcome_color = (
+            "green" if e.outcome == "success" else "yellow" if e.outcome == "pending" else "red"
+        )
+        table.add_row(
+            e.timestamp.isoformat()[:19],
+            e.session_id[:12] + "..." if len(e.session_id) > 12 else e.session_id,
+            e.skill_name or "—",
+            e.tool_name,
+            f"[{outcome_color}]{e.outcome}[/{outcome_color}]",
+            alert_badge,
+        )
+
+    console.print(table)
+
+
+@hooks_app.command("simulate")
+def hooks_simulate() -> None:
+    """Fire a test event to verify the hook pipeline works."""
+    from datetime import datetime, timezone  # noqa: UP017
+
+    from sentinel.hooks.bus import HookBus
+    from sentinel.hooks.event import ToolEvent
+    from sentinel.hooks.store import EventStore
+
+    event = ToolEvent(
+        session_id="test-session",
+        skill_name="test-skill",
+        tool_name="exec",
+        params_summary="echo hello world",
+        timestamp=datetime.now(timezone.utc),  # noqa: UP017
+        outcome="success",
+    )
+
+    bus = HookBus()
+    store = EventStore()
+
+    async def run() -> None:
+        await bus.publish(event)
+        await store.save(event)
+
+    asyncio.run(run())
+
+    console.print(f"[green]Test event fired and stored: {event.id}[/green]")
+    if event.alert_triggered:
+        console.print(f"[yellow]Alert triggered: {', '.join(event.alert_reasons)}[/yellow]")
+    else:
+        console.print("[dim]No alerts triggered (expected for benign test event)[/dim]")
+
+
+app.add_typer(hooks_app)
+
+
 if __name__ == "__main__":
     app()
