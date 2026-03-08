@@ -15,8 +15,9 @@ import os
 import secrets
 from pathlib import Path
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import JSONResponse
 
 TOKEN_FILE = Path.home() / ".openclaw" / "sentinel" / "api-token"
 
@@ -64,7 +65,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             token = auth.removeprefix("Bearer ").strip() if auth else ""
 
         if not secrets.compare_digest(token, self._token):
-            raise HTTPException(status_code=401, detail="Invalid or missing API token")
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API token"})
 
         return await call_next(request)
 
