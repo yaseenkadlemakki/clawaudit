@@ -120,38 +120,41 @@ class SkillRegistry:
 
         - Skills found on disk but not in registry are added.
         - Skills in registry but missing from disk are removed.
+
+        Uses the same lock as register/unregister to prevent race conditions.
         """
-        records = self.load()
+        with self._locked():
+            records = self.load()
 
-        # Collect all skill dirs that have SKILL.md or SKILL.md.disabled
-        found: dict[str, Path] = {}
-        for d in skills_dirs:
-            if not d.exists():
-                continue
-            for child in d.iterdir():
-                if not child.is_dir():
+            # Collect all skill dirs that have SKILL.md or SKILL.md.disabled
+            found: dict[str, Path] = {}
+            for d in skills_dirs:
+                if not d.exists():
                     continue
-                skill_md = child / "SKILL.md"
-                skill_md_disabled = child / "SKILL.md.disabled"
-                if skill_md.exists() or skill_md_disabled.exists():
-                    found[child.name] = child
+                for child in d.iterdir():
+                    if not child.is_dir():
+                        continue
+                    skill_md = child / "SKILL.md"
+                    skill_md_disabled = child / "SKILL.md.disabled"
+                    if skill_md.exists() or skill_md_disabled.exists():
+                        found[child.name] = child
 
-        # Add missing
-        for name, path in found.items():
-            if name not in records:
-                enabled = (path / "SKILL.md").exists()
-                records[name] = SkillRecord(
-                    name=name,
-                    path=str(path),
-                    source="local",
-                    version="unknown",
-                    installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
-                    enabled=enabled,
-                )
+            # Add missing
+            for name, path in found.items():
+                if name not in records:
+                    enabled = (path / "SKILL.md").exists()
+                    records[name] = SkillRecord(
+                        name=name,
+                        path=str(path),
+                        source="local",
+                        version="unknown",
+                        installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
+                        enabled=enabled,
+                    )
 
-        # Remove stale
-        stale = [n for n in records if n not in found]
-        for n in stale:
-            del records[n]
+            # Remove stale
+            stale = [n for n in records if n not in found]
+            for n in stale:
+                del records[n]
 
-        self.save(records)
+            self.save(records)

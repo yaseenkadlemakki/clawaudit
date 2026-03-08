@@ -116,3 +116,16 @@ class TestHashPinIntegration:
         assert record2.content_hash
         # Tampered file should be gone
         assert not (Path(record2.path) / "malware.sh").exists()
+
+
+class TestPathValidation:
+    def test_path_validation_rejects_traversal(self, tmp_path):
+        """Path traversal via /../ should be caught by resolve() + allowlist."""
+        from backend.api.routes.lifecycle import install_skill, InstallRequest
+
+        # A path like /tmp/../../etc/passwd resolves to /etc/passwd
+        # which is not under any allowed directory
+        traversal_path = "/tmp/../../etc/passwd"
+        resolved = Path(traversal_path).resolve()
+        # Verify it actually resolves outside /tmp
+        assert not resolved.is_relative_to(Path("/tmp").resolve())

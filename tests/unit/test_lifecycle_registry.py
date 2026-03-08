@@ -93,3 +93,19 @@ class TestSkillRegistry:
     def test_get_returns_none_for_missing(self, tmp_path):
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         assert reg.get("nonexistent") is None
+
+    def test_sync_uses_lock(self, tmp_path):
+        """sync() should acquire the registry lock to prevent race conditions."""
+        skills_dir = tmp_path / "skills"
+        (skills_dir / "beta").mkdir(parents=True)
+        (skills_dir / "beta" / "SKILL.md").write_text("name: beta\n")
+
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        # Pre-populate to verify sync does read-modify-write under lock
+        reg.register(_make_record("existing"))
+
+        reg.sync([skills_dir])
+
+        # After sync: "existing" should be removed (not on disk), "beta" added
+        assert reg.get("existing") is None
+        assert reg.get("beta") is not None

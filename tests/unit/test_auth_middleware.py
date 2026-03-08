@@ -155,17 +155,15 @@ class TestTokenFileSecurity:
     def test_generated_token_file_has_restrictive_permissions(self, tmp_path, monkeypatch):
         """Token file must be written with 0o600 — not world-readable."""
         import stat
-        from backend.middleware.auth import AuthMiddleware
 
         token_file = tmp_path / "api-token"
         monkeypatch.delenv("CLAWAUDIT_API_TOKEN", raising=False)
 
-        # Patch TOKEN_FILE to our tmp location
         import backend.middleware.auth as auth_mod
+
         original = auth_mod.TOKEN_FILE
         auth_mod.TOKEN_FILE = token_file
         try:
-            from unittest.mock import MagicMock
             middleware = AuthMiddleware.__new__(AuthMiddleware)
             middleware._token = middleware._resolve_token.__func__(middleware)
             assert token_file.exists()
@@ -176,13 +174,12 @@ class TestTokenFileSecurity:
 
     def test_empty_token_file_triggers_generation(self, tmp_path, monkeypatch):
         """An empty token file should be treated as missing and regenerate."""
-        from backend.middleware.auth import AuthMiddleware
-
         token_file = tmp_path / "api-token"
         token_file.write_text("")  # empty
         monkeypatch.delenv("CLAWAUDIT_API_TOKEN", raising=False)
 
         import backend.middleware.auth as auth_mod
+
         original = auth_mod.TOKEN_FILE
         auth_mod.TOKEN_FILE = token_file
         try:
@@ -191,3 +188,16 @@ class TestTokenFileSecurity:
             assert len(token) > 0
         finally:
             auth_mod.TOKEN_FILE = original
+
+
+@pytest.mark.asyncio
+async def test_empty_bearer_token_rejected():
+    """A request with 'Authorization: Bearer ' (empty token) should be rejected."""
+    app = _make_app()
+    async with AsyncClient(
+        transport=ASGITransport(app=app, raise_app_exceptions=False),
+        base_url="http://test",
+        headers={"Authorization": "Bearer "},
+    ) as c:
+        r = await c.get("/api/v1/data")
+        assert r.status_code == 401

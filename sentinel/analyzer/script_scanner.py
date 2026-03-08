@@ -113,10 +113,16 @@ class ScriptScanner:
         findings: list[Finding] = []
         if not skill_dir.is_dir():
             return findings
+        resolved_root = skill_dir.resolve()
         for file_path in sorted(skill_dir.rglob("*")):
             if not file_path.is_file():
                 continue
             if file_path.name in _SKIP_NAMES:
+                continue
+            # Reject symlinks that escape the skill directory (path traversal)
+            resolved = file_path.resolve()
+            if not resolved.is_relative_to(resolved_root):
+                logger.warning("Skipping symlink escaping skill dir: %s", file_path)
                 continue
             findings.extend(self._scan_file(skill_name, skill_dir, file_path))
         return findings

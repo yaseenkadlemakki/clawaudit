@@ -12,7 +12,11 @@ from pydantic import BaseModel
 
 from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 from sentinel.config import load_config
-from sentinel.lifecycle.installer import SkillInstaller
+from sentinel.lifecycle.installer import (
+    SkillAlreadyInstalledError,
+    SkillHashMismatchError,
+    SkillInstaller,
+)
 from sentinel.lifecycle.registry import SkillRegistry
 from sentinel.lifecycle.toggler import SkillToggler
 from sentinel.lifecycle.uninstaller import SkillUninstaller
@@ -135,7 +139,9 @@ async def install_skill(req: InstallRequest):
             record = installer.install_from_url(req.url)
         else:
             raise HTTPException(status_code=400, detail=f"Unknown source: {req.source}")
-    except FileExistsError as exc:
+    except (FileExistsError, SkillAlreadyInstalledError) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except SkillHashMismatchError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

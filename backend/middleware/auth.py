@@ -78,7 +78,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             auth = request.headers.get("Authorization", "")
             token = auth.removeprefix("Bearer ").strip() if auth else ""
 
-        if not secrets.compare_digest(token, self._token):
+        if not token or not secrets.compare_digest(token, self._token):
             return JSONResponse(status_code=401, content={"detail": "Invalid or missing API token"})
 
         return await call_next(request)

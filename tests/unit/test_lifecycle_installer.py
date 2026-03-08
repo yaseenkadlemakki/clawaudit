@@ -164,8 +164,6 @@ class TestSSRFValidation:
     """Tests for _validate_url_ssrf() — the most critical security function in the PR."""
 
     def _installer(self, tmp_path):
-        from sentinel.lifecycle.installer import SkillInstaller
-        from sentinel.lifecycle.registry import SkillRegistry
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         return SkillInstaller(tmp_path / "skills", reg)
 
@@ -218,6 +216,7 @@ class TestSSRFValidation:
     def test_returns_safe_ip_for_valid_url(self, tmp_path):
         """_validate_url_ssrf returns a non-empty IP string for a resolvable public host."""
         import socket
+
         installer = self._installer(tmp_path)
         # Only run if DNS is available in test environment
         try:
@@ -227,3 +226,14 @@ class TestSSRFValidation:
         result = installer._validate_url_ssrf("https://one.one.one.one/skill.skill")
         assert isinstance(result, str)
         assert len(result) > 0
+
+    def test_ssrf_blocks_all_resolved_ips(self, tmp_path):
+        """If a host resolves to both public and private IPs, it should be blocked."""
+        installer = self._installer(tmp_path)
+        with patch("socket.getaddrinfo") as mock_gai:
+            mock_gai.return_value = [
+                (None, None, None, None, ("93.184.216.34", 443)),  # public
+                (None, None, None, None, ("127.0.0.1", 443)),  # private!
+            ]
+            with pytest.raises(ValueError, match="SSRF blocked"):
+                installer._validate_url_ssrf("https://dual-homed.example.com/s.skill")
