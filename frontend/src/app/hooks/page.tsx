@@ -3,53 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Activity, AlertTriangle, Shield, Zap, Filter } from "lucide-react"
-import { API_BASE } from "@/lib/api"
-
-interface ToolEvent {
-  id: string
-  session_id: string
-  skill_name: string | null
-  tool_name: string
-  params_summary: string
-  timestamp: string
-  duration_ms: number | null
-  outcome: string
-  alert_triggered: boolean
-  alert_reasons: string[]
-}
-
-interface HookStats {
-  total_events: number
-  total_alerts: number
-  events_by_tool: Record<string, number>
-  events_by_skill: Record<string, number>
-}
-
-async function fetchEvents(params: {
-  limit?: number
-  alerts_only?: boolean
-  session_id?: string
-  skill_name?: string
-}): Promise<ToolEvent[]> {
-  const qs = new URLSearchParams()
-  if (params.limit) qs.set("limit", String(params.limit))
-  if (params.alerts_only) qs.set("alerts_only", "true")
-  if (params.session_id) qs.set("session_id", params.session_id)
-  if (params.skill_name) qs.set("skill_name", params.skill_name)
-  const res = await fetch(`${API_BASE}/hooks/events?${qs}`, {
-    headers: { "Content-Type": "application/json" },
-  })
-  if (!res.ok) throw new Error(`API ${res.status}`)
-  return res.json()
-}
-
-async function fetchStats(): Promise<HookStats> {
-  const res = await fetch(`${API_BASE}/hooks/stats`, {
-    headers: { "Content-Type": "application/json" },
-  })
-  if (!res.ok) throw new Error(`API ${res.status}`)
-  return res.json()
-}
+import { API_BASE, API_TOKEN, getHookEvents, getHookStats, type ToolEvent } from "@/lib/api"
 
 function StatCard({ label, value, icon: Icon, accent }: {
   label: string
@@ -75,15 +29,15 @@ export default function HooksPage() {
   const [liveEvents, setLiveEvents] = useState<ToolEvent[]>([])
   const wsRef = useRef<WebSocket | null>(null)
 
-  const { data: stats } = useQuery({
+  const { data: stats, error: statsError } = useQuery({
     queryKey: ["hook-stats"],
-    queryFn: fetchStats,
+    queryFn: getHookStats,
     refetchInterval: 10000,
   })
 
-  const { data: events } = useQuery({
+  const { data: events, error: eventsError } = useQuery({
     queryKey: ["hook-events", alertsOnly, skillFilter],
-    queryFn: () => fetchEvents({
+    queryFn: () => getHookEvents({
       limit: 100,
       alerts_only: alertsOnly,
       skill_name: skillFilter || undefined,
@@ -158,6 +112,12 @@ export default function HooksPage() {
         )}
       </div>
 
+      {(statsError || eventsError) && (
+        <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
+          {String(statsError ?? eventsError)}
+        </div>
+      )}
+
       {/* Stats cards */}
       <div className="grid grid-cols-4 gap-4">
         <StatCard label="Total Events" value={totalEvents} icon={Activity} accent="text-blue-400" />
@@ -222,13 +182,13 @@ export default function HooksPage() {
             </tr>
           </thead>
           <tbody>
-            {displayEvents.length === 0 ? (
+            {!statsError && !eventsError && displayEvents.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No events recorded yet. Use <code className="text-xs">sentinel hooks simulate</code> to fire a test event.
                 </td>
               </tr>
-            ) : (
+            ) : displayEvents.length > 0 ? (
               displayEvents.map((e) => (
                 <tr
                   key={e.id}
@@ -258,7 +218,7 @@ export default function HooksPage() {
                   </td>
                 </tr>
               ))
-            )}
+            ) : null}
           </tbody>
         </table>
       </div>

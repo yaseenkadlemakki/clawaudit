@@ -56,12 +56,12 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Findings", value: isLoading ? "…" : totalFindings,              icon: <ShieldAlert size={16} className="text-orange-400" /> },
-          { label: "Critical",       value: isLoading ? "…" : d?.risk_distribution.Critical ?? 0, icon: <AlertTriangle size={16} className="text-red-400" /> },
-          { label: "High",           value: isLoading ? "…" : d?.risk_distribution.High    ?? 0, icon: <AlertTriangle size={16} className="text-orange-400" /> },
-          { label: "Scans Run",      value: isLoading ? "…" : d?.recent_scans?.length      ?? 0, icon: <Info size={16} className="text-blue-400" /> },
+          { label: "Total Findings", value: isLoading ? "…" : error ? "—" : totalFindings,              icon: <ShieldAlert size={16} className="text-orange-400" /> },
+          { label: "Critical",       value: isLoading ? "…" : error ? "—" : d?.risk_distribution.Critical ?? 0, icon: <AlertTriangle size={16} className="text-red-400" /> },
+          { label: "High",           value: isLoading ? "…" : error ? "—" : d?.risk_distribution.High    ?? 0, icon: <AlertTriangle size={16} className="text-orange-400" /> },
+          { label: "Scans Run",      value: isLoading ? "…" : error ? "—" : d?.recent_scans?.length      ?? 0, icon: <Info size={16} className="text-blue-400" /> },
         ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-card border border-border rounded-lg p-4">
+          <div key={label} className={`bg-card border rounded-lg p-4 ${error ? "border-red-500/30 opacity-60" : "border-border"}`}>
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">{icon} {label}</div>
             <p className="text-2xl font-bold text-foreground">{value}</p>
           </div>
@@ -71,7 +71,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card border border-border rounded-lg p-6 flex flex-col items-center gap-2">
           <h2 className="text-sm text-muted-foreground self-start">Overall Risk Score</h2>
-          <ScoreGauge score={d?.overall_score ?? 0} />
+          {error ? (
+            <div className="flex items-center justify-center w-[180px] h-[180px]">
+              <span className="text-muted-foreground text-sm">Unavailable</span>
+            </div>
+          ) : (
+            <ScoreGauge score={d?.overall_score ?? 0} />
+          )}
           <p className="text-xs text-muted-foreground">
             {lastScan ? `Last scan ${formatDate(lastScan.started_at)}` : "No scans yet"}
           </p>
