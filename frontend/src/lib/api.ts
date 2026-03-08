@@ -88,3 +88,30 @@ export const getFindings  = (params: FindingsParams = {}) => {
   ).toString()
   return req<Finding[]>(`/findings${qs ? "?" + qs : ""}`)
 }
+
+// ── Lifecycle ─────────────────────────────────────────────
+export interface LifecycleSkill {
+  name: string
+  path: string
+  source: string
+  version: string
+  enabled: boolean
+  installed_at: string
+  risk_level: string
+}
+
+export interface SkillHealth {
+  name: string
+  findings: Array<{ check_id: string; title: string; severity: string; result: string; location: string }>
+  risk_level: string
+}
+
+export const getLifecycleSkills = () => req<LifecycleSkill[]>("/lifecycle")
+export const installSkill         = (source: string, path?: string, url?: string) =>
+  req<LifecycleSkill>("/lifecycle/install", { method: "POST", body: JSON.stringify({ source, path, url }) })
+export const installSkillFromUrl  = (url: string) => installSkill("url", undefined, url)
+export const installSkillFromFile = (path: string) => installSkill("file", path)
+export const enableSkill          = (name: string) => req<{ name: string; enabled: boolean }>(`/lifecycle/${name}/enable`, { method: "POST" })
+export const disableSkill         = (name: string) => req<{ name: string; enabled: boolean }>(`/lifecycle/${name}/disable`, { method: "POST" })
+export const uninstallSkill       = (name: string) => req<{ name: string; trash_path: string }>(`/lifecycle/${name}`, { method: "DELETE" })
+export const getSkillHealth       = (name: string) => req<SkillHealth>(`/lifecycle/${name}/health`)
