@@ -178,7 +178,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # ── 6. Build status gate ──────────────────────────────────────────────────────
+  # ── 6. Security scan (TODO) ───────────────────────────────────────────────────
+  # TODO: Add security-scan job that:
+  #   - Installs sentinel deps: pip install -e ".[dev]"
+  #   - Runs: python -m sentinel audit --format json --output /tmp/audit-results.json
+  #   - Fails if any finding has risk_level == "critical" or "high"
+  #   - Blocked on: sentinel audit --format json producing machine-parseable exit codes
+
+  # ── 7. Build status gate ──────────────────────────────────────────────────────
   build-complete:
     name: Build complete
     runs-on: ubuntu-latest
