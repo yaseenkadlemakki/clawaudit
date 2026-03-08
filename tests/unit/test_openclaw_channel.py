@@ -1,10 +1,11 @@
 """Tests for sentinel.alerts.channels.openclaw."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
 import httpx
+import pytest
 
 from sentinel.alerts.channels.openclaw import OpenClawAlertChannel
 from sentinel.models.finding import Finding
@@ -112,6 +113,7 @@ class TestSendAsync:
 class TestSend:
     def test_send_schedules_task_in_running_loop(self):
         import asyncio
+
         ch = _channel()
 
         async def _run():
@@ -124,7 +126,7 @@ class TestSend:
 
     def test_send_falls_back_to_asyncio_run_outside_loop(self):
         ch = _channel()
-        with patch.object(ch, "send_async", new_callable=AsyncMock) as mock_async:
+        with patch.object(ch, "send_async", new_callable=AsyncMock):
             with patch("asyncio.get_running_loop", side_effect=RuntimeError("no loop")):
                 with patch("asyncio.run") as mock_run:
                     ch.send("msg", _finding(), _decision())

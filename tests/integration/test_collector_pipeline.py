@@ -1,14 +1,12 @@
 """Integration tests for the collector pipeline."""
-import pytest
-import asyncio
+
 import json
 import tempfile
-from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
-from sentinel.config import SentinelConfig
+import pytest
+
 from sentinel.collector.config_collector import ConfigCollector
-from sentinel.models.event import Event
+from sentinel.config import SentinelConfig
 
 
 def _make_test_config() -> SentinelConfig:
@@ -61,13 +59,12 @@ async def test_config_collector_emits_drift_event():
 async def test_config_collector_no_drift_on_stable_config():
     """ConfigCollector does not emit drift when config is stable."""
     import hashlib
+
     cfg = _make_test_config()
     events = []
 
     config_data = {"channels": {"discord": {"groupPolicy": "allowlist"}}}
-    config_hash = hashlib.sha256(
-        json.dumps(config_data, sort_keys=True).encode()
-    ).hexdigest()
+    config_hash = hashlib.sha256(json.dumps(config_data, sort_keys=True).encode()).hexdigest()
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(config_data, f)

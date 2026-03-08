@@ -1,14 +1,13 @@
 """Repository layer unit tests — CRUD operations via SQLAlchemy async sessions."""
+
 from __future__ import annotations
 
 from datetime import datetime
 
 import pytest
-import pytest_asyncio
 
 import backend.database as _db
 from backend.models.finding import FindingRecord
-from backend.models.policy import PolicyRecord
 from backend.models.scan import ScanRun, ScanStatus
 from backend.models.skill import SkillRecord
 from backend.storage.repository import (
@@ -18,8 +17,8 @@ from backend.storage.repository import (
     SkillRepository,
 )
 
-
 # ── helpers ───────────────────────────────────────────────────────────────────
+
 
 async def _seed_scan(db, scan_id: str = "scan-r01", status=ScanStatus.COMPLETED) -> ScanRun:
     scan = ScanRun(id=scan_id, status=status, triggered_by="test")
@@ -29,6 +28,7 @@ async def _seed_scan(db, scan_id: str = "scan-r01", status=ScanStatus.COMPLETED)
 
 
 # ── ScanRepository ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_scan_repo_get_and_list():
@@ -48,25 +48,28 @@ async def test_scan_repo_get_and_list():
 
 # ── FindingRepository ─────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_finding_repo_list_and_filter():
     async with _db.AsyncSessionLocal() as db:
         await _seed_scan(db, "scan-f01")
         for i, severity in enumerate(["CRITICAL", "HIGH", "LOW"]):
-            db.add(FindingRecord(
-                id=f"f{i}",
-                scan_id="scan-f01",
-                check_id=f"CONF-0{i}",
-                domain="config",
-                title=f"Finding {i}",
-                description="desc",
-                severity=severity,
-                result="FAIL",
-                evidence="ev",
-                location="/p",
-                remediation="fix",
-                detected_at=datetime.utcnow(),
-            ))
+            db.add(
+                FindingRecord(
+                    id=f"f{i}",
+                    scan_id="scan-f01",
+                    check_id=f"CONF-0{i}",
+                    domain="config",
+                    title=f"Finding {i}",
+                    description="desc",
+                    severity=severity,
+                    result="FAIL",
+                    evidence="ev",
+                    location="/p",
+                    remediation="fix",
+                    detected_at=datetime.utcnow(),
+                )
+            )
         await db.commit()
 
         repo = FindingRepository(db)
@@ -86,25 +89,29 @@ async def test_finding_repo_list_and_filter():
 
 # ── SkillRepository ───────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_skill_repo_list_and_get_by_name():
     import json
+
     async with _db.AsyncSessionLocal() as db:
         await _seed_scan(db, "scan-s01")
-        db.add(SkillRecord(
-            id="sk1",
-            scan_id="scan-s01",
-            name="my-skill",
-            source="local",
-            path="/skills/my-skill/SKILL.md",
-            shell_access=False,
-            outbound_domains=json.dumps([]),
-            injection_risk="LOW",
-            trust_score="TRUSTED",
-            risk_score=10,
-            risk_level="Low",
-            detected_at=datetime.utcnow(),
-        ))
+        db.add(
+            SkillRecord(
+                id="sk1",
+                scan_id="scan-s01",
+                name="my-skill",
+                source="local",
+                path="/skills/my-skill/SKILL.md",
+                shell_access=False,
+                outbound_domains=json.dumps([]),
+                injection_risk="LOW",
+                trust_score="TRUSTED",
+                risk_score=10,
+                risk_level="Low",
+                detected_at=datetime.utcnow(),
+            )
+        )
         await db.commit()
 
         repo = SkillRepository(db)
@@ -121,22 +128,25 @@ async def test_skill_repo_list_and_get_by_name():
 
 # ── PolicyRepository ──────────────────────────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_policy_repo_crud():
     async with _db.AsyncSessionLocal() as db:
         repo = PolicyRepository(db)
 
         # create
-        policy = await repo.create({
-            "name": "p1",
-            "domain": "config",
-            "check": "CONF-01",
-            "severity": "HIGH",
-            "action": "ALERT",
-            "enabled": True,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-        })
+        policy = await repo.create(
+            {
+                "name": "p1",
+                "domain": "config",
+                "check": "CONF-01",
+                "severity": "HIGH",
+                "action": "ALERT",
+                "enabled": True,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }
+        )
         assert policy.id is not None
         policy_id = policy.id
 

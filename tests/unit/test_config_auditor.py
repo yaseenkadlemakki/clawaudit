@@ -1,5 +1,7 @@
 """Tests for the config auditor."""
+
 import pytest
+
 from sentinel.analyzer.config_auditor import ConfigAuditor
 
 
@@ -109,6 +111,7 @@ def test_conf06_yolo_fails(auditor):
 
 
 # ── Edge case tests ────────────────────────────────────────────────────────────
+
 
 def test_empty_config_does_not_raise(auditor):
     """Auditing an empty config dict does not raise an exception."""

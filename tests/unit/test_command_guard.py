@@ -1,4 +1,5 @@
 """Unit tests for sentinel.guard.command_guard — pre-execution heuristics."""
+
 import pytest
 
 from sentinel.guard.command_guard import (
@@ -7,7 +8,6 @@ from sentinel.guard.command_guard import (
     classify_command,
     detect_shell_errors,
 )
-
 
 # ── classify_command — Python detection ──────────────────────────────────────
 
@@ -43,14 +43,14 @@ class TestClassifyCommandPython:
 
     def test_python_full_module(self):
         cmd = (
-            'from __future__ import annotations\n'
-            'import logging\n'
-            'from pathlib import Path\n'
-            '\n'
-            'class Scanner:\n'
+            "from __future__ import annotations\n"
+            "import logging\n"
+            "from pathlib import Path\n"
+            "\n"
+            "class Scanner:\n"
             '    """Scans for issues."""\n'
-            '    def run(self) -> None:\n'
-            '        pass\n'
+            "    def run(self) -> None:\n"
+            "        pass\n"
         )
         v = classify_command(cmd)
         assert v.is_code_block
@@ -129,7 +129,7 @@ class TestClassifyCommandGo:
 @pytest.mark.unit
 class TestClassifyCommandRust:
     def test_rust_fn_and_use(self):
-        cmd = "use std::io;\n\nfn main() {\n    println!(\"hello\");\n}"
+        cmd = 'use std::io;\n\nfn main() {\n    println!("hello");\n}'
         v = classify_command(cmd)
         assert v.is_code_block
         assert v.detected_language == "rust"
@@ -250,11 +250,7 @@ class TestDetectShellErrors:
         assert detect_shell_errors("") == []
 
     def test_mixed_output_filters_only_errors(self):
-        output = (
-            "Starting build...\n"
-            "zsh:1: command not found: from\n"
-            "Build complete.\n"
-        )
+        output = "Starting build...\nzsh:1: command not found: from\nBuild complete.\n"
         errors = detect_shell_errors(output)
         assert len(errors) == 1
         assert "command not found" in errors[0]
@@ -312,13 +308,7 @@ class TestCheckFileIntent:
 
     def test_prompt_write_yaml_file(self):
         prompt = "Write config.yaml with this content:"
-        command = (
-            "name: default\n"
-            "version: '1.0'\n"
-            "rules:\n"
-            "  - id: POL-001\n"
-            "    domain: config\n"
-        )
+        command = "name: default\nversion: '1.0'\nrules:\n  - id: POL-001\n    domain: config\n"
         v = check_file_intent(prompt, command)
         assert v.is_code_block
         assert v.confidence == "HIGH"
@@ -363,13 +353,7 @@ class TestCommandGuardEdgeCases:
         assert v.suggested_action == "WRITE_FILE"
 
     def test_multiline_python_with_blank_lines(self):
-        cmd = (
-            "from pathlib import Path\n"
-            "\n"
-            "\n"
-            "class Config:\n"
-            "    pass\n"
-        )
+        cmd = "from pathlib import Path\n\n\nclass Config:\n    pass\n"
         v = classify_command(cmd)
         assert v.is_code_block
 

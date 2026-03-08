@@ -1,4 +1,5 @@
 """Unit tests for the FastAPI server — smoke tests for all endpoints."""
+
 import pytest
 from fastapi.testclient import TestClient
 

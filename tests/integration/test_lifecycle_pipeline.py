@@ -151,9 +151,7 @@ class TestLifecyclePipeline:
         mock_httpx = MagicMock()
         mock_httpx.stream = MagicMock(return_value=mock_response)
         with patch.dict("sys.modules", {"httpx": mock_httpx}):
-            record = installer.install_from_url(
-                "https://clawhub.dev/skills/clawhub-skill.skill"
-            )
+            record = installer.install_from_url("https://clawhub.dev/skills/clawhub-skill.skill")
 
         assert record.name == "clawhub-skill"
         assert record.source == "https://clawhub.dev/skills/clawhub-skill.skill"

@@ -1,8 +1,15 @@
 """Unit tests for policy action resolution."""
+
 import pytest
 
-from sentinel.policy.actions import resolve_action, handle_allow, handle_warn, handle_alert, handle_block
 from sentinel.models.policy import PolicyDecision
+from sentinel.policy.actions import (
+    handle_alert,
+    handle_allow,
+    handle_block,
+    handle_warn,
+    resolve_action,
+)
 
 
 @pytest.mark.unit
@@ -45,6 +52,7 @@ class TestResolveAction:
     def test_priority_order_correct(self):
         # Verify strict ordering: ALLOW < WARN < ALERT < BLOCK
         from sentinel.policy.actions import ACTION_PRIORITY
+
         assert ACTION_PRIORITY["ALLOW"] < ACTION_PRIORITY["WARN"]
         assert ACTION_PRIORITY["WARN"] < ACTION_PRIORITY["ALERT"]
         assert ACTION_PRIORITY["ALERT"] < ACTION_PRIORITY["BLOCK"]

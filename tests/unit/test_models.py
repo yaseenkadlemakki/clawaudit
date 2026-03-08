@@ -1,14 +1,16 @@
 """Unit tests for sentinel data models (Finding, Event, SkillProfile)."""
-import pytest
+
 import uuid
 from datetime import datetime
 
-from sentinel.models.finding import Finding
+import pytest
+
 from sentinel.models.event import Event
+from sentinel.models.finding import Finding
 from sentinel.models.skill import SkillProfile
 
-
 # ── helpers ─────────────────────────────────────────────────────────────────
+
 
 def _make_finding(**kwargs) -> Finding:
     defaults = dict(
@@ -42,6 +44,7 @@ def _make_event(**kwargs) -> Event:
 
 # ── Finding ──────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestFinding:
     def test_auto_generates_uuid_id(self):
@@ -60,9 +63,21 @@ class TestFinding:
 
     def test_to_dict_contains_all_required_keys(self):
         d = _make_finding().to_dict()
-        for key in ("id", "check_id", "domain", "title", "description",
-                    "severity", "result", "evidence", "location",
-                    "remediation", "run_id", "detected_at", "resolved_at"):
+        for key in (
+            "id",
+            "check_id",
+            "domain",
+            "title",
+            "description",
+            "severity",
+            "result",
+            "evidence",
+            "location",
+            "remediation",
+            "run_id",
+            "detected_at",
+            "resolved_at",
+        ):
             assert key in d, f"Missing key: {key}"
 
     def test_to_dict_resolved_at_none_when_not_set(self):
@@ -95,6 +110,7 @@ class TestFinding:
 
 # ── Event ─────────────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestEvent:
     def test_auto_generates_uuid_id(self):
@@ -106,8 +122,17 @@ class TestEvent:
 
     def test_to_dict_contains_required_keys(self):
         d = _make_event().to_dict()
-        for key in ("id", "ts", "source", "event_type", "severity",
-                    "entity", "evidence", "policy_refs", "action_taken"):
+        for key in (
+            "id",
+            "ts",
+            "source",
+            "event_type",
+            "severity",
+            "entity",
+            "evidence",
+            "policy_refs",
+            "action_taken",
+        ):
             assert key in d, f"Missing key: {key}"
 
     def test_to_dict_ts_is_isoformat(self):
@@ -124,6 +149,7 @@ class TestEvent:
 
 
 # ── SkillProfile ──────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestSkillProfile:
@@ -142,10 +168,21 @@ class TestSkillProfile:
     def test_to_dict_contains_required_keys(self):
         p = SkillProfile(name="s", path="/p")
         d = p.to_dict()
-        for key in ("name", "path", "trust_score", "trust_score_value",
-                    "shell_access", "injection_risk", "credential_exposure",
-                    "has_allowed_tools", "is_signed", "findings",
-                    "outbound_domains", "shell_evidence", "injection_evidence"):
+        for key in (
+            "name",
+            "path",
+            "trust_score",
+            "trust_score_value",
+            "shell_access",
+            "injection_risk",
+            "credential_exposure",
+            "has_allowed_tools",
+            "is_signed",
+            "findings",
+            "outbound_domains",
+            "shell_evidence",
+            "injection_evidence",
+        ):
             assert key in d, f"Missing key: {key}"
 
     def test_to_dict_findings_serialized(self):

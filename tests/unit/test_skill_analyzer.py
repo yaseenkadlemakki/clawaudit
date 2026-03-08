@@ -1,8 +1,9 @@
 """Tests for the skill analyzer."""
-import pytest
-from pathlib import Path
+
 import tempfile
-import os
+from pathlib import Path
+
+import pytest
 
 from sentinel.analyzer.skill_analyzer import SkillAnalyzer
 

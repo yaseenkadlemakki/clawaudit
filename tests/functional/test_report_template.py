@@ -5,6 +5,7 @@ Validates all required sections, the compliance score table (including the
 Adjusted Score column added in PR review), Skill Trust Matrix with N/A handling,
 and the remediation roadmap structure.
 """
+
 import pytest
 
 pytestmark = pytest.mark.functional
@@ -48,23 +49,17 @@ class TestRequiredSections:
 
     @pytest.mark.parametrize("heading", SEVERITY_HEADINGS)
     def test_severity_heading_present(self, report_template, heading):
-        assert heading in report_template, (
-            f"Findings section missing severity heading: '{heading}'"
-        )
+        assert heading in report_template, f"Findings section missing severity heading: '{heading}'"
 
     @pytest.mark.parametrize("heading", ROADMAP_HEADINGS)
     def test_roadmap_heading_present(self, report_template, heading):
-        assert heading in report_template, (
-            f"Remediation Roadmap missing section: '{heading}'"
-        )
+        assert heading in report_template, f"Remediation Roadmap missing section: '{heading}'"
 
 
 class TestComplianceTable:
     @pytest.mark.parametrize("domain", COMPLIANCE_TABLE_DOMAINS)
     def test_domain_row_present(self, report_template, domain):
-        assert domain in report_template, (
-            f"Compliance Score table missing domain row: '{domain}'"
-        )
+        assert domain in report_template, f"Compliance Score table missing domain row: '{domain}'"
 
     def test_overall_row_present(self, report_template):
         assert "OVERALL" in report_template
@@ -101,7 +96,7 @@ class TestComplianceTable:
             "this column distinguishes UNKNOWN-driven score drops from confirmed failures"
         )
         # Look for an explanation within 500 chars of the last mention
-        context = report_template[score_idx: score_idx + 500]
+        context = report_template[score_idx : score_idx + 500]
         has_explanation = (
             "UNKNOWN" in context
             or "denominator" in context.lower()
@@ -119,9 +114,7 @@ class TestSkillTrustMatrix:
 
     @pytest.mark.parametrize("col", TRUST_MATRIX_COLUMNS)
     def test_trust_matrix_column_present(self, report_template, col):
-        assert col in report_template, (
-            f"Skill Trust Matrix missing column: '{col}'"
-        )
+        assert col in report_template, f"Skill Trust Matrix missing column: '{col}'"
 
     def test_trust_matrix_na_handling_present(self, report_template):
         """
@@ -129,7 +122,7 @@ class TestSkillTrustMatrix:
         (install path unavailable or skills directory empty).
         """
         matrix_idx = report_template.index("Skill Trust Matrix")
-        context = report_template[matrix_idx: matrix_idx + 600]
+        context = report_template[matrix_idx : matrix_idx + 600]
         assert "N/A" in context or "no skills" in context.lower(), (
             "Skill Trust Matrix must include N/A handling for when no skills are found"
         )

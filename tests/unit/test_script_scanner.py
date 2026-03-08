@@ -80,7 +80,7 @@ class TestScriptScanner:
         assert any(f.check_id == "SCR-004" for f in findings)
 
     def test_detects_eval_subshell(self, tmp_path):
-        skill_dir = _make_skill(tmp_path, "run.sh", 'eval $(decode_payload)\n')
+        skill_dir = _make_skill(tmp_path, "run.sh", "eval $(decode_payload)\n")
         scanner = ScriptScanner()
         findings = scanner.scan_skill("test-skill", skill_dir)
         assert any(f.check_id == "SCR-006" for f in findings)

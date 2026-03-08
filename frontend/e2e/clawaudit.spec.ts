@@ -584,6 +584,26 @@ test.describe("Error and empty state exclusivity", () => {
     await expect(page.getByText(/No findings match/i)).not.toBeVisible()
   })
 
+  test("WebSocket URL does not contain token in query string", async ({ page }) => {
+    const wsUrls: string[] = []
+
+    page.on("websocket", ws => {
+      wsUrls.push(ws.url())
+    })
+
+    await page.goto("/hooks")
+    await page.waitForLoadState("networkidle")
+
+    // Ensure at least one WS connection was attempted
+    expect(wsUrls.length).toBeGreaterThan(0)
+
+    // Any WS connection must NOT have token in URL
+    for (const url of wsUrls) {
+      expect(url).not.toContain("token=")
+      expect(url).not.toContain("NEXT_PUBLIC_API_TOKEN")
+    }
+  })
+
   test("Findings Explorer shows ONLY empty state when API returns empty results", async ({ page }) => {
     await page.route("**/api/v1/findings**", route => route.fulfill({
       status: 200,

@@ -1,7 +1,9 @@
 """WebSocket streaming tests (queue-based, no httpx_ws required)."""
+
 from __future__ import annotations
 
 import asyncio
+
 import pytest
 
 from backend.engine.scan_manager import ScanManager

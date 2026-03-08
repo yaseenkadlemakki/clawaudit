@@ -5,21 +5,22 @@ Validates: schema correctness, required fields, check ID format,
 severity and domain enum values, check counts per domain, and absence
 of disallowed fields (e.g. pass_when_absent which splits source of truth).
 """
+
 import re
 
 import pytest
 
 pytestmark = pytest.mark.unit
 
-REQUIRED_FIELDS = frozenset({
-    "id", "domain", "description", "evidence_key", "expected", "severity", "remediation"
-})
+REQUIRED_FIELDS = frozenset(
+    {"id", "domain", "description", "evidence_key", "expected", "severity", "remediation"}
+)
 
 VALID_SEVERITIES = frozenset({"CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"})
 
-VALID_DOMAINS = frozenset({
-    "config", "skills", "secrets", "network", "supply_chain", "observability"
-})
+VALID_DOMAINS = frozenset(
+    {"config", "skills", "secrets", "network", "supply_chain", "observability"}
+)
 
 # Minimum check counts per domain — guards against accidental deletions.
 # Use >= so that adding new checks doesn't require updating this file.
@@ -49,6 +50,7 @@ ID_PATTERN = re.compile(r"^[A-Z]+-\d{2}$")
 
 # ── File-level schema ──────────────────────────────────────────────────────────
 
+
 class TestYAMLSchema:
     def test_version_key_present(self, hardening_rules):
         assert "version" in hardening_rules
@@ -69,14 +71,11 @@ class TestYAMLSchema:
 
 # ── Per-check field validation ─────────────────────────────────────────────────
 
+
 class TestRequiredFields:
     @pytest.mark.parametrize("field", sorted(REQUIRED_FIELDS))
     def test_all_checks_have_field(self, checks, field):
-        missing = [
-            c.get("id", f"(index {i})")
-            for i, c in enumerate(checks)
-            if field not in c
-        ]
+        missing = [c.get("id", f"(index {i})") for i, c in enumerate(checks) if field not in c]
         assert not missing, f"Checks missing required field '{field}': {missing}"
 
     def test_no_blank_descriptions(self, checks):
@@ -112,6 +111,7 @@ class TestDisallowedFields:
 
 # ── Check ID format ────────────────────────────────────────────────────────────
 
+
 class TestCheckIDFormat:
     def test_no_duplicate_ids(self, checks):
         ids = [c["id"] for c in checks if "id" in c]
@@ -136,6 +136,7 @@ class TestCheckIDFormat:
 
 # ── Enum constraints ───────────────────────────────────────────────────────────
 
+
 class TestEnumValues:
     def test_all_severities_are_valid(self, checks):
         bad = [
@@ -147,14 +148,13 @@ class TestEnumValues:
 
     def test_all_domains_are_valid(self, checks):
         bad = [
-            (c.get("id"), c.get("domain"))
-            for c in checks
-            if c.get("domain") not in VALID_DOMAINS
+            (c.get("id"), c.get("domain")) for c in checks if c.get("domain") not in VALID_DOMAINS
         ]
         assert not bad, f"Invalid domain values (allowed: {VALID_DOMAINS}): {bad}"
 
 
 # ── Check counts ───────────────────────────────────────────────────────────────
+
 
 class TestCheckCounts:
     def test_total_check_count_at_least_minimum(self, checks):

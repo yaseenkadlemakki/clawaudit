@@ -1,13 +1,15 @@
 """API tests for knowledge graph endpoints."""
+
 from __future__ import annotations
+
+from unittest.mock import MagicMock
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from unittest.mock import MagicMock
 
-from backend.main import app
 from backend.engine.knowledge_graph import knowledge_graph
+from backend.main import app
 
 
 @pytest_asyncio.fixture
@@ -33,6 +35,7 @@ def clear_graph():
 def _make_skill_profile(name: str, domains: list[str] | None = None):
     """Build a minimal SkillProfile mock for graph seeding."""
     from sentinel.models.skill import SkillProfile
+
     profile = MagicMock(spec=SkillProfile)
     profile.name = name
     profile.path = f"/skills/{name}/SKILL.md"

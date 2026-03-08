@@ -11,6 +11,7 @@ Current count: 17 regression guards (9 from PR #1 core fixes + 8 from PR #1 revi
 If any of these tests fail, a previously fixed bug has been reintroduced.
 Failing a regression test is a hard blocker — do not merge.
 """
+
 import pytest
 
 pytestmark = pytest.mark.integration
@@ -18,8 +19,8 @@ pytestmark = pytest.mark.integration
 
 # ── PR #1 regressions ─────────────────────────────────────────────────────────
 
-class TestPR1Regressions:
 
+class TestPR1Regressions:
     def test_no_duplicate_inner_clawaudit_directory(self, repo_root):
         """
         BUG (PR #1): The entire skill directory was duplicated inside a
@@ -44,11 +45,12 @@ class TestPR1Regressions:
         FIX: Detection Logic in domains.md updated: CONF-01 absent = PASS.
         """
         import re
+
         assert "Detection Logic" in domains_md
         det_idx = domains_md.index("Detection Logic")
         # The CONF-01 absent=PASS rule is in the Detection Logic section,
         # not in the check-table row (which is hundreds of chars earlier).
-        detection_section = domains_md[det_idx: det_idx + 1200]
+        detection_section = domains_md[det_idx : det_idx + 1200]
         # Use regex to confirm the rule co-locates CONF-01 with absent and PASS,
         # preventing a false pass when the three words appear for unrelated reasons.
         assert re.search(r"CONF-01.{0,120}absent.{0,120}PASS", detection_section, re.DOTALL), (
@@ -64,11 +66,7 @@ class TestPR1Regressions:
 
         FIX: author changed to 'OpenClaw Security'.
         """
-        author = (
-            skill_frontmatter.get("metadata", {})
-            .get("openclaw", {})
-            .get("author", "")
-        )
+        author = skill_frontmatter.get("metadata", {}).get("openclaw", {}).get("author", "")
         assert author.lower() != "clawaudit", (
             f"REGRESSION: author is '{author}' — must not be the skill name 'clawaudit'."
         )
@@ -91,9 +89,7 @@ class TestPR1Regressions:
 
         FIX: README.md added.
         """
-        assert (repo_root / "README.md").exists(), (
-            "REGRESSION: README.md removed. Re-add it."
-        )
+        assert (repo_root / "README.md").exists(), "REGRESSION: README.md removed. Re-add it."
 
     def test_changelog_exists(self, repo_root):
         """
@@ -102,9 +98,7 @@ class TestPR1Regressions:
 
         FIX: CHANGELOG.md added following Keep a Changelog format.
         """
-        assert (repo_root / "CHANGELOG.md").exists(), (
-            "REGRESSION: CHANGELOG.md removed. Re-add it."
-        )
+        assert (repo_root / "CHANGELOG.md").exists(), "REGRESSION: CHANGELOG.md removed. Re-add it."
 
     def test_phase0_has_gateway_error_handling(self, skill_body):
         """
@@ -156,8 +150,8 @@ class TestPR1Regressions:
 
 # ── PR #1 review comment regressions ─────────────────────────────────────────
 
-class TestPRReviewRegressions:
 
+class TestPRReviewRegressions:
     def test_web_fetch_in_allowed_tools(self, skill_frontmatter):
         """
         BUG (PR #1 review, comment #2893212543): SC-03 (repo commit recency) and
@@ -183,7 +177,7 @@ class TestPRReviewRegressions:
         FIX: Replaced with scoped suppression (WARN for documentation-context matches).
         """
         safety_idx = skill_body.index("Safety Rules")
-        safety_section = skill_body[safety_idx: safety_idx + 2500]
+        safety_section = skill_body[safety_idx : safety_idx + 2500]
         old_blanket = "Exclude `clawaudit`'s own `SKILL.md` from Domain 2 and Domain 5"
         assert old_blanket not in safety_section, (
             "REGRESSION: Blanket self-exclusion text reappeared in Safety Rule 7. "
@@ -313,6 +307,5 @@ class TestPRReviewRegressions:
         )
         # domains.md: must reference scoring.md
         assert "scoring.md" in domains_md, (
-            "domains.md must reference scoring.md for trust criteria "
-            "(single canonical source)"
+            "domains.md must reference scoring.md for trust criteria (single canonical source)"
         )

@@ -5,6 +5,7 @@ Validates: scan order (Anthropic-before-OpenAI), credential type completeness,
 false-positive reduction constraints, injection vector coverage (including
 the two vectors added in the PR review), and OWASP references.
 """
+
 import pytest
 
 pytestmark = pytest.mark.unit
@@ -29,6 +30,7 @@ EXPECTED_CREDENTIAL_TYPES = [
 
 
 # ── Secret patterns ────────────────────────────────────────────────────────────
+
 
 class TestScanOrder:
     def test_scan_order_section_exists(self, secret_patterns_md):
@@ -75,13 +77,15 @@ class TestCredentialTypeRegistry:
 
     def test_at_least_15_credential_types(self, secret_patterns_md):
         import re
+
         # Match table rows that are NOT separator lines (|---|---| style).
         # Separator lines have cells containing only dashes, colons, and spaces.
         # NOTE: we cannot use "---" not in line because credential rows like
         # "-----BEGIN RSA PRIVATE KEY-----" legitimately contain "---".
         separator_re = re.compile(r"^\|[\s\-|:]+\|?\s*$")
         table_rows = [
-            line for line in secret_patterns_md.splitlines()
+            line
+            for line in secret_patterns_md.splitlines()
             if line.strip().startswith("|")
             and not separator_re.match(line.strip())
             and "Credential Type" not in line
@@ -156,6 +160,7 @@ class TestFalsePositiveReduction:
 
 # ── Injection patterns ─────────────────────────────────────────────────────────
 
+
 class TestInjectionPatternSections:
     def test_shell_injection_section_exists(self, injection_patterns_md):
         assert "Shell Injection" in injection_patterns_md
@@ -175,9 +180,10 @@ class TestShellInjectionPatterns:
         # Search for the backtick-quoted `eval` that appears in the table, not
         # the word "evaluate" that appears in the Rules prose section.
         import re
+
         match = re.search(r"`eval`", injection_patterns_md)
         assert match, "injection-patterns.md must list `eval` as a shell injection pattern"
-        surrounding = injection_patterns_md[match.start(): match.start() + 200]
+        surrounding = injection_patterns_md[match.start() : match.start() + 200]
         assert "CRITICAL" in surrounding, "The `eval` pattern must be classified as CRITICAL risk"
 
     def test_dollar_star_expansion_listed(self, injection_patterns_md):

@@ -1,19 +1,25 @@
 """Unit tests for alert message formatters."""
-import pytest
-from datetime import datetime
 
-from sentinel.alerts.formatters import format_finding_alert, format_event_alert
-from sentinel.models.finding import Finding
+import pytest
+
+from sentinel.alerts.formatters import format_event_alert, format_finding_alert
 from sentinel.models.event import Event
+from sentinel.models.finding import Finding
 from sentinel.models.policy import PolicyDecision
 
 
 def _finding(**kwargs) -> Finding:
     defaults = dict(
-        check_id="CONF-01", domain="config", title="Discord policy misconfigured",
-        description="desc", severity="HIGH", result="FAIL",
-        evidence="groupPolicy=open", location="openclaw.json",
-        remediation="Set groupPolicy to allowlist", run_id="r1",
+        check_id="CONF-01",
+        domain="config",
+        title="Discord policy misconfigured",
+        description="desc",
+        severity="HIGH",
+        result="FAIL",
+        evidence="groupPolicy=open",
+        location="openclaw.json",
+        remediation="Set groupPolicy to allowlist",
+        run_id="r1",
     )
     defaults.update(kwargs)
     return Finding(**defaults)
@@ -27,15 +33,19 @@ def _decision(**kwargs) -> PolicyDecision:
 
 def _event(**kwargs) -> Event:
     defaults = dict(
-        source="session_collector", event_type="runaway_agent",
-        severity="HIGH", entity="session-abc",
-        evidence="tool_calls_per_minute=45", action_taken="ALERT",
+        source="session_collector",
+        event_type="runaway_agent",
+        severity="HIGH",
+        entity="session-abc",
+        evidence="tool_calls_per_minute=45",
+        action_taken="ALERT",
     )
     defaults.update(kwargs)
     return Event(**defaults)
 
 
 # ── format_finding_alert ──────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestFormatFindingAlert:
@@ -88,6 +98,7 @@ class TestFormatFindingAlert:
 
 
 # ── format_event_alert ────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestFormatEventAlert:

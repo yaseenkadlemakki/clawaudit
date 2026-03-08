@@ -1,4 +1,5 @@
 """API tests for findings endpoints."""
+
 from __future__ import annotations
 
 from datetime import datetime

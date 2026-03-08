@@ -1,10 +1,10 @@
 """Tests for the risk scoring engine."""
+
 from __future__ import annotations
 
-import pytest
 from unittest.mock import MagicMock
 
-from backend.engine.risk_scoring import score_skill, RISK_FACTORS
+from backend.engine.risk_scoring import RISK_FACTORS, score_skill
 
 
 def make_profile(**kwargs):

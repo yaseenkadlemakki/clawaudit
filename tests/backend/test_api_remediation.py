@@ -1,4 +1,5 @@
 """API tests for remediation endpoints."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -90,29 +91,37 @@ class TestGetProposals:
 @pytest.mark.asyncio
 class TestApplyProposal:
     async def test_apply_invalid_action_type(self, client):
-        resp = await client.post("/api/v1/remediation/apply", json={
-            "proposal_id": "p1",
-            "diff_preview": "",
-            "skill_name": "test",
-            "skill_path": str(__import__("pathlib").Path.home() / ".openclaw" / "workspace" / "test"),
-            "check_id": "ADV-001",
-            "action_type": "INVALID",
-            "description": "test",
-        })
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "test",
+                "skill_path": str(
+                    __import__("pathlib").Path.home() / ".openclaw" / "workspace" / "test"
+                ),
+                "check_id": "ADV-001",
+                "action_type": "INVALID",
+                "description": "test",
+            },
+        )
         assert resp.status_code == 400
         assert "Unknown action_type" in resp.json()["detail"]
 
     async def test_apply_path_traversal_blocked(self, client):
         """Ensure paths outside allowed directories are rejected."""
-        resp = await client.post("/api/v1/remediation/apply", json={
-            "proposal_id": "p1",
-            "diff_preview": "",
-            "skill_name": "test",
-            "skill_path": "/etc/passwd",
-            "check_id": "ADV-001",
-            "action_type": "restrict_shell",
-            "description": "test",
-        })
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "test",
+                "skill_path": "/etc/passwd",
+                "check_id": "ADV-001",
+                "action_type": "restrict_shell",
+                "description": "test",
+            },
+        )
         assert resp.status_code == 400
         assert "allowed" in resp.json()["detail"].lower()
 
@@ -120,17 +129,24 @@ class TestApplyProposal:
 @pytest.mark.asyncio
 class TestRollback:
     async def test_rollback_path_traversal_blocked(self, client):
-        resp = await client.post("/api/v1/remediation/rollback", json={
-            "snapshot_path": "/etc/passwd",
-        })
+        resp = await client.post(
+            "/api/v1/remediation/rollback",
+            json={
+                "snapshot_path": "/etc/passwd",
+            },
+        )
         assert resp.status_code == 400
         assert "snapshot" in resp.json()["detail"].lower()
 
     async def test_rollback_nonexistent_snapshot(self, client):
         from sentinel.remediation.rollback import SNAPSHOT_DIR
-        resp = await client.post("/api/v1/remediation/rollback", json={
-            "snapshot_path": str(SNAPSHOT_DIR / "nonexistent.tar.gz"),
-        })
+
+        resp = await client.post(
+            "/api/v1/remediation/rollback",
+            json={
+                "snapshot_path": str(SNAPSHOT_DIR / "nonexistent.tar.gz"),
+            },
+        )
         assert resp.status_code == 404
 
 

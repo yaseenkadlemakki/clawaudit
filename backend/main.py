@@ -10,6 +10,9 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
+from starlette.responses import Response
 
 from backend.api.routes import (
     chat,
@@ -51,10 +54,40 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_MAX_BODY_BYTES = 64 * 1024  # 64 KB
+
+
+class MaxBodySizeMiddleware(BaseHTTPMiddleware):
+    """Reject requests whose Content-Length exceeds the limit.
+
+    Note: This checks the declared Content-Length header. Chunked-encoded
+    requests without Content-Length are handled by field-level Pydantic limits.
+    """
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                length = int(content_length)
+            except ValueError:
+                # Malformed Content-Length — let the request through; Pydantic handles field limits
+                return await call_next(request)
+            if length > _MAX_BODY_BYTES:
+                return Response(
+                    content='{"detail": "Request body too large"}',
+                    status_code=413,
+                    media_type="application/json",
+                )
+        return await call_next(request)
+
+
 # Bearer token auth — must come before CORS so auth runs first
 from backend.middleware.auth import AuthMiddleware  # noqa: E402
 
 app.add_middleware(AuthMiddleware)
+
+# Body size limit — added after auth so it's outermost (runs first in Starlette LIFO order)
+app.add_middleware(MaxBodySizeMiddleware)
 
 # CORS — allow_credentials=True requires explicit origins (never "*")
 app.add_middleware(

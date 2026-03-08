@@ -4,6 +4,7 @@ Functional tests: completeness of domain definitions in references/domains.md.
 Validates that every domain has a check table, detection logic, and evidence
 collection guidance — the three elements the agent needs to run a domain phase.
 """
+
 import pytest
 
 pytestmark = pytest.mark.functional
@@ -31,9 +32,7 @@ DOMAIN_BOUNDARY_IDS = {
 class TestDomainSectionPresence:
     @pytest.mark.parametrize("section", sorted(ALL_DOMAIN_SECTIONS))
     def test_domain_section_present(self, domains_md, section):
-        assert section in domains_md, (
-            f"domains.md missing section heading: '{section}'"
-        )
+        assert section in domains_md, f"domains.md missing section heading: '{section}'"
 
     def test_all_6_domains_present(self, domains_md):
         for section in ALL_DOMAIN_SECTIONS:
@@ -51,9 +50,7 @@ class TestCheckTableCompleteness:
     @pytest.mark.parametrize("domain,ids", DOMAIN_BOUNDARY_IDS.items())
     def test_last_check_id_present(self, domains_md, domain, ids):
         last_id = ids[1]
-        assert last_id in domains_md, (
-            f"{domain}: last check ID '{last_id}' not found in domains.md"
-        )
+        assert last_id in domains_md, f"{domain}: last check ID '{last_id}' not found in domains.md"
 
 
 class TestDetectionLogicPresence:
@@ -63,7 +60,7 @@ class TestDetectionLogicPresence:
     def test_domain1_conf01_absent_rule_in_detection_logic(self, domains_md):
         """The CONF-01 absent=PASS rule is part of the detection logic section."""
         det_idx = domains_md.index("Detection Logic")
-        logic_section = domains_md[det_idx: det_idx + 1000]
+        logic_section = domains_md[det_idx : det_idx + 1000]
         assert "CONF-01" in logic_section, (
             "Detection Logic must explicitly document CONF-01 absent-handling rule"
         )
@@ -96,7 +93,7 @@ class TestSupplyChainWebFetch:
         """
         assert "SC-03" in domains_md
         idx = domains_md.index("SC-03")
-        context = domains_md[idx: idx + 350]
+        context = domains_md[idx : idx + 350]
         assert "web_fetch" in context or "web check" in context.lower() or "UNKNOWN" in context, (
             "SC-03 must document the use of web_fetch for repo commit-recency check"
         )
@@ -107,7 +104,7 @@ class TestSupplyChainWebFetch:
         """
         assert "SC-05" in domains_md
         idx = domains_md.index("SC-05")
-        context = domains_md[idx: idx + 350]
+        context = domains_md[idx : idx + 350]
         assert "web_fetch" in context or "web check" in context.lower() or "UNKNOWN" in context, (
             "SC-05 must document the use of web_fetch for repo availability check"
         )

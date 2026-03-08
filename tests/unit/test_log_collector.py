@@ -1,28 +1,34 @@
 """Unit tests for LogCollector pattern matching and sanitisation."""
-import pytest
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock
 
-from sentinel.config import SentinelConfig
+from pathlib import Path
+
+import pytest
+
 from sentinel.collector.log_collector import LogCollector
-from sentinel.models.event import Event
+from sentinel.config import SentinelConfig
 
 
 def _make_config(tmp_path) -> SentinelConfig:
-    return SentinelConfig({
-        "openclaw": {
-            "gateway_url": "http://localhost", "gateway_token": "",
-            "skills_dir": "/s", "workspace_skills_dir": "/w", "config_file": "/c.json",
-        },
-        "sentinel": {
-            "scan_interval_seconds": 60,
-            "log_dir": str(tmp_path / "logs"),
-            "findings_file": "/f.jsonl", "baseline_file": "/b.json", "policies_dir": "/p",
-        },
-        "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
-        "api": {"enabled": False, "port": 18790, "bind": "loopback"},
-    })
+    return SentinelConfig(
+        {
+            "openclaw": {
+                "gateway_url": "http://localhost",
+                "gateway_token": "",
+                "skills_dir": "/s",
+                "workspace_skills_dir": "/w",
+                "config_file": "/c.json",
+            },
+            "sentinel": {
+                "scan_interval_seconds": 60,
+                "log_dir": str(tmp_path / "logs"),
+                "findings_file": "/f.jsonl",
+                "baseline_file": "/b.json",
+                "policies_dir": "/p",
+            },
+            "alerts": {"enabled": True, "dedup_window_seconds": 300, "channels": {}},
+            "api": {"enabled": False, "port": 18790, "bind": "loopback"},
+        }
+    )
 
 
 @pytest.mark.unit

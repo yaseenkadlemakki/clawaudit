@@ -1,6 +1,8 @@
 """Tests for the secret scanner."""
+
 import pytest
-from sentinel.analyzer.secret_scanner import SecretScanner, SKIP_VALUES
+
+from sentinel.analyzer.secret_scanner import SKIP_VALUES, SecretScanner
 
 
 @pytest.fixture
@@ -86,6 +88,7 @@ def test_scan_dict(scanner):
 
 # ── Edge case tests ────────────────────────────────────────────────────────────
 
+
 def test_scan_empty_string(scanner):
     """scan_text on empty string returns empty list without error."""
     matches = scanner.scan_text("", "empty.txt")
@@ -116,6 +119,7 @@ def test_nested_dict_scan(scanner):
 
 
 # ── sanitize_line tests ───────────────────────────────────────────────────────
+
 
 class TestSanitizeLine:
     def test_sanitize_single_aws_key(self, scanner):

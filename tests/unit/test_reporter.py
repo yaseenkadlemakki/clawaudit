@@ -1,20 +1,25 @@
 """Unit tests for compliance reporter — renderer and delta."""
+
 import json
+
 import pytest
-import tempfile
-from pathlib import Path
-from datetime import datetime
 
 from sentinel.models.finding import Finding
-from sentinel.reporter.renderer import render_markdown, render_json
 from sentinel.reporter.delta import compute_delta, load_findings_from_jsonl
+from sentinel.reporter.renderer import render_json, render_markdown
 
 
 def _finding(**kwargs) -> Finding:
     defaults = dict(
-        check_id="CONF-01", domain="config", title="Test Finding",
-        description="desc", severity="HIGH", result="FAIL",
-        evidence="key=val", location="openclaw.json", remediation="fix it",
+        check_id="CONF-01",
+        domain="config",
+        title="Test Finding",
+        description="desc",
+        severity="HIGH",
+        result="FAIL",
+        evidence="key=val",
+        location="openclaw.json",
+        remediation="fix it",
         run_id="run-abc",
     )
     defaults.update(kwargs)
@@ -22,6 +27,7 @@ def _finding(**kwargs) -> Finding:
 
 
 # ── render_markdown ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestRenderMarkdown:
@@ -74,6 +80,7 @@ class TestRenderMarkdown:
 
 # ── render_json ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestRenderJson:
     def test_returns_valid_json(self):
@@ -112,11 +119,14 @@ class TestRenderJson:
 
 # ── compute_delta ─────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestComputeDelta:
     def test_all_new_when_no_previous(self):
-        current = [_finding(result="FAIL", check_id="A", location="l"),
-                   _finding(result="FAIL", check_id="B", location="l")]
+        current = [
+            _finding(result="FAIL", check_id="A", location="l"),
+            _finding(result="FAIL", check_id="B", location="l"),
+        ]
         new, resolved = compute_delta([], current)
         assert len(new) == 2
         assert resolved == []
@@ -136,8 +146,10 @@ class TestComputeDelta:
 
     def test_new_finding_detected(self):
         prev = [_finding(result="FAIL", check_id="A", location="l")]
-        curr = [_finding(result="FAIL", check_id="A", location="l"),
-                _finding(result="FAIL", check_id="B", location="l")]
+        curr = [
+            _finding(result="FAIL", check_id="A", location="l"),
+            _finding(result="FAIL", check_id="B", location="l"),
+        ]
         new, resolved = compute_delta(prev, curr)
         assert len(new) == 1
         assert new[0].check_id == "B"
@@ -159,6 +171,7 @@ class TestComputeDelta:
 
 
 # ── load_findings_from_jsonl ──────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestLoadFindingsFromJsonl:

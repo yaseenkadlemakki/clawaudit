@@ -1,12 +1,11 @@
 """Unit tests for SentinelConfig and load_config."""
-import os
-import pytest
-import tempfile
+
 from pathlib import Path
 
+import pytest
 import yaml
 
-from sentinel.config import SentinelConfig, load_config, _deep_merge, _interpolate_env
+from sentinel.config import SentinelConfig, _deep_merge, _interpolate_env, load_config
 
 
 def _minimal_data() -> dict:
@@ -36,6 +35,7 @@ def _minimal_data() -> dict:
 
 # ── SentinelConfig properties ─────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestSentinelConfigProperties:
     def _cfg(self, **overrides) -> SentinelConfig:
@@ -51,8 +51,9 @@ class TestSentinelConfigProperties:
 
     def test_gateway_token_falls_back_to_env(self, monkeypatch):
         monkeypatch.setenv("OPENCLAW_GATEWAY_TOKEN", "envtoken")
-        cfg = SentinelConfig({**_minimal_data(),
-                               "openclaw": {**_minimal_data()["openclaw"], "gateway_token": ""}})
+        cfg = SentinelConfig(
+            {**_minimal_data(), "openclaw": {**_minimal_data()["openclaw"], "gateway_token": ""}}
+        )
         assert cfg.gateway_token == "envtoken"
 
     def test_scan_interval(self):
@@ -106,6 +107,7 @@ class TestSentinelConfigProperties:
 
 # ── _deep_merge ───────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestDeepMerge:
     def test_simple_override(self):
@@ -135,6 +137,7 @@ class TestDeepMerge:
 
 
 # ── _interpolate_env ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 class TestInterpolateEnv:
@@ -167,6 +170,7 @@ class TestInterpolateEnv:
 
 # ── load_config ───────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 class TestLoadConfig:
     def test_returns_sentinel_config_with_defaults(self, tmp_path):
@@ -176,25 +180,19 @@ class TestLoadConfig:
 
     def test_user_yaml_overrides_defaults(self, tmp_path):
         config_file = tmp_path / "sentinel.yaml"
-        config_file.write_text(yaml.dump({
-            "sentinel": {"scan_interval_seconds": 120}
-        }))
+        config_file.write_text(yaml.dump({"sentinel": {"scan_interval_seconds": 120}}))
         cfg = load_config(config_file)
         assert cfg.scan_interval == 120
 
     def test_partial_override_preserves_other_defaults(self, tmp_path):
         config_file = tmp_path / "sentinel.yaml"
-        config_file.write_text(yaml.dump({
-            "sentinel": {"scan_interval_seconds": 30}
-        }))
+        config_file.write_text(yaml.dump({"sentinel": {"scan_interval_seconds": 30}}))
         cfg = load_config(config_file)
         assert cfg.api_port == 18790  # default preserved
 
     def test_env_interpolation_applied(self, tmp_path, monkeypatch):
         monkeypatch.setenv("MY_GW_TOKEN", "fromenv")
         config_file = tmp_path / "sentinel.yaml"
-        config_file.write_text(yaml.dump({
-            "openclaw": {"gateway_token": "${MY_GW_TOKEN}"}
-        }))
+        config_file.write_text(yaml.dump({"openclaw": {"gateway_token": "${MY_GW_TOKEN}"}}))
         cfg = load_config(config_file)
         assert cfg.gateway_token == "fromenv"

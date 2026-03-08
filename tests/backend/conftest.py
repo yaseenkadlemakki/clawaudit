@@ -5,6 +5,7 @@ the ``isolated_db`` autouse fixture.  The fixture also stubs out
 ``ScanManager._execute_scan`` so background audit tasks complete instantly
 and never outlive a test.
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch

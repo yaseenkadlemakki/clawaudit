@@ -1,10 +1,6 @@
 """Tests for backend.engine.advanced_detection."""
+
 from __future__ import annotations
-
-from pathlib import Path
-from unittest.mock import MagicMock
-
-import pytest
 
 from backend.engine.advanced_detection import AdvancedDetector
 from sentinel.models.skill import SkillProfile

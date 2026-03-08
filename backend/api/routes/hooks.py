@@ -226,14 +226,39 @@ async def unregister_plugin():
 
 
 @router.websocket("/stream")
-async def event_stream(websocket: WebSocket, token: str = ""):
-    """Real-time WebSocket stream of ToolEvents. Requires ?token= auth."""
-    expected = _get_current_token()
-    if not expected or not secrets.compare_digest(token, expected):
-        await websocket.close(code=1008)
+async def event_stream(websocket: WebSocket) -> None:
+    """Real-time WebSocket stream of ToolEvents.
+
+    Auth: client must send {"type": "auth", "token": "<token>"} as the
+    first message within 5 seconds of connecting. Connection is closed
+    with code 4001 on auth failure or timeout.
+    """
+    await websocket.accept()
+
+    # Phase 1 — authenticate via first message (token never in URL)
+    try:
+        raw = await asyncio.wait_for(websocket.receive_text(), timeout=5.0)
+        msg = json.loads(raw)
+        client_token = msg.get("token", "") if msg.get("type") == "auth" else ""
+    except TimeoutError:
+        await websocket.close(code=4001, reason="auth timeout")
+        return
+    except json.JSONDecodeError:
+        await websocket.close(code=4001, reason="invalid auth message")
+        return
+    except WebSocketDisconnect:
+        return  # client already gone, nothing to close
+    except Exception:
+        await websocket.close(code=4001, reason="auth error")
         return
 
-    await websocket.accept()
+    expected = _get_current_token()
+    if not expected or not secrets.compare_digest(client_token, expected):
+        await websocket.close(code=4001, reason="unauthorized")
+        return
+
+    await websocket.send_json({"type": "auth_ok"})
+
     queue: asyncio.Queue[dict] = asyncio.Queue(maxsize=100)
     _ws_clients.append(queue)
     logger.info("Hook stream WebSocket client connected")
@@ -241,15 +266,16 @@ async def event_stream(websocket: WebSocket, token: str = ""):
     try:
         while True:
             try:
-                event_dict = await asyncio.wait_for(queue.get(), timeout=30.0)
-                await websocket.send_text(json.dumps(event_dict))
+                event_data = await asyncio.wait_for(queue.get(), timeout=30.0)
+                await websocket.send_json(event_data)
             except TimeoutError:
-                try:
-                    await websocket.send_text(json.dumps({"type": "ping"}))
-                except Exception:
-                    break
+                # Send ping to detect dead connections
+                await websocket.send_json({"type": "ping"})
     except WebSocketDisconnect:
-        logger.info("Hook stream WebSocket client disconnected")
+        pass
+    except Exception:
+        pass  # connection reset, etc.
     finally:
         if queue in _ws_clients:
             _ws_clients.remove(queue)
+        logger.info("Hook stream WebSocket client disconnected")

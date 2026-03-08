@@ -1,4 +1,5 @@
 """Tests for backend.engine.chat_engine."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -50,7 +51,15 @@ class TestBuildPrompt:
             "scan_status": "completed",
             "total_findings": 1,
             "skills_scanned": 1,
-            "findings": [{"title": "Shell Escape", "severity": "HIGH", "skill": "bad-skill", "domain": "capability", "remediation": "fix"}],
+            "findings": [
+                {
+                    "title": "Shell Escape",
+                    "severity": "HIGH",
+                    "skill": "bad-skill",
+                    "domain": "capability",
+                    "remediation": "fix",
+                }
+            ],
             "skills": [],
         }
         prompt = engine._build_prompt("test", context)
@@ -65,9 +74,17 @@ class TestBuildPrompt:
             "total_findings": 0,
             "skills_scanned": 1,
             "findings": [],
-            "skills": [{"name": "risky-skill", "risk_score": 95, "risk_level": "Critical",
-                        "shell_access": True, "trust_score": "QUARANTINE",
-                        "injection_risk": "HIGH", "outbound_domains": ["evil.io"]}],
+            "skills": [
+                {
+                    "name": "risky-skill",
+                    "risk_score": 95,
+                    "risk_level": "Critical",
+                    "shell_access": True,
+                    "trust_score": "QUARANTINE",
+                    "injection_risk": "HIGH",
+                    "outbound_domains": ["evil.io"],
+                }
+            ],
         }
         prompt = engine._build_prompt("test", context)
         assert "risky-skill" in prompt
@@ -192,6 +209,7 @@ class TestAskAnthropic:
         engine = ChatEngine()
 
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -208,11 +226,21 @@ class TestAsk:
     @pytest.mark.asyncio
     async def test_openclaw_mode_returns_answer_and_context(self):
         engine = ChatEngine()
-        mock_context = {"scan_id": "x", "total_findings": 5, "skills_scanned": 3,
-                        "findings": [], "skills": [], "scan_status": "completed"}
+        mock_context = {
+            "scan_id": "x",
+            "total_findings": 5,
+            "skills_scanned": 3,
+            "findings": [],
+            "skills": [],
+            "scan_status": "completed",
+        }
 
-        with patch.object(engine, "_build_context", new_callable=AsyncMock, return_value=mock_context):
-            with patch.object(engine, "_ask_openclaw", new_callable=AsyncMock, return_value="gateway answer"):
+        with patch.object(
+            engine, "_build_context", new_callable=AsyncMock, return_value=mock_context
+        ):
+            with patch.object(
+                engine, "_ask_openclaw", new_callable=AsyncMock, return_value="gateway answer"
+            ):
                 answer, context = await engine.ask("test question", mode="openclaw")
 
         assert answer == "gateway answer"
@@ -227,11 +255,21 @@ class TestAsk:
     @pytest.mark.asyncio
     async def test_byollm_mode_calls_anthropic(self):
         engine = ChatEngine()
-        mock_context = {"scan_id": "x", "total_findings": 0, "skills_scanned": 0,
-                        "findings": [], "skills": [], "scan_status": "completed"}
+        mock_context = {
+            "scan_id": "x",
+            "total_findings": 0,
+            "skills_scanned": 0,
+            "findings": [],
+            "skills": [],
+            "scan_status": "completed",
+        }
 
-        with patch.object(engine, "_build_context", new_callable=AsyncMock, return_value=mock_context):
-            with patch.object(engine, "_ask_anthropic", new_callable=AsyncMock, return_value="anthropic answer"):
+        with patch.object(
+            engine, "_build_context", new_callable=AsyncMock, return_value=mock_context
+        ):
+            with patch.object(
+                engine, "_ask_anthropic", new_callable=AsyncMock, return_value="anthropic answer"
+            ):
                 answer, _ = await engine.ask("test", mode="byollm", api_key="sk-test")
 
         assert answer == "anthropic answer"
@@ -239,12 +277,24 @@ class TestAsk:
     @pytest.mark.asyncio
     async def test_openclaw_gateway_down_returns_fallback(self):
         engine = ChatEngine()
-        mock_context = {"scan_id": "x", "total_findings": 5, "skills_scanned": 3,
-                        "findings": [], "skills": [], "scan_status": "completed"}
+        mock_context = {
+            "scan_id": "x",
+            "total_findings": 5,
+            "skills_scanned": 3,
+            "findings": [],
+            "skills": [],
+            "scan_status": "completed",
+        }
 
-        with patch.object(engine, "_build_context", new_callable=AsyncMock, return_value=mock_context):
-            with patch.object(engine, "_ask_openclaw", new_callable=AsyncMock,
-                              side_effect=RuntimeError("gateway down")):
+        with patch.object(
+            engine, "_build_context", new_callable=AsyncMock, return_value=mock_context
+        ):
+            with patch.object(
+                engine,
+                "_ask_openclaw",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("gateway down"),
+            ):
                 answer, _ = await engine.ask("test", mode="openclaw")
 
         assert "gateway" in answer.lower()
@@ -253,10 +303,18 @@ class TestAsk:
     @pytest.mark.asyncio
     async def test_no_scan_data_returns_helpful_message(self):
         engine = ChatEngine()
-        with patch.object(engine, "_build_context", new_callable=AsyncMock,
-                          return_value={"error": "No completed scans available."}):
-            with patch.object(engine, "_ask_openclaw", new_callable=AsyncMock,
-                              return_value="Please run a scan first"):
+        with patch.object(
+            engine,
+            "_build_context",
+            new_callable=AsyncMock,
+            return_value={"error": "No completed scans available."},
+        ):
+            with patch.object(
+                engine,
+                "_ask_openclaw",
+                new_callable=AsyncMock,
+                return_value="Please run a scan first",
+            ):
                 answer, _ = await engine.ask("test")
 
         assert answer
@@ -267,10 +325,11 @@ class TestBuildContextIntegration:
 
     @pytest.mark.asyncio
     async def test_build_context_returns_correct_shape(self):
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
         from backend.database import Base
-        from backend.models.scan import ScanRun, ScanStatus
         from backend.models.finding import FindingRecord
+        from backend.models.scan import ScanRun, ScanStatus
         from backend.models.skill import SkillRecord
 
         test_engine = create_async_engine("sqlite+aiosqlite:///:memory:")
