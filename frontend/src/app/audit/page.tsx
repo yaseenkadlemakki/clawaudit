@@ -97,8 +97,8 @@ export default function AuditPage() {
     onSuccess:  (scan) => { setActiveScan(scan); connectWs(scan.id) },
   })
   const stopMut = useMutation({
-    mutationFn: () => { if (!activeScan) return Promise.resolve() as Promise<void>; return stopScan(activeScan.id) },
-    onSuccess:  () => { wsRef.current?.close(); setActiveScan(s => s ? { ...s, status: "stopped" } : s) },
+    mutationFn: () => { if (!activeScan) return Promise.resolve(null as unknown as ScanRun); return stopScan(activeScan.id) },
+    onSuccess:  (scan) => { wsRef.current?.close(); setActiveScan(s => scan ?? (s ? { ...s, status: "stopped" } : s)) },
   })
 
   const isRunning = activeScan?.status === "running"
@@ -152,7 +152,7 @@ export default function AuditPage() {
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Findings</p>
-            <p className="font-bold">{activeScan.total_findings ?? activeScan.findings_count ?? 0}</p>
+            <p className="font-bold">{activeScan.total_findings ?? 0}</p>
           </div>
         </div>
       )}

@@ -123,9 +123,9 @@ export default function DashboardPage() {
                     </span>
                   </td>
                   <td className="py-2 pr-4 text-xs">{formatDate(s.started_at)}</td>
-                  <td className="py-2 pr-4 text-xs">{s.finished_at ? formatDate(s.finished_at) : "—"}</td>
+                  <td className="py-2 pr-4 text-xs">{s.completed_at ? formatDate(s.completed_at) : "—"}</td>
                   <td className="py-2 pr-4 text-xs">{s.skills_scanned ?? "—"}</td>
-                  <td className="py-2 text-xs">{s.total_findings ?? s.findings_count ?? "—"}</td>
+                  <td className="py-2 text-xs">{s.total_findings ?? "—"}</td>
                 </tr>
               ))}
               {!d?.recent_scans?.length && !isLoading && (
