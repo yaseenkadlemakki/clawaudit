@@ -125,14 +125,6 @@ export default function SkillsPage() {
 
   const isLoading = loadingScanned || loadingLifecycle
 
-  if (scanError) return (
-    <div className="p-8">
-      <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
-        Failed to load skills: {(scanError as Error).message}
-      </div>
-    </div>
-  )
-
   return (
     <div className="p-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -146,6 +138,12 @@ export default function SkillsPage() {
           </button>
         </div>
       </div>
+
+      {scanError && (
+        <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
+          Failed to load skills: {(scanError as Error).message}
+        </div>
+      )}
 
       <div className="relative">
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />

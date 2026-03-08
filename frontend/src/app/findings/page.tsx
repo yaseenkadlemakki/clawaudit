@@ -59,12 +59,12 @@ export default function FindingsPage() {
   const [sev, setSev]         = useState("")
   const [domain, setDomain]   = useState("")
 
-  const { data: allFindings } = useQuery({
+  const { data: allFindings, error: allError } = useQuery({
     queryKey: ["findings-all"],
     queryFn:  () => getFindings({ limit: 500 }),
     staleTime: 30_000,
   })
-  const { data: findings, isLoading } = useQuery({
+  const { data: findings, isLoading, error: findingsError } = useQuery({
     queryKey: ["findings", { sev, domain }],
     queryFn:  () => getFindings({
       severity: sev    || undefined,
@@ -122,6 +122,12 @@ export default function FindingsPage() {
           {domains.map(d => <option key={d} value={d}>{d}</option>)}
         </select>
       </div>
+
+      {(findingsError || allError) && (
+        <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
+          {String(findingsError ?? allError)}
+        </div>
+      )}
 
       <div className="bg-card border border-border rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
