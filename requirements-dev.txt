@@ -3,7 +3,7 @@
 
 pytest==9.0.2
 pytest-cov==6.0.0
-pyyaml==6.0.2
+pyyaml==6.0.3
 
 # Optional: lint tools invoked by CI (not imported by tests directly)
 yamllint==1.35.1
