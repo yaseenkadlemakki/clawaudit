@@ -606,10 +606,15 @@ def skills_list(
 @skills_app.command("install")
 def skills_install(
     path_or_url: str = typer.Argument(..., help="Local .skill file path or HTTP URL"),
+    force: bool = typer.Option(False, "--force", help="Force reinstall even if hash differs"),
     config_path: Path | None = typer.Option(None, "--config", "-c"),
 ) -> None:
     """Install a skill from a .skill file or URL."""
-    from sentinel.lifecycle.installer import SkillInstaller
+    from sentinel.lifecycle.installer import (
+        SkillAlreadyInstalledError,
+        SkillHashMismatchError,
+        SkillInstaller,
+    )
     from sentinel.lifecycle.registry import SkillRegistry
 
     cfg = load_config(config_path)
@@ -619,11 +624,17 @@ def skills_install(
     try:
         if path_or_url.startswith(("http://", "https://")):
             with console.status(f"[bold green]Downloading {path_or_url}..."):
-                record = installer.install_from_url(path_or_url)
+                record = installer.install_from_url(path_or_url, force=force)
         else:
-            record = installer.install_from_file(Path(path_or_url))
+            record = installer.install_from_file(Path(path_or_url), force=force)
         console.print(f"[green]Installed '{record.name}' v{record.version} → {record.path}[/green]")
-    except (ValueError, FileExistsError, FileNotFoundError) as exc:
+    except (
+        ValueError,
+        FileExistsError,
+        FileNotFoundError,
+        SkillAlreadyInstalledError,
+        SkillHashMismatchError,
+    ) as exc:
         console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
 
@@ -733,6 +744,41 @@ def skills_recover(
     except FileNotFoundError as exc:
         console.print(f"[red]Error: {exc}[/red]")
         raise typer.Exit(1) from exc
+
+
+@skills_app.command("verify")
+def skills_verify(
+    name: str = typer.Argument(..., help="Skill name to verify"),
+) -> None:
+    """Verify skill content hash matches registry."""
+    from sentinel.lifecycle.installer import SkillInstaller
+    from sentinel.lifecycle.registry import SkillRegistry
+
+    registry = SkillRegistry()
+    record = registry.get(name)
+    if not record:
+        console.print(f"[red]Skill '{name}' not found in registry[/red]")
+        raise typer.Exit(1)
+
+    if not record.content_hash:
+        console.print(
+            f"[yellow]Skill '{name}' has no stored hash (installed before hash pinning)[/yellow]"
+        )
+        raise typer.Exit(1)
+
+    skill_dir = Path(record.path)
+    if not skill_dir.exists():
+        console.print(f"[red]Skill directory not found: {skill_dir}[/red]")
+        raise typer.Exit(1)
+
+    current_hash = SkillInstaller._compute_skill_hash(skill_dir)
+    if current_hash == record.content_hash:
+        console.print(f"[green]OK — '{name}' integrity verified[/green]")
+    else:
+        console.print(f"[red]TAMPERED — '{name}' content hash mismatch![/red]")
+        console.print(f"  Expected: {record.content_hash[:16]}...")
+        console.print(f"  Current:  {current_hash[:16]}...")
+        raise typer.Exit(1)
 
 
 app.add_typer(skills_app)

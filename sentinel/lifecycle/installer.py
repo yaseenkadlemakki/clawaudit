@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import shutil
@@ -13,6 +14,15 @@ from pathlib import Path
 from sentinel.lifecycle.registry import SkillRecord, SkillRegistry
 
 logger = logging.getLogger(__name__)
+
+
+class SkillAlreadyInstalledError(Exception):
+    """Raised when a skill is already installed with the same content hash."""
+
+
+class SkillHashMismatchError(Exception):
+    """Raised when a skill is already installed but content hash differs."""
+
 
 _NAME_RE = re.compile(r"^(?:name\s*:\s*)(.+)", re.MULTILINE)
 _VERSION_RE = re.compile(r"^(?:version\s*:\s*)(.+)", re.MULTILINE)
@@ -38,13 +48,15 @@ class SkillInstaller:
         self._skills_dir = skills_dir
         self._registry = registry
 
-    def install_from_file(self, skill_path: Path) -> SkillRecord:
+    def install_from_file(self, skill_path: Path, force: bool = False) -> SkillRecord:
         """Install a skill from a local .skill (tar.gz) file.
 
         Raises:
             FileNotFoundError: If skill_path doesn't exist.
             ValueError: If the archive is invalid or missing SKILL.md/name.
-            FileExistsError: If the skill is already installed.
+            FileExistsError: If the skill is already installed (no hash tracking).
+            SkillAlreadyInstalledError: If already installed with same hash.
+            SkillHashMismatchError: If already installed but hash differs.
         """
         if not skill_path.exists():
             raise FileNotFoundError(f"Skill file not found: {skill_path}")
@@ -63,13 +75,27 @@ class SkillInstaller:
             # Find SKILL.md in extracted content
             skill_name = self._validate_manifest(tmp_path)
 
-            # Check not already installed
-            dest = self._skills_dir / skill_name
-            if dest.exists():
-                raise FileExistsError(f"Skill '{skill_name}' is already installed at {dest}")
-
             # Locate the extracted skill root (may be nested one level)
             skill_root = self._find_skill_root(tmp_path)
+
+            # Compute content hash of the new archive
+            new_hash = self._compute_skill_hash(skill_root)
+
+            # Check not already installed
+            dest = self._skills_dir / skill_name
+            existing = self._registry.get(skill_name)
+            if dest.exists() and not force:
+                if existing and existing.content_hash:
+                    if existing.content_hash == new_hash:
+                        raise SkillAlreadyInstalledError(f"Skill '{skill_name}' already up to date")
+                    raise SkillHashMismatchError(
+                        f"Skill '{skill_name}' hash changed, use --force to override"
+                    )
+                raise FileExistsError(f"Skill '{skill_name}' is already installed at {dest}")
+
+            # If force and dest exists, remove old copy first
+            if dest.exists() and force:
+                shutil.rmtree(dest)
 
             # Move to skills dir
             self._skills_dir.mkdir(parents=True, exist_ok=True)
@@ -84,12 +110,13 @@ class SkillInstaller:
             version=version,
             installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
             enabled=True,
+            content_hash=new_hash,
         )
         self._registry.register(record)
         logger.info("Installed skill '%s' to %s", skill_name, dest)
         return record
 
-    def install_from_url(self, url: str) -> SkillRecord:
+    def install_from_url(self, url: str, force: bool = False) -> SkillRecord:
         """Download a .skill file from a URL and install it.
 
         Raises:
@@ -111,7 +138,7 @@ class SkillInstaller:
                 with tmp_path.open("wb") as fh:
                     for chunk in resp.iter_bytes():
                         fh.write(chunk)
-            record = self.install_from_file(tmp_path)
+            record = self.install_from_file(tmp_path, force=force)
             # Override source to the URL
             record.source = url
             self._registry.register(record)
@@ -160,3 +187,13 @@ class SkillInstaller:
         for skill_md in extract_dir.rglob("SKILL.md"):
             return skill_md.parent
         raise ValueError("Cannot locate SKILL.md in extracted archive")
+
+    @staticmethod
+    def _compute_skill_hash(skill_dir: Path) -> str:
+        """SHA-256 hash of all files in *skill_dir*, sorted by path for determinism."""
+        hasher = hashlib.sha256()
+        for file_path in sorted(skill_dir.rglob("*")):
+            if file_path.is_file():
+                hasher.update(str(file_path.relative_to(skill_dir)).encode())
+                hasher.update(file_path.read_bytes())
+        return hasher.hexdigest()

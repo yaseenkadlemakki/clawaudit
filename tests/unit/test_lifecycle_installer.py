@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from sentinel.lifecycle.installer import SkillInstaller
+from sentinel.lifecycle.installer import SkillAlreadyInstalledError, SkillInstaller
 from sentinel.lifecycle.registry import SkillRegistry
 
 pytestmark = pytest.mark.unit
@@ -136,9 +136,9 @@ class TestSkillInstaller:
         installer = SkillInstaller(skills_dir, reg)
 
         installer.install_from_file(tarball)
-        # Second install should fail
+        # Second install with same content should raise already-installed
         tarball2 = _make_skill_tarball(tmp_path / "again", "dup")
-        with pytest.raises(FileExistsError):
+        with pytest.raises(SkillAlreadyInstalledError):
             installer.install_from_file(tarball2)
 
     def test_parse_version_from_frontmatter(self, tmp_path):

@@ -21,10 +21,17 @@ class SkillRecord:
     version: str  # from SKILL.md metadata or "unknown"
     installed_at: str  # ISO8601
     enabled: bool  # True if SKILL.md exists (not .disabled)
+    content_hash: str = ""  # SHA-256 of all files for integrity verification
 
     @classmethod
     def from_dict(cls, data: dict) -> SkillRecord:
-        return cls(**{k: data[k] for k in cls.__dataclass_fields__ if k in data})
+        return cls(
+            **{
+                k: data.get(k, "") if k == "content_hash" else data[k]
+                for k in cls.__dataclass_fields__
+                if k in data or k == "content_hash"
+            }
+        )
 
 
 class SkillRegistry:
