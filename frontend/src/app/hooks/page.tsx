@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Activity, AlertTriangle, Shield, Zap, Filter } from "lucide-react"
 import { API_BASE } from "@/lib/api"
@@ -91,13 +91,19 @@ export default function HooksPage() {
     refetchInterval: 5000,
   })
 
-  // WebSocket for live events
-  useEffect(() => {
+  // WebSocket for live events with exponential backoff reconnection
+  const connectWebSocket = useCallback(() => {
     const wsUrl = API_BASE.replace(/^http/, "ws").replace("/api/v1", "") + "/api/v1/hooks/stream"
+    let reconnectDelay = 1000
     let ws: WebSocket
+
     try {
       ws = new WebSocket(wsUrl)
       wsRef.current = ws
+
+      ws.onopen = () => {
+        reconnectDelay = 1000
+      }
       ws.onmessage = (msg) => {
         try {
           const data = JSON.parse(msg.data)
@@ -105,12 +111,22 @@ export default function HooksPage() {
           setLiveEvents((prev) => [data, ...prev].slice(0, 50))
         } catch { /* ignore parse errors */ }
       }
-      ws.onerror = () => { /* silent */ }
+      ws.onerror = (e) => console.warn("WS error", e)
+      ws.onclose = () => {
+        setTimeout(() => connectWebSocket(), Math.min(reconnectDelay, 30000))
+        reconnectDelay *= 2
+      }
     } catch { /* WebSocket not available */ }
-    return () => {
-      if (wsRef.current) wsRef.current.close()
-    }
+
+    return ws!
   }, [])
+
+  useEffect(() => {
+    const ws = connectWebSocket()
+    return () => {
+      if (ws) ws.close()
+    }
+  }, [connectWebSocket])
 
   const totalEvents = stats?.total_events ?? 0
   const totalAlerts = stats?.total_alerts ?? 0
