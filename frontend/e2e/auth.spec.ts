@@ -33,11 +33,11 @@ test.describe("API Authentication", () => {
     )
 
     const pages = [
-      { path: "/dashboard", errorSelector: ".border-red-500" },
-      { path: "/skills", errorSelector: ".border-red-500, .text-red-400" },
-      { path: "/findings", errorSelector: ".border-red-500" },
-      { path: "/remediation", errorSelector: ".border-red-500" },
-      { path: "/hooks", errorSelector: ".border-red-500" },
+      { path: "/dashboard", errorSelector: ".text-red-400" },
+      { path: "/skills", errorSelector: ".text-red-400" },
+      { path: "/findings", errorSelector: ".text-red-400" },
+      { path: "/remediation", errorSelector: ".text-red-400" },
+      { path: "/hooks", errorSelector: ".text-red-400" },
     ]
     for (const { path, errorSelector } of pages) {
       await page.goto(path)
@@ -76,7 +76,7 @@ test.describe("API Authentication", () => {
       route.fulfill({ status: 401, body: "Unauthorized" })
     )
     await page.goto("/findings")
-    await expect(page.locator(".border-red-500").first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator(".text-red-400").first()).toBeVisible({ timeout: 5000 })
     // "No findings match your filters" should NOT appear alongside the error
     await expect(page.getByText("No findings match")).not.toBeVisible()
   })
@@ -102,7 +102,7 @@ test.describe("API Authentication", () => {
     await page.goto("/dashboard")
 
     // Error banner must be visible
-    await expect(page.locator(".border-red-500").first()).toBeVisible({ timeout: 5000 })
+    await expect(page.locator(".text-red-400").first()).toBeVisible({ timeout: 5000 })
 
     // Stat cards should show "—" not "0"
     const statValues = await page.locator(".text-2xl").allTextContents()

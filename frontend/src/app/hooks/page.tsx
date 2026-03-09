@@ -120,7 +120,7 @@ export default function HooksPage() {
 
       {(statsError || eventsError) && (
         <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
-          {String(statsError ?? eventsError)}
+          Failed to load events: {String(statsError ?? eventsError)}
         </div>
       )}
 
