@@ -49,8 +49,8 @@ export default function DashboardPage() {
       <h1 className="text-xl font-bold tracking-wide text-foreground">Security Dashboard</h1>
 
       {error && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
-          {(error as Error)?.message ?? "Failed to load dashboard data."}
+        <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
+          Failed to load dashboard: {(error as Error)?.message ?? "Unknown error"}
         </div>
       )}
 

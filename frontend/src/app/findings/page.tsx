@@ -130,7 +130,7 @@ export default function FindingsPage() {
 
       {(findingsError || allError) && (
         <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
-          {String(findingsError ?? allError)}
+          Failed to load findings: {String(findingsError ?? allError)}
         </div>
       )}
 

@@ -201,7 +201,7 @@ export default function AuditPage() {
             </div>
           )}
           {!scansLoading && scansError && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded p-3 text-sm">
+            <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
               Failed to load scan history.
             </div>
           )}
@@ -287,7 +287,7 @@ export default function AuditPage() {
       </div>
 
       {(startMut.error || stopMut.error) && (
-        <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
+        <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
           {(startMut.error as Error)?.message ?? (stopMut.error as Error)?.message}
         </div>
       )}
