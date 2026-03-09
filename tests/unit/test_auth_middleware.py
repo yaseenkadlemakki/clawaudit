@@ -204,11 +204,12 @@ class TestWSAuthExemption:
         assert "/api/v1/hooks/stream" in WS_SELF_AUTH_PATHS
 
     @pytest.mark.asyncio
-    async def test_hooks_stream_not_blocked_by_middleware(self):
-        """Requests to /api/v1/hooks/stream must pass through middleware without 401.
+    async def test_hooks_stream_http_still_requires_auth(self):
+        """Plain HTTP requests to /api/v1/hooks/stream must still require auth.
 
-        The endpoint handles its own auth via first-message. Middleware must
-        not reject the WS upgrade for missing ?token= query param.
+        The WS_SELF_AUTH_PATHS exemption only applies to WebSocket upgrades,
+        not regular HTTP requests — preventing accidental unauthenticated access
+        if an HTTP route is ever registered at the same path.
         """
         app = _make_app()
 
@@ -220,10 +221,10 @@ class TestWSAuthExemption:
             transport=ASGITransport(app=app, raise_app_exceptions=False),
             base_url="http://test",
         ) as c:
-            # No token — middleware should let it through
+            # No token, no Upgrade header — middleware should require auth
             r = await c.get("/api/v1/hooks/stream")
-            assert r.status_code == 200, (
-                f"Expected 200 (middleware pass-through), got {r.status_code}"
+            assert r.status_code == 401, (
+                f"Expected 401 (HTTP requests not exempted), got {r.status_code}"
             )
 
     @pytest.mark.asyncio
@@ -244,9 +245,9 @@ class TestWSAuthExemption:
                 "/api/v1/hooks/stream",
                 headers={"Upgrade": "websocket"},
             )
-            # Should NOT be 401 — middleware must exempt this path
-            assert r.status_code != 401, (
-                "Middleware blocked WS upgrade with 401; should exempt WS_SELF_AUTH_PATHS"
+            # Middleware must pass through — expect 200 (route hit) or 403 (FastAPI WS-only rejection)
+            assert r.status_code in (200, 403), (
+                f"Expected 200 or 403, got {r.status_code}; middleware should exempt WS_SELF_AUTH_PATHS"
             )
 
     @pytest.mark.asyncio

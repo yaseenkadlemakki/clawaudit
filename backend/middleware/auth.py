@@ -73,12 +73,12 @@ class AuthMiddleware(BaseHTTPMiddleware):
         if path in EXEMPT_PATHS or any(path.startswith(p) for p in EXEMPT_PREFIXES):
             return await call_next(request)
 
-        # WebSocket endpoints that manage their own authentication
-        if path in WS_SELF_AUTH_PATHS:
+        # WebSocket endpoints that manage their own authentication (first-message auth)
+        upgrade = request.headers.get("upgrade", "").lower()
+        if path in WS_SELF_AUTH_PATHS and "websocket" in upgrade:
             return await call_next(request)
 
         # WebSocket: check ?token= query param (legacy WS endpoints at /api/v1/ws/*)
-        upgrade = request.headers.get("upgrade", "").lower()
         if path.startswith("/ws") or "websocket" in upgrade:
             token = request.query_params.get("token", "")
         else:
