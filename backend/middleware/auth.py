@@ -6,7 +6,7 @@ Token resolution order:
 3. Auto-generate on first startup, write to file
 
 Exempt paths: /health, /docs, /redoc, /openapi.json, /api/v1/ws/*
-WebSocket paths: accept token as ?token= query parameter
+WebSocket self-auth paths: /api/v1/hooks/stream (uses first-message auth — see hooks.py)
 """
 
 from __future__ import annotations
@@ -27,6 +27,9 @@ TOKEN_FILE = Path.home() / ".openclaw" / "sentinel" / "api-token"
 EXEMPT_PATHS = {"/health", "/docs", "/redoc", "/openapi.json", "/api/v1/health"}
 
 EXEMPT_PREFIXES = ("/api/v1/ws",)
+
+# Paths that handle their own WebSocket authentication (e.g. first-message auth)
+WS_SELF_AUTH_PATHS = frozenset({"/api/v1/hooks/stream"})
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -66,12 +69,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):  # type: ignore[no-untyped-def]
         path = request.url.path
 
-        # Exempt paths
+        # Fully exempt paths (no auth required)
         if path in EXEMPT_PATHS or any(path.startswith(p) for p in EXEMPT_PREFIXES):
             return await call_next(request)
 
-        # WebSocket: check ?token= query param
+        # WebSocket endpoints that manage their own authentication (first-message auth)
         upgrade = request.headers.get("upgrade", "").lower()
+        if path in WS_SELF_AUTH_PATHS and "websocket" in upgrade:
+            return await call_next(request)
+
+        # WebSocket: check ?token= query param (legacy WS endpoints at /api/v1/ws/*)
         if path.startswith("/ws") or "websocket" in upgrade:
             token = request.query_params.get("token", "")
         else:
