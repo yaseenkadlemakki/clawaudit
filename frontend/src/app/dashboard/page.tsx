@@ -50,7 +50,7 @@ export default function DashboardPage() {
 
       {error && (
         <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
-          {(error as Error)?.message ?? "Failed to load dashboard data."}
+          Failed to load dashboard: {(error as Error)?.message ?? "Unknown error"}
         </div>
       )}
 

@@ -32,17 +32,11 @@ test.describe("API Authentication", () => {
       route.fulfill({ status: 401, body: "Unauthorized" })
     )
 
-    const pages = [
-      { path: "/dashboard", errorSelector: ".text-red-400" },
-      { path: "/skills", errorSelector: ".text-red-400" },
-      { path: "/findings", errorSelector: ".text-red-400" },
-      { path: "/remediation", errorSelector: ".text-red-400" },
-      { path: "/hooks", errorSelector: ".text-red-400" },
-    ]
-    for (const { path, errorSelector } of pages) {
+    const pages = ["/dashboard", "/skills", "/findings", "/remediation", "/hooks"]
+    for (const path of pages) {
       await page.goto(path)
-      // Wait for error banner to appear
-      await expect(page.locator(errorSelector).first()).toBeVisible({ timeout: 5000 })
+      // Wait for error banner to appear — .text-red-400 is present on all error banners
+      await expect(page.locator(".text-red-400").first()).toBeVisible({ timeout: 5000 })
     }
   })
 
