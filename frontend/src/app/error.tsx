@@ -3,7 +3,7 @@
 export default function ErrorPage({ error, reset }: { error: Error; reset: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
-      <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm max-w-md text-center">
+      <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm max-w-md text-center">
         {error.message || "Something went wrong."}
       </div>
       <button

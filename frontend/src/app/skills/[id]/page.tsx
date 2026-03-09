@@ -45,7 +45,7 @@ export default function SkillDetailPage() {
   if (isLoading) return <div className="p-8 text-muted-foreground text-sm">Loading…</div>
   if (error || !skill) return (
     <div className="p-8">
-      <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-4 text-sm">
+      <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
         Skill not found or failed to load.
       </div>
     </div>

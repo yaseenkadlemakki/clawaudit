@@ -46,7 +46,7 @@ function InstallModal({ open, onClose }: { open: boolean; onClose: () => void })
             <Upload size={12} className="inline mr-1" />Upload .skill
           </button>
         </div>
-        {error && <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded p-2 text-xs mb-3">{error}</div>}
+        {error && <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-2 text-xs mb-3">{error}</div>}
         {tab === "url" ? (
           <form onSubmit={e => { e.preventDefault(); installUrl.mutate(url) }} className="space-y-3">
             <input className="w-full bg-background border border-border rounded px-3 py-2 text-sm" placeholder="https://clawhub.dev/skills/example.skill" value={url} onChange={e => setUrl(e.target.value)} />

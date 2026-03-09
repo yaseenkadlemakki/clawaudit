@@ -177,7 +177,7 @@ export default function RemediationPage() {
             <p className="text-sm text-muted-foreground">Scanning for remediations…</p>
           )}
           {proposalsError && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-3 text-sm">
+            <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
               Failed to load proposals. Is the backend running?
             </div>
           )}
@@ -206,7 +206,7 @@ export default function RemediationPage() {
         <div className="space-y-3">
           {loadingHistory && <p className="text-sm text-muted-foreground">Loading history…</p>}
           {historyError && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg p-3 text-sm">
+            <div className="bg-red-950/30 border border-red-500 text-red-400 rounded p-4 text-sm">
               Failed to load history. Is the backend running?
             </div>
           )}
