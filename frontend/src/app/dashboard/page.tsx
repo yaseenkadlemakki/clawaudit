@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from "recharts"
-import { getDashboard } from "@/lib/api"
+import { getDashboard, getPolicyStats } from "@/lib/api"
 import { ScoreGauge } from "@/components/ScoreGauge"
 import { formatDate } from "@/lib/utils"
-import { AlertTriangle, CheckCircle2, ShieldAlert, Info } from "lucide-react"
+import { AlertTriangle, CheckCircle2, ShieldAlert, Info, ShieldX } from "lucide-react"
 
 const SEV_COLORS: Record<string, string> = {
   Critical: "#f87171",
@@ -27,6 +27,12 @@ export default function DashboardPage() {
     queryKey: ["dashboard"],
     queryFn: getDashboard,
     refetchInterval: 15_000,
+  })
+
+  const { data: policyStats } = useQuery({
+    queryKey: ["policy-stats"],
+    queryFn: getPolicyStats,
+    refetchInterval: 30_000,
   })
 
   const riskData = d
@@ -54,12 +60,13 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         {[
           { label: "Total Findings", value: isLoading ? "…" : error ? "—" : totalFindings,              icon: <ShieldAlert size={16} className="text-orange-400" /> },
           { label: "Critical",       value: isLoading ? "…" : error ? "—" : d?.risk_distribution.Critical ?? 0, icon: <AlertTriangle size={16} className="text-red-400" /> },
           { label: "High",           value: isLoading ? "…" : error ? "—" : d?.risk_distribution.High    ?? 0, icon: <AlertTriangle size={16} className="text-orange-400" /> },
           { label: "Scans Run",      value: isLoading ? "…" : error ? "—" : d?.recent_scans?.length      ?? 0, icon: <Info size={16} className="text-blue-400" /> },
+          { label: "Policy Violations (24h)", value: policyStats?.violations_today ?? "…",             icon: <ShieldX size={16} className="text-red-400" /> },
         ].map(({ label, value, icon }) => (
           <div key={label} className={`bg-card border rounded-lg p-4 ${error ? "border-red-500/30 opacity-60" : "border-border"}`}>
             <div className="flex items-center gap-2 text-muted-foreground text-xs mb-2">{icon} {label}</div>

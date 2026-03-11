@@ -59,6 +59,9 @@ class SkillResponse(BaseModel):
     risk_score: int
     risk_level: str
     detected_at: str | None
+    quarantined: bool = False
+    quarantined_at: str | None = None
+    quarantine_reason: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -5,6 +5,7 @@ import Link from "next/link"
 import { getSkills, getLifecycleSkills, enableSkill, disableSkill, uninstallSkill, installSkillFromUrl, installSkillFromFile, type LifecycleSkill } from "@/lib/api"
 import { riskColor, cn } from "@/lib/utils"
 import { ChevronRight, Search, Puzzle, Shell, Globe, AlertTriangle, Power, PowerOff, Trash2, Lock, Download, X, Upload, Link2 } from "lucide-react"
+import { QuarantineBadge } from "@/components/QuarantineBadge"
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
   return enabled
@@ -180,6 +181,7 @@ export default function SkillsPage() {
                       <span className="font-medium text-sm">{skill.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
+                      {(skill as any).quarantined && <QuarantineBadge quarantinedAt={(skill as any).quarantined_at} reason={(skill as any).quarantine_reason} />}
                       {lc && <StatusBadge enabled={enabled} />}
                       <span className={cn("text-xs font-bold", riskColor(skill.risk_score))}>
                         {skill.risk_level}
