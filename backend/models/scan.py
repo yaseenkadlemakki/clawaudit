@@ -14,6 +14,7 @@ else:
     class StrEnum(str, Enum):  # noqa: UP042
         """Backport for Python < 3.11."""
 
+
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
