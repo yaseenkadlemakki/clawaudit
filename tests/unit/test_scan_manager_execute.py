@@ -335,7 +335,7 @@ async def test_execute_scan_broadcasts_skill_events():
 
 
 # ---------------------------------------------------------------------------
-# subscribe late-connect path (lines 121-122)
+# on_finding DB persistence (lines 134-158)
 # ---------------------------------------------------------------------------
 
 

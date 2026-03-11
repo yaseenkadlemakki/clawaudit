@@ -102,14 +102,9 @@ async def test_stop_scan_found(client):
     assert resp.status_code == 200
     data = resp.json()
     assert data["id"] == scan_id
-    assert data["status"] in (
-        "stopping",
-        "STOPPING",
-        "running",
-        "RUNNING",
-        "completed",
-        "COMPLETED",
-    )
+    # _execute_scan is stubbed to a noop (conftest), so the scan stays
+    # RUNNING until stop_scan transitions it to STOPPING.
+    assert data["status"] in ("stopping", "STOPPING")
 
 
 @pytest.mark.backend

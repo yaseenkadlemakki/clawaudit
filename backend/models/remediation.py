@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import uuid4
 
 from sqlalchemy import DateTime, String, Text
@@ -25,10 +26,10 @@ class RemediationEvent(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     diff_preview: Mapped[str] = mapped_column(Text, default="")
     impact: Mapped[str] = mapped_column(Text, default="")  # JSON array stored as text
-    snapshot_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    snapshot_path: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     applied_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),  # noqa: UP017
         index=True,
     )
-    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

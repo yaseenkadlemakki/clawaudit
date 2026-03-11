@@ -26,3 +26,8 @@ clawaudit-report-*.json
 .env
 .env.local
 frontend/test-results/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
