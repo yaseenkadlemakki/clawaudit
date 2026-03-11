@@ -4,15 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
-
-try:
-    from enum import StrEnum
-except ImportError:  # Python < 3.11
-    from enum import Enum
-
-    class StrEnum(str, Enum):  # type: ignore[no-redef]
-        """Backport for Python < 3.11."""
+from enum import StrEnum
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -35,7 +27,7 @@ class ScanRun(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String, default=ScanStatus.IDLE)
     total_findings: Mapped[int] = mapped_column(Integer, default=0)
     critical_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -44,7 +36,7 @@ class ScanRun(Base):
     low_count: Mapped[int] = mapped_column(Integer, default=0)
     skills_scanned: Mapped[int] = mapped_column(Integer, default=0)
     triggered_by: Mapped[str] = mapped_column(String, default="api")
-    error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(String, nullable=True)
 
     def to_dict(self) -> dict:
         return {

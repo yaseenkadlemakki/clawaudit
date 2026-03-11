@@ -7,10 +7,17 @@ These tests set up their own isolated in-memory SQLite database.
 
 from __future__ import annotations
 
+import sys
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+# These imports require Python 3.10+ because SQLAlchemy ORM models use
+# ``Mapped[str | None]`` which is evaluated at class-definition time.
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (Mapped[str | None] syntax)", allow_module_level=True)
+
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
