@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 import uuid
 from datetime import datetime
-from enum import StrEnum
+
+if sys.version_info >= (3, 11):  # noqa: UP036
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):  # noqa: UP042
+        """Backport for Python < 3.11."""
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
