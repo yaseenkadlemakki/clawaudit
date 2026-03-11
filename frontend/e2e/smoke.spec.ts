@@ -32,7 +32,7 @@ test.describe('Static asset serving smoke test', () => {
 
     // If no static chunk scripts are found, the page may be fully static — skip gracefully
     if (!chunkUrl) {
-      test.skip();
+      test.skip(true, 'No /_next/static/ script tags found — page may be fully static');
       return;
     }
 
