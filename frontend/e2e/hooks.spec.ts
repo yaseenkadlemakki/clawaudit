@@ -207,6 +207,40 @@ test.describe("Runtime Events — data loads", () => {
 // ─── Connection status / WebSocket ────────────────────────────────────────────
 
 test.describe("Runtime Events — connection status", () => {
+  test("Live badge appears when WebSocket delivers an event", async ({ page }) => {
+    await mockHooksSuccess(page)
+
+    // Intercept the WebSocket connection and push a fake live event.
+    // The routeWebSocket handler is invoked when the connection is established,
+    // so ws.send() can be called directly (with a small delay to let the client
+    // onopen handler fire first).
+    await page.routeWebSocket("**/api/v1/hooks/stream", async (ws) => {
+      // Allow client's onopen (auth send) to fire first
+      await new Promise((r) => setTimeout(r, 100))
+      // Push a fake tool event to the client
+      ws.send(
+        JSON.stringify({
+          id: "live-001",
+          timestamp: new Date().toISOString(),
+          session_id: "sess-live-0001",
+          skill_name: "filesystem",
+          tool_name: "bash",
+          outcome: "success",
+          alert_triggered: false,
+          alert_reasons: [],
+          params_summary: '{"cmd": "echo hello"}',
+        })
+      )
+    })
+
+    await page.goto("/hooks")
+
+    // The "Live" badge with animated green dot should become visible
+    await expect(page.getByText(/^Live$/i)).toBeVisible({ timeout: 8000 })
+    // The Live badge's green dot indicator should be present
+    await expect(page.locator("span.bg-green-400")).toBeVisible()
+  })
+
   test("page attempts a WebSocket connection to /api/v1/hooks/stream", async ({ page }) => {
     const wsUrls: string[] = []
     page.on("websocket", (ws) => {
@@ -327,13 +361,12 @@ test.describe("Runtime Events — filter interactions", () => {
     await page.waitForLoadState("networkidle")
 
     const skillSelect = page.locator("select").first()
-    const options = await skillSelect.locator("option").allTextContents()
 
-    // Skip if no skill options beyond "All Skills" (no real data populated dropdown)
-    if (options.length < 2) {
-      test.skip()
-      return
-    }
+    // Wait for the skill options to populate (derived from loaded events data)
+    await expect(skillSelect.locator("option").nth(1)).toBeAttached({ timeout: 8000 })
+
+    const options = await skillSelect.locator("option").allTextContents()
+    expect(options.length).toBeGreaterThanOrEqual(2)
 
     // Set up response watcher for the skill filter request
     const responsePromise = page.waitForResponse(

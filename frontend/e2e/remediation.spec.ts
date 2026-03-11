@@ -268,6 +268,108 @@ test.describe("Remediation — apply confirmation dialog", () => {
   })
 })
 
+// ─── Apply Fix submission flow ────────────────────────────────────────────────
+
+test.describe("Remediation — apply fix submission", () => {
+  test("successful apply fix closes the confirmation dialog", async ({ page }) => {
+    await mockProposalsSuccess(page)
+
+    // Track whether the apply endpoint was called and capture payload
+    let applyCalled = false
+    let applyPayload: Record<string, unknown> | null = null
+    await page.route("**/api/v1/remediation/apply*", async (route) => {
+      if (route.request().method() === "POST") {
+        applyCalled = true
+        try {
+          applyPayload = route.request().postDataJSON() as Record<string, unknown>
+        } catch { /* ignore */ }
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "ok", message: "Applied" }),
+      })
+    })
+
+    await page.goto("/remediation")
+    await page.waitForLoadState("networkidle")
+
+    // Open confirmation dialog for first proposal
+    await page.getByRole("button", { name: /Apply Fix/i }).first().click()
+    await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
+    await expect(page.getByRole("dialog")).toBeVisible()
+
+    // Click the confirm button inside the dialog (also labelled "Apply Fix")
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: /Apply Fix/i }).click()
+
+    // Success: dialog should close
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 8000 })
+
+    // API should have been called
+    expect(applyCalled).toBe(true)
+
+    // Payload should include the proposal_id
+    expect(applyPayload).toMatchObject({ proposal_id: "prop-001" })
+  })
+
+  test("apply fix API error keeps dialog open", async ({ page }) => {
+    await mockProposalsSuccess(page)
+    await page.route("**/api/v1/remediation/apply*", (route) =>
+      route.fulfill({
+        status: 500,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Apply failed" }),
+      })
+    )
+
+    await page.goto("/remediation")
+    await page.waitForLoadState("networkidle")
+
+    await page.getByRole("button", { name: /Apply Fix/i }).first().click()
+    await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
+
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: /Apply Fix/i }).click()
+
+    // On error, dialog should remain open
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 8000 })
+    // Button should revert from "Applying…" back to "Apply Fix"
+    await expect(dialog.getByRole("button", { name: /^Apply Fix$/i })).toBeVisible({ timeout: 5000 })
+    await expect(dialog.getByRole("button", { name: /^Apply Fix$/i })).not.toBeDisabled()
+  })
+
+  test("confirm button shows loading/disabled state during submission", async ({ page }) => {
+    await mockProposalsSuccess(page)
+
+    // Delay the response to observe the loading state
+    await page.route("**/api/v1/remediation/apply*", async (route) => {
+      await new Promise((r) => setTimeout(r, 1500))
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ status: "ok", message: "Applied" }),
+      })
+    })
+
+    await page.goto("/remediation")
+    await page.waitForLoadState("networkidle")
+
+    await page.getByRole("button", { name: /Apply Fix/i }).first().click()
+    await page.waitForSelector('[role="dialog"]', { timeout: 5000 })
+
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: /Apply Fix/i }).click()
+
+    // During the delay, button should show "Applying…" and be disabled
+    await expect(dialog.getByRole("button", { name: /Applying…/i })).toBeVisible({ timeout: 3000 })
+    await expect(dialog.getByRole("button", { name: /Applying…/i })).toBeDisabled()
+
+    // Wait for dialog to close after submission completes
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 8000 })
+  })
+})
+
 // ─── History section ──────────────────────────────────────────────────────────
 
 test.describe("Remediation — history section (guidance)", () => {
@@ -279,15 +381,18 @@ test.describe("Remediation — history section (guidance)", () => {
     const historyTab = page.getByRole("button", { name: /history/i })
     await historyTab.click()
 
-    // Wait for history to load — looking for a history item description or the "Loading history" text
-    // Note: status values "applied"/"rolled_back" are shown as icons not text
-    await page.waitForSelector(
-      'text="Set config file permissions to 600.", text="Loading history…", text="No remediations applied yet."',
-      { timeout: 8000 }
-    ).catch(() => {})
+    // Wait for history to load — look for a history item, loading text, or empty state
+    await page
+      .getByText(/Set config file permissions|Loading history…|No remediations applied yet/i)
+      .first()
+      .waitFor({ timeout: 8000 })
+      .catch(() => {})
 
     // The history section rendered if we can find the history item description or empty state
-    const hasItems = await page.getByText(/Set config file permissions|No remediations applied yet|Loading history/i).count() > 0
+    const hasItems =
+      (await page
+        .getByText(/Set config file permissions|No remediations applied yet|Loading history/i)
+        .count()) > 0
     expect(hasItems).toBeTruthy()
   })
 
