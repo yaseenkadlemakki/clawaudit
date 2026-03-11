@@ -55,9 +55,7 @@ class TestStarterPolicies:
         assert policy["value"] == "true"
 
     def test_alert_browser_external_navigate_policy(self):
-        policy = next(
-            p for p in STARTER_POLICIES if p["name"] == "alert-browser-external-navigate"
-        )
+        policy = next(p for p in STARTER_POLICIES if p["name"] == "alert-browser-external-navigate")
         assert policy["action"] == "ALERT"
         assert policy["check"] == "params.url"
         assert policy["condition"] == "matches"
@@ -89,6 +87,7 @@ class TestSeedStarterPoliciesIdempotent:
     @pytest.mark.asyncio
     async def test_seeding_is_idempotent(self, tmp_path):
         """Calling seed_starter_policies() twice doesn't create duplicates."""
+        from contextlib import asynccontextmanager
         from unittest.mock import AsyncMock, patch
 
         from backend.seeds.starter_policies import seed_starter_policies
@@ -113,8 +112,6 @@ class TestSeedStarterPoliciesIdempotent:
         mock_db.__aenter__ = AsyncMock(return_value=mock_db)
         mock_db.__aexit__ = AsyncMock(return_value=None)
 
-        from contextlib import asynccontextmanager
-
         @asynccontextmanager
         async def mock_session_factory():
             yield mock_db
@@ -128,3 +125,73 @@ class TestSeedStarterPoliciesIdempotent:
 
         assert first_count == 5
         assert second_count == 5  # No duplicates
+
+
+class TestDeleteBuiltinPolicy403:
+    """DELETE on builtin policy must return HTTP 403."""
+
+    @pytest.mark.asyncio
+    async def test_delete_builtin_returns_403(self):
+        """Attempt to delete a builtin policy → 403 Forbidden."""
+        import os
+        from unittest.mock import patch
+
+        import backend.database as _db
+        from backend.main import app
+
+        # Ensure auth token is set
+        os.environ.setdefault("CLAWAUDIT_API_TOKEN", "test-token-builtin")
+
+        # Build an in-memory DB
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+        from sqlalchemy.pool import StaticPool
+
+        from backend.database import Base
+
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        from backend.models import chat, finding, policy, remediation, scan, skill  # noqa: F401
+
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+
+        # Seed a builtin policy directly
+        from backend.models.policy import PolicyRecord
+
+        async with factory() as db:
+            builtin = PolicyRecord(
+                id="builtin-test-001",
+                name="block-pty-exec",
+                domain="tool_call",
+                check="params.pty",
+                condition="equals",
+                value="true",
+                severity="HIGH",
+                action="BLOCK",
+                builtin=True,
+                enabled=True,
+            )
+            db.add(builtin)
+            await db.commit()
+
+        token = os.environ["CLAWAUDIT_API_TOKEN"]
+        with (
+            patch.object(_db, "engine", engine),
+            patch.object(_db, "AsyncSessionLocal", factory),
+        ):
+            from httpx import ASGITransport, AsyncClient
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app),
+                base_url="http://test",
+                headers={"Authorization": f"Bearer {token}"},
+            ) as client:
+                r = await client.delete("/api/v1/policies/builtin-test-001")
+                assert r.status_code == 403, f"Expected 403 but got {r.status_code}: {r.text}"
+
+        await engine.dispose()

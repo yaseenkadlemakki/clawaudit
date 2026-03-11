@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
-from sentinel.models.policy import PolicyDecision, Rule
+from sentinel.models.policy import Rule
 from sentinel.policy.engine import (
     PolicyEngine,
     ToolCallContext,
     _extract_tool_call_value,
     _matches_condition_extended,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -174,6 +171,33 @@ class TestMatchesConditionExtended:
         assert _matches_condition_extended(rule, "read")
         assert not _matches_condition_extended(rule, "exec")
 
+    def test_delegates_to_existing_gt(self):
+        rule = make_rule(condition="gt", value="10")
+        assert _matches_condition_extended(rule, "11")
+        assert not _matches_condition_extended(rule, "9")
+
+    def test_delegates_to_existing_gte(self):
+        rule = make_rule(condition="gte", value="10")
+        assert _matches_condition_extended(rule, "10")
+        assert _matches_condition_extended(rule, "11")
+        assert not _matches_condition_extended(rule, "9")
+
+    def test_delegates_to_existing_in(self):
+        rule = make_rule(condition="in", value="exec, read, write")
+        assert _matches_condition_extended(rule, "exec")
+        assert _matches_condition_extended(rule, "read")
+        assert not _matches_condition_extended(rule, "delete")
+
+    def test_delegates_to_existing_exists(self):
+        rule = make_rule(condition="exists", value="")
+        assert _matches_condition_extended(rule, "something")
+        assert not _matches_condition_extended(rule, "")
+
+    def test_delegates_to_existing_not_in(self):
+        rule = make_rule(condition="not_in", value="exec, read")
+        assert _matches_condition_extended(rule, "write")
+        assert not _matches_condition_extended(rule, "exec")
+
 
 # ---------------------------------------------------------------------------
 # PolicyEngine.evaluate_tool_call
@@ -309,3 +333,78 @@ class TestEvaluateToolCall:
         ctx = make_ctx(tool="exec")
         decision = engine.evaluate_tool_call(ctx)
         assert "my-rule" in decision.reason
+
+    def test_params_elevated_alert(self):
+        rule = make_rule(check="params.elevated", condition="equals", value="true", action="ALERT")
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", params={"elevated": True})
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "ALERT"
+
+    def test_params_elevated_false_no_match(self):
+        rule = make_rule(check="params.elevated", condition="equals", value="true", action="ALERT")
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", params={"elevated": False})
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "ALLOW"
+
+    def test_params_url_matches(self):
+        rule = make_rule(
+            check="params.url",
+            condition="matches",
+            value=r"^https?://(?!localhost)",
+            action="ALERT",
+        )
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="browser", params={"url": "https://evil.com"})
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "ALERT"
+
+    def test_params_url_localhost_no_match(self):
+        rule = make_rule(
+            check="params.url",
+            condition="matches",
+            value=r"^https?://(?!localhost)",
+            action="ALERT",
+        )
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="browser", params={"url": "http://localhost:3000"})
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "ALLOW"
+
+    def test_params_command_contains(self):
+        rule = make_rule(
+            check="params.command", condition="contains", value="rm -rf", action="BLOCK"
+        )
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", params={"command": "rm -rf /"})
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "BLOCK"
+
+    def test_skill_name_equals(self):
+        rule = make_rule(
+            check="skill.name", condition="equals", value="dangerous-skill", action="BLOCK"
+        )
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", skill_name="dangerous-skill")
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "BLOCK"
+
+    def test_skill_publisher_block(self):
+        rule = make_rule(check="skill.publisher", condition="equals", value="null", action="WARN")
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", skill_publisher=None)
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "WARN"
+
+    def test_skill_path_block(self):
+        rule = make_rule(
+            check="skill.path",
+            condition="starts_with",
+            value="/tmp/",
+            action="BLOCK",
+        )
+        engine = PolicyEngine.from_rules([rule])
+        ctx = make_ctx(tool="exec", skill_path="/tmp/untrusted-skill.md")
+        decision = engine.evaluate_tool_call(ctx)
+        assert decision.action == "BLOCK"

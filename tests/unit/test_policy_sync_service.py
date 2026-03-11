@@ -8,9 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from sentinel.models.policy import Rule
 from sentinel.policy.sync import PolicySyncService
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
