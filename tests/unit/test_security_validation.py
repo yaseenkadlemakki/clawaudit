@@ -119,7 +119,7 @@ async def test_wrong_bearer_token_returns_401(_full_setup):
 
 
 def test_max_body_size_middleware_unit():
-    """Unit test MaxBodySizeMiddleware directly — Content-Length > 64 KiB → 413."""
+    """Unit test MaxBodySizeMiddleware directly — actual body > 64 KiB → 413."""
     from fastapi import FastAPI  # noqa: PLC0415
     from starlette.testclient import TestClient  # noqa: PLC0415
 
@@ -133,12 +133,11 @@ def test_max_body_size_middleware_unit():
 
     inner.add_middleware(MaxBodySizeMiddleware)
 
+    # Send an actual oversized body (70 KB > 65536 limit) — Content-Length is
+    # set automatically by the test client to match the real body size.
+    big_body = b"x" * 70_000  # 70 KB
     with TestClient(inner, raise_server_exceptions=False) as client:
-        r = client.post(
-            "/upload",
-            content=b"x",
-            headers={"content-length": str(65537)},
-        )
+        r = client.post("/upload", content=big_body)
     assert r.status_code == 413, f"Expected 413, got {r.status_code}"
 
 
@@ -406,4 +405,83 @@ async def test_no_token_in_error_response(_full_setup):
     assert r.status_code == 401
     assert TEST_TOKEN not in r.text, (
         "API token must not appear in 401 error response body"
+    )
+
+
+async def test_no_token_in_scans_response(_full_setup):
+    """GET /api/v1/scans response body must not expose the raw API token."""
+    from backend.main import app as _app  # noqa: PLC0415
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app, raise_app_exceptions=False),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+    ) as client:
+        r = await client.get("/api/v1/scans")
+
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}"
+    assert TEST_TOKEN not in r.text, (
+        "API token must not appear in the /api/v1/scans response body"
+    )
+
+
+async def test_no_token_in_chat_response(_full_setup):
+    """POST /api/v1/chat response body must not expose the raw API token."""
+    from unittest.mock import patch as _patch  # noqa: PLC0415
+
+    from backend.engine.chat_engine import ChatEngine  # noqa: PLC0415
+    from backend.main import app as _app  # noqa: PLC0415
+
+    async def _fake_ask(self, question, mode, api_key):  # noqa: ARG001
+        return "safe answer with no secrets", {"scan_id": None}
+
+    with _patch.object(ChatEngine, "ask", _fake_ask):
+        async with AsyncClient(
+            transport=ASGITransport(app=_app, raise_app_exceptions=False),
+            base_url="http://test",
+            headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+        ) as client:
+            r = await client.post(
+                "/api/v1/chat",
+                json={"question": "what is the risk?", "mode": "openclaw"},
+            )
+
+    # 200 or 503 (chat engine not configured) — either way, no token leak
+    assert r.status_code in (200, 503), f"Unexpected status {r.status_code}"
+    assert TEST_TOKEN not in r.text, (
+        "API token must not appear in the /api/v1/chat response body"
+    )
+
+
+async def test_no_token_in_hooks_events_response(_full_setup):
+    """GET /api/v1/hooks/events response body must not expose the raw API token."""
+    from backend.main import app as _app  # noqa: PLC0415
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app, raise_app_exceptions=False),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+    ) as client:
+        r = await client.get("/api/v1/hooks/events")
+
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}"
+    assert TEST_TOKEN not in r.text, (
+        "API token must not appear in the /api/v1/hooks/events response body"
+    )
+
+
+async def test_no_token_in_policies_response(_full_setup):
+    """GET /api/v1/policies response body must not expose the raw API token."""
+    from backend.main import app as _app  # noqa: PLC0415
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app, raise_app_exceptions=False),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {TEST_TOKEN}"},
+    ) as client:
+        r = await client.get("/api/v1/policies")
+
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}"
+    assert TEST_TOKEN not in r.text, (
+        "API token must not appear in the /api/v1/policies response body"
     )

@@ -331,7 +331,7 @@ Migrations are in `backend/migrations/versions/`. `alembic upgrade head` applies
 | Tier | Count / Coverage | Notes |
 |------|-----------------|-------|
 | Backend unit + API tests | **88% line coverage** | `pytest tests/unit/ tests/backend/` — covers middleware, routes, engine, repository |
-| Frontend E2E (Playwright) | **51 tests** | `frontend/e2e/` — auth flows, dashboard, findings, audit page, error states |
+| Frontend E2E (Playwright) | **160+ tests** | `frontend/e2e/` — auth flows, dashboard, findings, audit page, error states |
 | Functional / cross-reference | ~30 tests | `tests/functional/` — YAML rule coverage, domain coverage, CLI behaviours |
 | Integration | ~20 tests | `tests/integration/` — full pipeline, regression, hooks pipeline |
 | Security validation | **17 tests** (`tests/unit/test_security_validation.py`) | Auth bypass, body size limits, WS auth (4001), path traversal, protected paths, token leak |
@@ -352,4 +352,6 @@ Coverage is enforced at **80% minimum** via `pytest --cov` with `fail_under = 80
 | **Tool event HMAC secret bootstrap** | If the ClawAudit plugin is not registered, `_read_hmac_secret()` returns `None` and all tool events are rejected. Startup order matters. | Low |
 | **Frontend token storage** | The bearer token is stored in browser `localStorage`/cookies by the UI; this should be reviewed against the threat model. | Medium |
 | **Playwright test failures** | 2 Playwright tests have known intermittent failures (auth banner and empty-state tests) in CI — `test-results/` contains failure artifacts. | Low |
+| ~~**Token leak coverage**~~ | ~~API responses were only checked for 3 endpoints.~~ Covered by PR #73 — all major API endpoints now verified to not leak the bearer token. | ~~Medium~~ Resolved |
+| ~~**Body size streaming**~~ | ~~MaxBodySizeMiddleware test only forged Content-Length header.~~ PR #73 now sends actual oversized bodies to confirm rejection at the middleware layer. | ~~Medium~~ Resolved |
 | **No mTLS between services** | Backend ↔ OpenClaw gateway communication uses plain HTTP (no mTLS). Appropriate for localhost-only deployments; requires hardening for multi-host. | Low |
