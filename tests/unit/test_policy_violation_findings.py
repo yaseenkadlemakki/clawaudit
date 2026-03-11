@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (Mapped[str | None] syntax)", allow_module_level=True)
 
 from sentinel.models.policy import PolicyDecision, Rule
 

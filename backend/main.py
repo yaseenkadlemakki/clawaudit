@@ -68,8 +68,9 @@ async def _run_startup_migrations() -> None:
             try:
                 await db.execute(text(stmt))
                 await db.commit()
-            except Exception:
+            except Exception as exc:
                 await db.rollback()
+                logger.debug("Migration skipped (likely already applied): %s — %s", stmt[:60], exc)
 
 
 async def _ensure_policy_engine_scan_row() -> None:

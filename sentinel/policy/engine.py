@@ -137,11 +137,11 @@ def _matches_condition_extended(rule: Rule, value: str) -> bool:
     if cond == "glob":
         import fnmatch
 
-        return fnmatch.fnmatch(value, rule.value)
+        return fnmatch.fnmatch(value.lower(), rule.value.lower())
     if cond == "starts_with":
-        return value.startswith(rule.value)
+        return value.lower().startswith(rule.value.lower())
     if cond == "ends_with":
-        return value.endswith(rule.value)
+        return value.lower().endswith(rule.value.lower())
     return _matches_condition(rule, value)
 
 

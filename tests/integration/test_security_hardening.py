@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import sys
 import tarfile
 from pathlib import Path
 
 import pytest
+
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (Mapped[str | None] syntax)", allow_module_level=True)
+
 from httpx import ASGITransport, AsyncClient
 
 from sentinel.analyzer.script_scanner import ScriptScanner

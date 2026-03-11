@@ -9,6 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (str | None type union syntax)", allow_module_level=True)
+
 
 @pytest.mark.functional
 class TestHooksCli:

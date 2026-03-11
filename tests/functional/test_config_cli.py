@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
+
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (str | None type union syntax)", allow_module_level=True)
+
 from typer.testing import CliRunner
 
 from sentinel.config import SecurityConfig

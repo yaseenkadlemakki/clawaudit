@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import patch
 
 import pytest
 import pytest_asyncio
+
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (Mapped[str | None] syntax)", allow_module_level=True)
+
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 

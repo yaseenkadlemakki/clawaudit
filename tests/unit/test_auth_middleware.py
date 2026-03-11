@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import sys
 from unittest.mock import patch
 
 import pytest
+
+if sys.version_info < (3, 10):  # noqa: UP036
+    pytest.skip("requires Python 3.10+ (Mapped[str | None] syntax)", allow_module_level=True)
+
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
