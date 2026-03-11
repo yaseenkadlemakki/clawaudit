@@ -115,6 +115,7 @@ export default function SkillsPage() {
       shell_access: false, outbound_domains: [] as string[], injection_risk: "LOW" as const,
       trust_score: "TRUSTED" as const, risk_score: 0, risk_level: s.risk_level,
       detected_at: s.installed_at, lc: s,
+      quarantined: false, quarantined_at: null as string | null, quarantine_reason: null as string | null,
     }))
     return [...scanned, ...lcOnly]
   }, [skills, lifecycleSkills])
@@ -181,7 +182,7 @@ export default function SkillsPage() {
                       <span className="font-medium text-sm">{skill.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      {(skill as any).quarantined && <QuarantineBadge quarantinedAt={(skill as any).quarantined_at} reason={(skill as any).quarantine_reason} />}
+                      {skill.quarantined && <QuarantineBadge quarantinedAt={skill.quarantined_at} reason={skill.quarantine_reason} />}
                       {lc && <StatusBadge enabled={enabled} />}
                       <span className={cn("text-xs font-bold", riskColor(skill.risk_score))}>
                         {skill.risk_level}
