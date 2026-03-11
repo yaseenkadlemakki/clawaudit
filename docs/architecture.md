@@ -120,7 +120,8 @@ sentinel/
 │   └── cron_collector.py    # Scheduled cron job inspection
 ├── policy/            # Policy evaluation engine
 │   ├── engine.py            # Evaluates findings against policy rules
-│   └── loader.py            # Loads YAML/JSON policy definitions
+│   ├── loader.py            # Loads YAML/JSON policy definitions
+│   └── actions.py           # Policy action handlers
 ├── remediation/       # Automated fix engine
 │   ├── engine.py            # RemediationEngine: propose, apply, rollback
 │   ├── actions.py           # RemediationProposal / RemediationResult types
@@ -128,7 +129,8 @@ sentinel/
 │   └── strategies/          # Per-check-id patch implementations
 ├── alerts/            # Alert routing and formatting
 │   ├── engine.py            # AlertEngine: rule evaluation + dispatch
-│   └── channels/            # Discord, webhook, file output
+│   ├── formatters.py        # Alert message formatting
+│   └── channels/            # OpenClaw, webhook, file output
 ├── hooks/             # OpenClaw plugin + real-time event bus
 │   ├── bus.py               # Async publish/subscribe event bus
 │   ├── event.py             # ToolEvent dataclass + sanitisation
@@ -138,11 +140,14 @@ sentinel/
 ├── lifecycle/         # Skill lifecycle management
 │   ├── installer.py         # Install new skills with audit trail
 │   ├── uninstaller.py       # Remove skills (protected-path aware)
-│   └── toggler.py           # Enable / disable skills at runtime
+│   ├── toggler.py           # Enable / disable skills at runtime
+│   └── registry.py          # SkillRegistry: skill inventory management
 ├── guard/             # Command-safety guard
 │   └── command_guard.py     # Allow/deny shell commands before execution
 ├── reporter/          # Compliance report generation
-│   └── compliance.py        # Produces markdown / JSON audit reports
+│   ├── compliance.py        # Produces markdown / JSON audit reports
+│   ├── delta.py             # Diff / delta reporting between scans
+│   └── renderer.py          # Report rendering and output formatting
 └── config.py          # SentinelConfig: paths, thresholds, alert rules
 ```
 
@@ -317,6 +322,10 @@ remediation_events
 chat_messages
   id (PK), question, answer, mode, context_scan_id, created_at
 
+policies
+  id (PK), name, domain, check, severity, action,
+  enabled, description, created_at, updated_at
+
 tool_events (SQLite, hooks/store.py)
   id, session_id, skill_name, tool_name, params_summary,
   alert_triggered, alert_reasons (JSON), timestamp
@@ -334,7 +343,7 @@ Migrations are in `backend/migrations/versions/`. `alembic upgrade head` applies
 | Frontend E2E (Playwright) | **160+ tests** | `frontend/e2e/` — auth flows, dashboard, findings, audit page, error states |
 | Functional / cross-reference | ~30 tests | `tests/functional/` — YAML rule coverage, domain coverage, CLI behaviours |
 | Integration | ~20 tests | `tests/integration/` — full pipeline, regression, hooks pipeline |
-| Security validation | **17 tests** (`tests/unit/test_security_validation.py`) | Auth bypass, body size limits, WS auth (4001), path traversal, protected paths, token leak |
+| Security validation | **21 tests** (`tests/unit/test_security_validation.py`) | Auth bypass, body size limits, WS auth (4001), path traversal, protected paths, token leak |
 
 Coverage is enforced at **80% minimum** via `pytest --cov` with `fail_under = 80`.
 
