@@ -138,6 +138,7 @@ async def test_ws_stream_keepalive_ping_on_timeout():
     async def patched_wait_for(coro, timeout):  # noqa: ARG001
         nonlocal call_count
         call_count += 1
+        coro.close()  # prevent RuntimeWarning: coroutine was never awaited
         if call_count == 1:
             raise TimeoutError
         # Return completed event so the loop exits
@@ -165,6 +166,7 @@ async def test_ws_stream_keepalive_send_failure_breaks_loop():
     async def patched_wait_for(coro, timeout):  # noqa: ARG001
         nonlocal call_count
         call_count += 1
+        coro.close()  # prevent RuntimeWarning: coroutine was never awaited
         raise TimeoutError
 
     # Raise on ping send so the inner except triggers break

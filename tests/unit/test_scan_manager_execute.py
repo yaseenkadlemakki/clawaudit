@@ -122,6 +122,7 @@ def _make_finding_obj(
 ) -> MagicMock:
     f = MagicMock()
     import uuid
+
     f.id = str(uuid.uuid4())
     f.check_id = check_id
     f.domain = domain
@@ -154,7 +155,6 @@ async def test_execute_scan_completes_successfully():
     scan_id = scan_dict["id"]
 
     profile = _make_skill_profile("good-skill")
-    finding = _make_finding_obj("CHECK-01", severity="HIGH")
 
     async def fake_run_full_audit(self, run_id, on_finding, on_skill, on_progress, stop_flag):
         # Don't call on_finding — avoids DB insert so test focuses on status/events
@@ -186,7 +186,6 @@ async def test_execute_scan_completes_successfully():
 
     types = {e["type"] for e in events}
     assert "skill" in types  # finding skipped in fake to avoid DB insert
-    assert "skill" in types
     assert "progress" in types
     assert "completed" in types
 
@@ -333,6 +332,59 @@ async def test_execute_scan_broadcasts_skill_events():
     assert skill_events[0]["data"]["risk_level"] == "High"
 
     mgr.unsubscribe(scan_id, q)
+
+
+# ---------------------------------------------------------------------------
+# subscribe late-connect path (lines 121-122)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_on_finding_persists_finding_record():
+    """on_finding callback must persist a FindingRecord row to the DB with correct fields."""
+    import asyncio
+
+    from sqlalchemy import select
+
+    import backend.database
+    from backend.models.finding import FindingRecord as FR
+
+    mgr = ScanManager()
+    scan_dict = await mgr.start_scan(triggered_by="test-db-insert")
+    scan_id = scan_dict["id"]
+
+    # Cancel the background task spawned by start_scan to avoid double-execution
+    # (which would cause a UNIQUE constraint violation on finding.id).
+    bg_task = mgr._active_tasks.pop(scan_id, None)
+    if bg_task is not None:
+        bg_task.cancel()
+        await asyncio.sleep(0)  # allow cancellation to propagate
+
+    finding = _make_finding_obj("DB-01", severity="CRITICAL", domain="capability")
+
+    async def audit_with_finding(self, run_id, on_finding, on_skill, on_progress, stop_flag):
+        on_finding(finding, "db-test-skill")
+        return [finding], []
+
+    from backend.engine.audit_engine import AuditEngine
+
+    with patch.object(AuditEngine, "run_full_audit", new=audit_with_finding):
+        await mgr._execute_scan(scan_id)
+
+    # Query the patched in-memory DB for the inserted FindingRecord
+    async with backend.database.AsyncSessionLocal() as db:
+        result = await db.execute(select(FR).where(FR.scan_id == scan_id))
+        records = result.scalars().all()
+
+    assert len(records) == 1, f"Expected 1 FindingRecord, got {len(records)}"
+    rec = records[0]
+    assert rec.check_id == "DB-01"
+    assert rec.severity == "CRITICAL"
+    assert rec.domain == "capability"
+    assert rec.skill_name == "db-test-skill"
+    assert rec.scan_id == scan_id
+    assert rec.title == "Test"
+    assert rec.result == "FAIL"
 
 
 # ---------------------------------------------------------------------------

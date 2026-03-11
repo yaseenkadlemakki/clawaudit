@@ -166,9 +166,14 @@ async def test_chat_history_empty(client):
 @pytest.mark.asyncio
 async def test_chat_history_returns_recent_exchanges(client):
     """POST two chat messages then verify history returns them in order."""
-    mock_context = {"scan_id": "x", "scan_status": "completed",
-                    "total_findings": 0, "skills_scanned": 0,
-                    "findings": [], "skills": []}
+    mock_context = {
+        "scan_id": "x",
+        "scan_status": "completed",
+        "total_findings": 0,
+        "skills_scanned": 0,
+        "findings": [],
+        "skills": [],
+    }
 
     with patch("backend.api.routes.chat.chat_engine") as mock_engine:
         mock_engine.ask = AsyncMock(return_value=("answer-1", mock_context))
@@ -189,9 +194,14 @@ async def test_chat_history_returns_recent_exchanges(client):
 @pytest.mark.backend
 @pytest.mark.asyncio
 async def test_chat_history_limit_respected(client):
-    mock_context = {"scan_id": "x", "scan_status": "completed",
-                    "total_findings": 0, "skills_scanned": 0,
-                    "findings": [], "skills": []}
+    mock_context = {
+        "scan_id": "x",
+        "scan_status": "completed",
+        "total_findings": 0,
+        "skills_scanned": 0,
+        "findings": [],
+        "skills": [],
+    }
 
     with patch("backend.api.routes.chat.chat_engine") as mock_engine:
         for i in range(5):

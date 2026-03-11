@@ -107,9 +107,7 @@ async def test_update_policy_success(client):
 @pytest.mark.backend
 @pytest.mark.asyncio
 async def test_update_policy_not_found(client):
-    resp = await client.put(
-        "/api/v1/policies/nonexistent-id", json={"severity": "LOW"}
-    )
+    resp = await client.put("/api/v1/policies/nonexistent-id", json={"severity": "LOW"})
     assert resp.status_code == 404
     assert "not found" in resp.json()["detail"].lower()
 
