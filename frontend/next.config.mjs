@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: "standalone",
+  reactStrictMode: true, // intentional — causes double-render in dev to surface side-effect bugs
   // Disable static export of the Pages Router error/404 fallbacks.
   // App Router handles 404 via src/app/not-found.tsx.
   // Without this, Next.js 15 tries to prerender /_error using the Pages Router
