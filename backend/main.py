@@ -28,7 +28,7 @@ from backend.api.routes import (
 )
 from backend.api.schemas import DashboardResponse
 from backend.config import settings
-from backend.database import get_db, init_db
+from backend.database import AsyncSessionLocal, get_db, init_db
 from backend.engine.knowledge_graph import knowledge_graph
 from backend.models.finding import FindingRecord
 from backend.models.scan import ScanRun
@@ -40,10 +40,68 @@ logger = logging.getLogger(__name__)
 policy_sync = None
 
 
+POLICY_ENGINE_SCAN_ID = "policy-engine"
+POLICY_DIR = None  # Optional YAML fallback dir
+
+
+async def _run_startup_migrations() -> None:
+    """Add new columns to existing SQLite tables (idempotent)."""
+
+    from sqlalchemy import text
+
+    migrations = [
+        # policies table
+        "ALTER TABLE policies ADD COLUMN condition TEXT NOT NULL DEFAULT 'equals'",
+        "ALTER TABLE policies ADD COLUMN value TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE policies ADD COLUMN priority INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE policies ADD COLUMN builtin BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE policies ADD COLUMN tags TEXT",
+        "ALTER TABLE policies ADD COLUMN violation_count INTEGER DEFAULT 0",
+        "ALTER TABLE policies ADD COLUMN last_triggered_at DATETIME",
+        # skills table
+        "ALTER TABLE skills ADD COLUMN quarantined BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE skills ADD COLUMN quarantined_at DATETIME",
+        "ALTER TABLE skills ADD COLUMN quarantine_reason TEXT",
+    ]
+    async with AsyncSessionLocal() as db:
+        for stmt in migrations:
+            try:
+                await db.execute(text(stmt))
+                await db.commit()
+            except Exception:
+                await db.rollback()
+
+
+async def _ensure_policy_engine_scan_row() -> None:
+    """Insert sentinel scan_runs row for policy violation findings (idempotent)."""
+    async with AsyncSessionLocal() as db:
+        existing = await db.get(ScanRun, POLICY_ENGINE_SCAN_ID)
+        if not existing:
+            db.add(
+                ScanRun(
+                    id=POLICY_ENGINE_SCAN_ID,
+                    status="completed",
+                    triggered_by="system",
+                )
+            )
+            await db.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize the database on startup."""
     await init_db()
+    await _run_startup_migrations()
+    await _ensure_policy_engine_scan_row()
+
+    from backend.seeds.starter_policies import seed_starter_policies
+    from sentinel.policy.sync import PolicySyncService
+
+    global policy_sync
+    policy_sync = PolicySyncService(AsyncSessionLocal, fallback_dir=POLICY_DIR)
+    await seed_starter_policies()
+    await policy_sync.reload()
+
     logger.info(
         "ClawAudit API v%s started on %s:%s", settings.API_VERSION, settings.HOST, settings.PORT
     )

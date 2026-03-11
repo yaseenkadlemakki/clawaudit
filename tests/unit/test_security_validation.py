@@ -109,6 +109,11 @@ def _set_token(monkeypatch, tmp_path):
     monkeypatch.setattr(backend.database, "engine", engine)
     monkeypatch.setattr(backend.database, "AsyncSessionLocal", session_factory)
 
+    # Also patch the local reference in backend.main (imported at module level).
+    import backend.main as _main_mod  # noqa: PLC0415
+
+    monkeypatch.setattr(_main_mod, "AsyncSessionLocal", session_factory)
+
     _app.middleware_stack = None
     yield
     _app.middleware_stack = None
