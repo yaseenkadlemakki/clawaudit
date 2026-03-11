@@ -85,7 +85,11 @@ test.describe("API Authentication", () => {
     })
 
     await page.goto("/hooks")
-    await page.waitForLoadState("networkidle")
+    // Use domcontentloaded instead of networkidle — the hooks page holds a
+    // WebSocket open indefinitely which prevents networkidle from resolving.
+    await page.waitForLoadState("domcontentloaded")
+    // Give React Query a moment to fire its initial requests
+    await page.waitForTimeout(2000)
 
     test.skip(!anyHooksRequestSeen, "No hooks API requests intercepted")
     test.skip(anyHooksRequestSeen && !hooksRequestAuthenticated,
