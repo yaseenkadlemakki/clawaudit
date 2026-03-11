@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,3 +36,20 @@ async def get_skill(name: str, db: AsyncSession = Depends(get_db)):
     if not record:
         raise HTTPException(status_code=404, detail="Skill not found")
     return record.to_dict()
+
+
+@router.post("/{skill_id}/unquarantine")
+async def unquarantine_skill(skill_id: str, db: AsyncSession = Depends(get_db)):
+    """Remove quarantine from a skill. Requires human approval."""
+    repo = SkillRepository(db)
+    skill = await repo.get(skill_id)
+    if not skill:
+        raise HTTPException(status_code=404, detail="Skill not found")
+    if not skill.quarantined:
+        raise HTTPException(status_code=400, detail="Skill is not quarantined")
+    skill.quarantined = False
+    skill.quarantined_at = None
+    skill.quarantine_reason = None
+    await db.flush()
+    await db.commit()
+    return skill.to_dict()

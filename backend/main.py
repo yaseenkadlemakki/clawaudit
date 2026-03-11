@@ -36,6 +36,9 @@ from backend.models.skill import SkillRecord
 
 logger = logging.getLogger(__name__)
 
+# Global policy sync service — initialized in lifespan startup
+policy_sync = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

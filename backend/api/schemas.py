@@ -67,20 +67,29 @@ class PolicyCreate(BaseModel):
     name: str
     domain: str
     check: str
+    condition: str = "equals"
+    value: str = ""
     severity: str
     action: str
     enabled: bool = True
     description: str | None = None
+    priority: int = 0
+    tags: list[str] = []
+    builtin: bool = False
 
 
 class PolicyUpdate(BaseModel):
     name: str | None = None
     domain: str | None = None
     check: str | None = None
+    condition: str | None = None
+    value: str | None = None
     severity: str | None = None
     action: str | None = None
     enabled: bool | None = None
     description: str | None = None
+    priority: int | None = None
+    tags: list[str] | None = None
 
 
 class PolicyResponse(BaseModel):
@@ -88,14 +97,45 @@ class PolicyResponse(BaseModel):
     name: str
     domain: str
     check: str
+    condition: str = "equals"
+    value: str = ""
     severity: str
     action: str
     enabled: bool
     description: str | None
     created_at: str | None
     updated_at: str | None
+    priority: int = 0
+    builtin: bool = False
+    tags: str | None = None
+    violation_count: int = 0
+    last_triggered_at: str | None = None
 
     model_config = {"from_attributes": True}
+
+
+class ToolCallEvaluationRequest(BaseModel):
+    tool: str
+    params: dict[str, Any]
+    skill_name: str | None = None
+    skill_signed: bool = False
+    skill_publisher: str | None = None
+    skill_path: str | None = None
+    session_id: str | None = None
+
+
+class PolicyEvaluationResponse(BaseModel):
+    action: str
+    reason: str
+    matched_rules: list[str]
+
+
+class PolicyStatsResponse(BaseModel):
+    active_count: int
+    violations_today: int
+    blocked_today: int
+    alerted_today: int
+    quarantined_skills: int
 
 
 class DashboardResponse(BaseModel):

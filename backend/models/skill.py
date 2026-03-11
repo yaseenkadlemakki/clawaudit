@@ -28,6 +28,10 @@ class SkillRecord(Base):
     risk_score: Mapped[int] = mapped_column(Integer, default=0)
     risk_level: Mapped[str] = mapped_column(String, default="Low")
     detected_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    # Phase 8 extensions
+    quarantined: Mapped[bool] = mapped_column(Boolean, default=False)
+    quarantined_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    quarantine_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
     def to_dict(self) -> dict:
         import json
@@ -45,4 +49,7 @@ class SkillRecord(Base):
             "risk_score": self.risk_score,
             "risk_level": self.risk_level,
             "detected_at": self.detected_at.isoformat() if self.detected_at else None,
+            "quarantined": self.quarantined,
+            "quarantined_at": self.quarantined_at.isoformat() if self.quarantined_at else None,
+            "quarantine_reason": self.quarantine_reason,
         }
