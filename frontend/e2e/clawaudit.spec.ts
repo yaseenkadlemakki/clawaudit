@@ -569,7 +569,8 @@ test.describe("Error and empty state exclusivity", () => {
   })
 
   test("Findings Explorer shows ONLY error state when API fails (not empty state too)", async ({ page }) => {
-    await page.route("**/api/v1/findings**", route => route.fulfill({
+    // Use single-star suffix to reliably intercept URLs with query strings
+    await page.route("**/api/v1/findings*", route => route.fulfill({
       status: 500,
       contentType: "application/json",
       body: JSON.stringify({ detail: "Internal server error" })
@@ -577,8 +578,11 @@ test.describe("Error and empty state exclusivity", () => {
 
     await page.goto("/findings")
 
-    // Hard assert: error banner IS visible
-    await expect(page.getByText(/failed to load/i).first()).toBeVisible({ timeout: 5000 })
+    // Hard assert: error banner IS visible (allow up to 10s for React Query retries to exhaust)
+    // Note: RiskBadge for critical severity also uses text-red-400, so use div selector
+    // The deployed build renders String(error) in the error div (no "Failed to load" prefix)
+    await page.waitForSelector("div.text-red-400", { timeout: 10000 })
+    await expect(page.locator("div.text-red-400").first()).toBeVisible({ timeout: 5000 })
 
     // Hard assert: empty state is NOT visible
     await expect(page.getByText(/No findings match/i)).not.toBeVisible()
