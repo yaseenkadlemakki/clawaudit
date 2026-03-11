@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -91,19 +92,84 @@ def _get_finding_value(finding: Finding, check: str) -> str:
     return mapping.get(check, "")
 
 
+@dataclass
+class ToolCallContext:
+    """Context for a tool call evaluation."""
+
+    tool: str
+    params: dict
+    skill_name: str | None = None
+    skill_signed: bool = False
+    skill_publisher: str | None = None
+    skill_path: str | None = None
+    session_id: str | None = None
+
+
+def _extract_tool_call_value(ctx: ToolCallContext, check: str) -> str:
+    """Extract the value to evaluate from a ToolCallContext."""
+    if check == "tool":
+        return ctx.tool
+    if check.startswith("params."):
+        key = check[len("params.") :]
+        val = ctx.params.get(key)
+        return str(val).lower() if val is not None else ""
+    if check == "skill.name":
+        return ctx.skill_name or ""
+    if check == "skill.signed":
+        return str(ctx.skill_signed).lower()
+    if check == "skill.publisher":
+        return ctx.skill_publisher or "null"
+    if check == "skill.path":
+        return ctx.skill_path or ""
+    return ""
+
+
+def _matches_condition_extended(rule: Rule, value: str) -> bool:
+    """Extended matcher supporting matches/glob/starts_with/ends_with operators."""
+    cond = rule.condition.lower()
+    if cond == "matches":
+        import re
+
+        try:
+            return bool(re.search(rule.value, value, re.IGNORECASE))
+        except re.error:
+            return False
+    if cond == "glob":
+        import fnmatch
+
+        return fnmatch.fnmatch(value, rule.value)
+    if cond == "starts_with":
+        return value.startswith(rule.value)
+    if cond == "ends_with":
+        return value.endswith(rule.value)
+    return _matches_condition(rule, value)
+
+
 class PolicyEngine:
     """Evaluates events and findings against loaded policies."""
 
     def __init__(self, policies_dir: Path) -> None:
         self.loader = PolicyLoader(policies_dir)
+        self._rules: list[Rule] = []
+
+    @classmethod
+    def from_rules(cls, rules: list[Rule]) -> PolicyEngine:
+        """Create engine from an explicit rule list (used by PolicySyncService)."""
+        instance = cls.__new__(cls)
+        instance.loader = None
+        instance._rules = rules
+        return instance
 
     def reload(self) -> None:
         """Hot-reload policies from disk."""
-        self.loader.reload()
+        if self.loader is not None:
+            self.loader.reload()
 
     @property
     def rules(self) -> list[Rule]:
-        return self.loader.rules
+        if self.loader is not None:
+            return self.loader.rules
+        return self._rules
 
     def evaluate(self, event: Event) -> PolicyDecision:
         """Evaluate an event against all loaded policies."""
@@ -169,5 +235,40 @@ class PolicyEngine:
             action=action,
             matched_rules=matched,
             reason="; ".join(reasons),
+            policy_ids=[r.id for r in matched],
+        )
+
+    def evaluate_tool_call(self, ctx: ToolCallContext) -> PolicyDecision:
+        """Evaluate a tool call against all loaded tool_call-domain policies.
+
+        Evaluates rules in priority order (highest priority first).
+        Returns the highest-priority matching action.
+        """
+        matched: list[Rule] = []
+        actions: list[str] = []
+
+        # Sort by priority descending; filter to enabled rules only
+        rules = sorted(
+            [r for r in self.rules if getattr(r, "enabled", True)],
+            key=lambda r: getattr(r, "priority", 0),
+            reverse=True,
+        )
+
+        for rule in rules:
+            if rule.domain not in ("tool_call", "*"):
+                continue
+            value = _extract_tool_call_value(ctx, rule.check)
+            if _matches_condition_extended(rule, value):
+                matched.append(rule)
+                actions.append(rule.action)
+
+        if not matched:
+            return PolicyDecision(action="ALLOW", reason="No matching tool_call rules")
+
+        action = resolve_action(actions)
+        return PolicyDecision(
+            action=action,
+            matched_rules=matched,
+            reason="; ".join(f"{r.id}: {r.message or r.check}" for r in matched),
             policy_ids=[r.id for r in matched],
         )

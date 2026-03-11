@@ -64,6 +64,9 @@ class SkillRepository:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
 
+    async def get(self, skill_id: str) -> SkillRecord | None:
+        return await self._db.get(SkillRecord, skill_id)
+
     async def list(
         self,
         scan_id: str | None = None,
@@ -105,6 +108,18 @@ class PolicyRepository:
             .offset(offset)
         )
         return list(result.scalars().all())
+
+    async def list_enabled(self) -> list[PolicyRecord]:
+        result = await self._db.execute(
+            select(PolicyRecord)
+            .where(PolicyRecord.enabled == True)  # noqa: E712
+            .order_by(PolicyRecord.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_by_name(self, name: str) -> PolicyRecord | None:
+        result = await self._db.execute(select(PolicyRecord).where(PolicyRecord.name == name))
+        return result.scalars().first()
 
     async def create(self, data: dict[str, Any]) -> PolicyRecord:
         record = PolicyRecord(**data)
