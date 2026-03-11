@@ -5,23 +5,31 @@ import { test, expect, Page } from "@playwright/test"
 const MOCK_PROPOSALS = [
   {
     proposal_id: "prop-001",
+    finding_id: "f-001",
     skill_name: "filesystem",
+    skill_path: "/home/user/.skills/filesystem.skill",
     check_id: "ADV-001",
+    action_type: "config_change",
     description: "Restrict shell execution permissions in the filesystem skill manifest.",
     impact: [
       "Skill will no longer be able to run arbitrary shell commands.",
       "Scoped shell operations will still work via allowed_commands list.",
     ],
     reversible: true,
+    status: "pending",
     diff_preview: `--- a/filesystem.skill\n+++ b/filesystem.skill\n-shell_access: true\n+shell_access: false`,
   },
   {
     proposal_id: "prop-002",
+    finding_id: "f-002",
     skill_name: "web-browse",
+    skill_path: "/home/user/.skills/web-browse.skill",
     check_id: "ADV-005",
+    action_type: "config_change",
     description: "Add domain allowlist to restrict outbound network calls.",
     impact: ["Skill will only be able to contact explicitly whitelisted domains."],
     reversible: true,
+    status: "pending",
     diff_preview: `--- a/web-browse.skill\n+++ b/web-browse.skill\n+outbound_domains:\n+  - api.safe-example.com`,
   },
 ]
@@ -32,6 +40,7 @@ const MOCK_HISTORY = [
     proposal_id: "prop-old-001",
     skill_name: "config-manager",
     check_id: "PERM-001",
+    action_type: "config_change",
     description: "Set config file permissions to 600.",
     status: "applied",
     applied_at: new Date(Date.now() - 86400_000).toISOString(),
@@ -43,6 +52,7 @@ const MOCK_HISTORY = [
     proposal_id: "prop-old-002",
     skill_name: "legacy-tool",
     check_id: "ADV-001",
+    action_type: "config_change",
     description: "Restricted shell access.",
     status: "rolled_back",
     applied_at: new Date(Date.now() - 172800_000).toISOString(),
@@ -309,8 +319,12 @@ test.describe("Remediation — apply fix submission", () => {
     // API should have been called
     expect(applyCalled).toBe(true)
 
-    // Payload should include the proposal_id
-    expect(applyPayload).toMatchObject({ proposal_id: "prop-001" })
+    // Payload should include the full proposal (component sends entire Proposal object)
+    expect(applyPayload).toMatchObject({
+      proposal_id: "prop-001",
+      skill_name: "filesystem",
+      check_id: "ADV-001",
+    })
   })
 
   test("apply fix API error keeps dialog open", async ({ page }) => {
@@ -381,19 +395,10 @@ test.describe("Remediation — history section (guidance)", () => {
     const historyTab = page.getByRole("button", { name: /history/i })
     await historyTab.click()
 
-    // Wait for history to load — look for a history item, loading text, or empty state
-    await page
-      .getByText(/Set config file permissions|Loading history…|No remediations applied yet/i)
-      .first()
-      .waitFor({ timeout: 8000 })
-      .catch(() => {})
-
-    // The history section rendered if we can find the history item description or empty state
-    const hasItems =
-      (await page
-        .getByText(/Set config file permissions|No remediations applied yet|Loading history/i)
-        .count()) > 0
-    expect(hasItems).toBeTruthy()
+    // Wait for history items to appear (deterministic assertion, no .catch swallowing)
+    await expect(
+      page.getByText(/Set config file permissions/i)
+    ).toBeVisible({ timeout: 8000 })
   })
 
   test("history items appear when API returns data", async ({ page }) => {
@@ -481,7 +486,7 @@ test.describe("Remediation — empty state", () => {
   test("empty state is NOT shown alongside error", async ({ page }) => {
     await mockRemediationError(page)
     await page.goto("/remediation")
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
     await expect(page.getByText(/No remediations needed/i)).not.toBeVisible()
   })
 })
@@ -492,14 +497,14 @@ test.describe("Remediation — error state", () => {
   test("shows error banner when proposals API returns 500", async ({ page }) => {
     await mockRemediationError(page)
     await page.goto("/remediation")
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
-    await expect(page.locator(".text-red-400").first()).toBeVisible()
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
+    await expect(page.locator("div.text-red-400").first()).toBeVisible()
   })
 
   test("error banner says 'Failed to load proposals'", async ({ page }) => {
     await mockRemediationError(page)
     await page.goto("/remediation")
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
     await expect(page.getByText(/Failed to load proposals/i)).toBeVisible()
   })
 
@@ -521,7 +526,7 @@ test.describe("Remediation — error state", () => {
 
     await page.goto("/remediation")
     await page.getByRole("button", { name: /history/i }).click()
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
     await expect(page.getByText(/Failed to load history/i)).toBeVisible()
   })
 })

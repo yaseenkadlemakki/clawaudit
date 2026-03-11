@@ -182,7 +182,7 @@ test.describe("Skill Explorer — skills list loads", () => {
   test("shows loading skeleton while fetching", async ({ page }) => {
     // Add a delay to catch the skeleton state
     await page.route("**/api/v1/skills*", async (route) => {
-      await new Promise((r) => setTimeout(r, 500))
+      await new Promise((r) => setTimeout(r, 1000))
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -190,7 +190,7 @@ test.describe("Skill Explorer — skills list loads", () => {
       })
     })
     await page.route("**/api/v1/lifecycle*", async (route) => {
-      await new Promise((r) => setTimeout(r, 500))
+      await new Promise((r) => setTimeout(r, 1000))
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -198,11 +198,10 @@ test.describe("Skill Explorer — skills list loads", () => {
       })
     })
     await page.goto("/skills")
-    // Skeleton/pulse should be visible briefly
-    const skeleton = page.locator('[class*="animate-pulse"]')
-    // May or may not catch it — just verify page doesn't crash
-    await page.waitForLoadState("networkidle")
-    await expect(page.getByRole("heading", { name: /Skill Explorer/i })).toBeVisible()
+    // Skeleton/pulse should be visible during loading
+    await expect(page.locator('[class*="animate-pulse"]').first()).toBeVisible({ timeout: 3000 })
+    // After data loads, skeleton should disappear and real content should appear
+    await expect(page.locator("span.font-medium").filter({ hasText: "filesystem" }).first()).toBeVisible({ timeout: 8000 })
   })
 })
 
@@ -279,16 +278,8 @@ test.describe("Skill Explorer — click skill → detail page", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_SKILLS) })
     )
     await page.goto("/skills/skill-001")
-    // Wait for either the back link or an error
-    await page.waitForSelector('text=Back to Skills, text="not found", text="failed to load"', {
-      timeout: 8000,
-    }).catch(() => {})
-    await page.waitForLoadState("networkidle")
-
-    const hasBack = await page.getByText(/Back to Skills/i).count() > 0
-    const hasContent = await page.getByText(/filesystem|risk|trust/i).count() > 0
-    const hasError = await page.getByText(/not found|failed to load/i).count() > 0
-    expect(hasBack || hasContent || hasError).toBeTruthy()
+    // The detail page should render the back link when data loads
+    await expect(page.getByText(/Back to Skills/i)).toBeVisible({ timeout: 8000 })
   })
 
   test("skill detail page shows error for unknown skill id", async ({ page }) => {
@@ -320,11 +311,10 @@ test.describe("Skill Explorer — click skill → detail page", () => {
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) })
     )
     await page.goto("/skills/skill-001")
-    await page.waitForSelector("h1, h2", { timeout: 8000 })
-    // Look for skill name or capabilities section
-    const hasName = await page.getByText("filesystem").count() > 0
-    const hasCapabilities = await page.getByText(/Capabilities/i).count() > 0
-    expect(hasName || hasCapabilities).toBeTruthy()
+    // Skill name should appear in the heading
+    await expect(page.getByText("filesystem").first()).toBeVisible({ timeout: 8000 })
+    // Capabilities section should be rendered
+    await expect(page.getByText(/Capabilities/i)).toBeVisible()
   })
 })
 
@@ -376,14 +366,14 @@ test.describe("Skill Explorer — error state", () => {
   test("shows error banner when API returns 500", async ({ page }) => {
     await mockSkillsError(page)
     await page.goto("/skills")
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
-    await expect(page.locator(".text-red-400").first()).toBeVisible()
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
+    await expect(page.locator("div.text-red-400").first()).toBeVisible()
   })
 
   test("error banner mentions 'Failed to load skills'", async ({ page }) => {
     await mockSkillsError(page)
     await page.goto("/skills")
-    await page.waitForSelector(".text-red-400", { timeout: 8000 })
+    await page.waitForSelector("div.text-red-400", { timeout: 8000 })
     await expect(page.getByText(/Failed to load skills/i)).toBeVisible()
   })
 

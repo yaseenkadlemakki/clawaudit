@@ -88,8 +88,8 @@ test.describe("API Authentication", () => {
     // Use domcontentloaded instead of networkidle — the hooks page holds a
     // WebSocket open indefinitely which prevents networkidle from resolving.
     await page.waitForLoadState("domcontentloaded")
-    // Give React Query a moment to fire its initial requests
-    await page.waitForTimeout(2000)
+    // Wait for the heading to render, which means React has hydrated and queries have fired
+    await expect(page.getByRole("heading", { name: /Runtime Events/i })).toBeVisible({ timeout: 8000 })
 
     test.skip(!anyHooksRequestSeen, "No hooks API requests intercepted")
     test.skip(anyHooksRequestSeen && !hooksRequestAuthenticated,

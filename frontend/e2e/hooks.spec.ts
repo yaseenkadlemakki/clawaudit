@@ -175,7 +175,8 @@ test.describe("Runtime Events — data loads", () => {
     // Wait for at least one row
     await page.waitForSelector("tbody tr:not(:has(td[colspan]))", { timeout: 8000 })
     const rows = page.locator("tbody tr")
-    expect(await rows.count()).toBeGreaterThanOrEqual(3)
+    // Should have exactly 3 rows (one per mock event)
+    await expect(rows).toHaveCount(3)
   })
 
   test("tool names from events are visible in table", async ({ page }) => {

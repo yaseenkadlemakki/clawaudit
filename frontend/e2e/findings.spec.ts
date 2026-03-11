@@ -126,8 +126,8 @@ test.describe("Findings Explorer — data loads", () => {
     // Wait for at least one finding row to appear
     await page.waitForSelector("tbody tr", { timeout: 8000 })
     const rows = page.locator("tbody tr")
-    // Should have at least 3 rows (one per mock finding)
-    expect(await rows.count()).toBeGreaterThanOrEqual(3)
+    // Should have exactly 3 rows (one per mock finding)
+    await expect(rows).toHaveCount(3)
   })
 
   test("displays finding title from API data", async ({ page }) => {
@@ -149,9 +149,8 @@ test.describe("Findings Explorer — data loads", () => {
     await mockFindingsSuccess(page)
     await page.goto("/findings")
     await page.waitForSelector("tbody tr", { timeout: 8000 })
-    // The page shows "X results" span
-    const countSpan = page.locator("span").filter({ hasText: /result/ })
-    await expect(countSpan).toBeVisible()
+    // The page shows "3 results" span (one per mock finding)
+    await expect(page.getByText("3 results")).toBeVisible()
   })
 })
 
