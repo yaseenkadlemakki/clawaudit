@@ -83,6 +83,10 @@ class TestStarterPolicies:
             assert p["severity"] in valid_severities, f"Invalid severity in {p['name']}"
 
 
+@pytest.mark.skipif(
+    __import__("sys").version_info < (3, 10),
+    reason="requires Python 3.10+ (Mapped[str | None] syntax)",
+)
 class TestSeedStarterPoliciesIdempotent:
     @pytest.mark.asyncio
     async def test_seeding_is_idempotent(self, tmp_path):
