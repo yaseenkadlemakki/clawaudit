@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Play, Puzzle, Search, Shield, MessageSquare, Wrench, Activity } from "lucide-react"
+import { LayoutDashboard, Play, Puzzle, Search, Shield, MessageSquare, Wrench, Activity, ShieldCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const nav = [
@@ -12,6 +12,7 @@ const nav = [
   { href: "/chat",        label: "Investigation",  icon: MessageSquare },
   { href: "/remediation", label: "Remediation",    icon: Wrench        },
   { href: "/hooks",       label: "Runtime Events", icon: Activity      },
+  { href: "/policies",    label: "Policy Engine",  icon: ShieldCheck   },
 ]
 
 export function Sidebar() {
@@ -40,7 +41,7 @@ export function Sidebar() {
         ))}
       </nav>
       <div className="px-4 py-3 border-t border-border text-xs text-muted-foreground">
-        Phase 7b · v0.3
+        Phase 8 · v0.4
       </div>
     </aside>
   )

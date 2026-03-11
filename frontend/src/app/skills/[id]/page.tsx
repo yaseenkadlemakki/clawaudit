@@ -1,10 +1,11 @@
 "use client"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useParams } from "next/navigation"
 import Link from "next/link"
-import { getSkill } from "@/lib/api"
+import { getSkill, unquarantineSkill } from "@/lib/api"
 import { ArrowLeft, Puzzle, Shell, Globe, AlertTriangle, ShieldCheck, ShieldX } from "lucide-react"
 import { ScoreGauge } from "@/components/ScoreGauge"
+import { QuarantineBadge } from "@/components/QuarantineBadge"
 import { cn } from "@/lib/utils"
 
 function TrustBadge({ score }: { score: string }) {
@@ -37,9 +38,15 @@ function InjectionBadge({ risk }: { risk: string }) {
 
 export default function SkillDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const qc = useQueryClient()
   const { data: skill, isLoading, error } = useQuery({
     queryKey: ["skill", id],
     queryFn:  () => getSkill(id),
+  })
+
+  const unquarantineMut = useMutation({
+    mutationFn: () => unquarantineSkill(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["skill", id] }),
   })
 
   if (isLoading) return <div className="p-8 text-muted-foreground text-sm">Loading…</div>
@@ -68,7 +75,24 @@ export default function SkillDetailPage() {
             <TrustBadge score={skill.trust_score} />
             <span className="text-xs text-muted-foreground">Risk Level:</span>
             <span className="text-xs font-medium">{skill.risk_level}</span>
+            {skill.quarantined && (
+              <QuarantineBadge quarantinedAt={skill.quarantined_at} reason={skill.quarantine_reason} />
+            )}
           </div>
+          {skill.quarantined && (
+            <div className="flex items-center gap-3">
+              <p className="text-xs text-red-400">
+                Quarantined by policy enforcement. Review the reason before unquarantining.
+              </p>
+              <button
+                onClick={() => unquarantineMut.mutate()}
+                disabled={unquarantineMut.isPending}
+                className="text-xs px-3 py-1.5 rounded border border-orange-500/50 text-orange-400 hover:bg-orange-500/10 transition-colors disabled:opacity-60"
+              >
+                {unquarantineMut.isPending ? "Removing…" : "Unquarantine"}
+              </button>
+            </div>
+          )}
           <p className="text-xs text-muted-foreground font-mono break-all">{skill.path}</p>
           {skill.source && (
             <p className="text-xs text-muted-foreground">Source: {skill.source}</p>
