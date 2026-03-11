@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
 from unittest.mock import patch
 
 import pytest
@@ -83,10 +82,16 @@ def _make_body_size_app():
 
 
 @pytest.fixture()
-def _set_token(monkeypatch):
-    """Set a fixed API token and force the middleware stack to rebuild."""
+def _set_token(monkeypatch, tmp_path):
+    """Set a fixed API token, patch EventStore to use tmp_path, and rebuild middleware."""
     monkeypatch.setenv("CLAWAUDIT_API_TOKEN", TEST_TOKEN)
+    # Patch the hooks module-level EventStore so it writes to tmp_path
+    # instead of the default ~/.openclaw/sentinel path (which may not exist in CI).
+    import backend.api.routes.hooks as hooks_mod  # noqa: PLC0415
     from backend.main import app as _app  # noqa: PLC0415
+    from sentinel.hooks.store import EventStore  # noqa: PLC0415
+
+    hooks_mod._store = EventStore(db_path=tmp_path / "hook_events.db")
 
     _app.middleware_stack = None
     yield
