@@ -6,7 +6,6 @@ Uses an in-memory SQLite database via backend fixtures.
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
 from unittest.mock import patch
 
 import pytest
@@ -16,7 +15,6 @@ from sqlalchemy.pool import StaticPool
 
 import backend.database
 from backend.database import Base
-
 
 # ---------------------------------------------------------------------------
 # In-memory DB fixtures for integration tests
@@ -56,7 +54,6 @@ async def db_session_factory(db_engine):
 @pytest.mark.asyncio
 async def test_create_policy_then_evaluate_match_returns_block(db_session_factory):
     """Create a policy via repo → sync → evaluate → BLOCK returned for matching call."""
-    from backend.seeds.starter_policies import seed_starter_policies
     from backend.storage.repository import PolicyRepository
     from sentinel.policy.engine import PolicyEngine, ToolCallContext
     from sentinel.policy.sync import PolicySyncService
@@ -65,18 +62,20 @@ async def test_create_policy_then_evaluate_match_returns_block(db_session_factor
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        await repo.create({
-            "name": "test-block-exec",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        await repo.create(
+            {
+                "name": "test-block-exec",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
 
     await svc.reload()
     engine = PolicyEngine.from_rules(svc.get_rules())
@@ -97,18 +96,20 @@ async def test_create_policy_then_evaluate_no_match_returns_allow(db_session_fac
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        await repo.create({
-            "name": "block-exec",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        await repo.create(
+            {
+                "name": "block-exec",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
 
     await svc.reload()
     engine = PolicyEngine.from_rules(svc.get_rules())
@@ -129,18 +130,20 @@ async def test_disable_policy_evaluate_returns_allow(db_session_factory):
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        record = await repo.create({
-            "name": "disabled-test",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        record = await repo.create(
+            {
+                "name": "disabled-test",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
         policy_id = record.id
 
     await svc.reload()
@@ -189,19 +192,21 @@ async def test_quarantine_action_marks_skill(db_engine, db_session_factory):
     """QUARANTINE decision should mark skill.quarantined=True in DB."""
     from datetime import datetime, timezone
 
-    from backend.models.skill import SkillRecord
     from backend.models.scan import ScanRun
+    from backend.models.skill import SkillRecord
     from backend.storage.repository import SkillRepository
 
     # Create prerequisite scan row and a skill
     async with db_session_factory() as db:
         db.add(ScanRun(id="test-scan", status="completed", triggered_by="test"))
-        db.add(SkillRecord(
-            id="skill-1",
-            scan_id="test-scan",
-            name="risky-skill",
-            path="/skills/risky.md",
-        ))
+        db.add(
+            SkillRecord(
+                id="skill-1",
+                scan_id="test-scan",
+                name="risky-skill",
+                path="/skills/risky.md",
+            )
+        )
         await db.commit()
 
     # Manually quarantine the skill (simulating the API endpoint behavior)
@@ -234,15 +239,17 @@ async def test_unquarantine_skill(db_engine, db_session_factory):
 
     async with db_session_factory() as db:
         db.add(ScanRun(id="test-scan-2", status="completed", triggered_by="test"))
-        db.add(SkillRecord(
-            id="skill-2",
-            scan_id="test-scan-2",
-            name="quarantined-skill",
-            path="/skills/quarantined.md",
-            quarantined=True,
-            quarantined_at=datetime.now(timezone.utc),  # noqa: UP017
-            quarantine_reason="Policy triggered",
-        ))
+        db.add(
+            SkillRecord(
+                id="skill-2",
+                scan_id="test-scan-2",
+                name="quarantined-skill",
+                path="/skills/quarantined.md",
+                quarantined=True,
+                quarantined_at=datetime.now(timezone.utc),  # noqa: UP017
+                quarantine_reason="Policy triggered",
+            )
+        )
         await db.commit()
 
     # Unquarantine

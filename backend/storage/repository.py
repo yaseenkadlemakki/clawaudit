@@ -118,9 +118,7 @@ class PolicyRepository:
         return list(result.scalars().all())
 
     async def get_by_name(self, name: str) -> PolicyRecord | None:
-        result = await self._db.execute(
-            select(PolicyRecord).where(PolicyRecord.name == name)
-        )
+        result = await self._db.execute(select(PolicyRecord).where(PolicyRecord.name == name))
         return result.scalars().first()
 
     async def create(self, data: dict[str, Any]) -> PolicyRecord:

@@ -2,16 +2,13 @@
 
 from __future__ import annotations
 
-import pytest
-
-from sentinel.models.policy import PolicyDecision, Rule
+from sentinel.models.policy import Rule
 from sentinel.policy.engine import (
     PolicyEngine,
     ToolCallContext,
     _extract_tool_call_value,
     _matches_condition_extended,
 )
-
 
 # ---------------------------------------------------------------------------
 # Helpers

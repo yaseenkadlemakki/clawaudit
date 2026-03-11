@@ -110,7 +110,7 @@ def _extract_tool_call_value(ctx: ToolCallContext, check: str) -> str:
     if check == "tool":
         return ctx.tool
     if check.startswith("params."):
-        key = check[len("params."):]
+        key = check[len("params.") :]
         val = ctx.params.get(key)
         return str(val).lower() if val is not None else ""
     if check == "skill.name":

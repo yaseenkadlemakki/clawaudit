@@ -55,9 +55,7 @@ class TestStarterPolicies:
         assert policy["value"] == "true"
 
     def test_alert_browser_external_navigate_policy(self):
-        policy = next(
-            p for p in STARTER_POLICIES if p["name"] == "alert-browser-external-navigate"
-        )
+        policy = next(p for p in STARTER_POLICIES if p["name"] == "alert-browser-external-navigate")
         assert policy["action"] == "ALERT"
         assert policy["check"] == "params.url"
         assert policy["condition"] == "matches"

@@ -50,18 +50,20 @@ async def test_create_via_api_sync_updates_rules(db_session_factory):
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        await repo.create({
-            "name": "new-sync-policy",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        await repo.create(
+            {
+                "name": "new-sync-policy",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
 
     await svc.reload()
     rules = svc.get_rules()
@@ -81,18 +83,20 @@ async def test_delete_via_api_sync_removes_rule(db_session_factory):
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        record = await repo.create({
-            "name": "delete-sync-test",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        record = await repo.create(
+            {
+                "name": "delete-sync-test",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
         policy_id = record.id
 
     await svc.reload()
@@ -117,18 +121,20 @@ async def test_update_policy_sync_reflects_new_action(db_session_factory):
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        record = await repo.create({
-            "name": "update-action-test",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "WARN",  # start as WARN
-            "enabled": True,
-            "builtin": False,
-            "priority": 50,
-        })
+        record = await repo.create(
+            {
+                "name": "update-action-test",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "WARN",  # start as WARN
+                "enabled": True,
+                "builtin": False,
+                "priority": 50,
+            }
+        )
         policy_id = record.id
 
     await svc.reload()
@@ -156,18 +162,20 @@ async def test_disabled_policy_not_loaded(db_session_factory):
 
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
-        await repo.create({
-            "name": "disabled-policy",
-            "domain": "tool_call",
-            "check": "tool",
-            "condition": "equals",
-            "value": "exec",
-            "severity": "HIGH",
-            "action": "BLOCK",
-            "enabled": False,  # disabled
-            "builtin": False,
-            "priority": 50,
-        })
+        await repo.create(
+            {
+                "name": "disabled-policy",
+                "domain": "tool_call",
+                "check": "tool",
+                "condition": "equals",
+                "value": "exec",
+                "severity": "HIGH",
+                "action": "BLOCK",
+                "enabled": False,  # disabled
+                "builtin": False,
+                "priority": 50,
+            }
+        )
 
     await svc.reload()
     assert len(svc.get_rules()) == 0
@@ -185,18 +193,20 @@ async def test_multiple_policies_all_loaded(db_session_factory):
     async with db_session_factory() as db:
         repo = PolicyRepository(db)
         for i in range(3):
-            await repo.create({
-                "name": f"policy-{i}",
-                "domain": "tool_call",
-                "check": "tool",
-                "condition": "equals",
-                "value": f"tool-{i}",
-                "severity": "HIGH",
-                "action": "BLOCK",
-                "enabled": True,
-                "builtin": False,
-                "priority": i * 10,
-            })
+            await repo.create(
+                {
+                    "name": f"policy-{i}",
+                    "domain": "tool_call",
+                    "check": "tool",
+                    "condition": "equals",
+                    "value": f"tool-{i}",
+                    "severity": "HIGH",
+                    "action": "BLOCK",
+                    "enabled": True,
+                    "builtin": False,
+                    "priority": i * 10,
+                }
+            )
 
     await svc.reload()
     rules = svc.get_rules()

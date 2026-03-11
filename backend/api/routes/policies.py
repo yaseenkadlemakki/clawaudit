@@ -20,7 +20,6 @@ from backend.api.schemas import (
 from backend.database import get_db
 from backend.models.finding import FindingRecord
 from backend.models.policy import PolicyRecord
-from backend.models.scan import ScanRun
 from backend.models.skill import SkillRecord
 from backend.storage.repository import PolicyRepository
 from sentinel.policy.engine import PolicyEngine, ToolCallContext
@@ -38,7 +37,6 @@ async def _write_violation_finding(
     decision,
 ) -> None:
     """Write a FindingRecord for a policy violation."""
-    from backend.models.policy import PolicyRecord as _PR  # local import to avoid circular
 
     for rule in decision.matched_rules:
         check_id = f"POL-{rule.id[:6]}"
@@ -48,14 +46,12 @@ async def _write_violation_finding(
             domain="policy",
             title=f"Policy {decision.action}: {rule.message or rule.check}",
             description=(
-                f"Tool '{body.tool}' call matched policy '{rule.id}'. "
-                f"Params: {body.params}"
+                f"Tool '{body.tool}' call matched policy '{rule.id}'. Params: {body.params}"
             ),
             severity=rule.severity,
             result="FAIL",
             evidence=(
-                f"tool={body.tool} params={body.params} "
-                f"skill={body.skill_name or 'unknown'}"
+                f"tool={body.tool} params={body.params} skill={body.skill_name or 'unknown'}"
             ),
             location=f"before_tool_call hook — skill: {body.skill_name or 'unknown'}",
             remediation="Review policy rule and tool call context",
@@ -82,6 +78,7 @@ async def _increment_violation_counts(
 
 
 # ── Evaluation endpoint — must come BEFORE /{policy_id} routes ──────────────
+
 
 @router.post("/evaluate", response_model=PolicyEvaluationResponse)
 async def evaluate_tool_call(
@@ -136,10 +133,10 @@ async def evaluate_tool_call(
 
 # ── Stats endpoint — must come BEFORE /{policy_id} routes ───────────────────
 
+
 @router.get("/stats", response_model=PolicyStatsResponse)
 async def get_policy_stats(db: AsyncSession = Depends(get_db)):
     """Return policy violation counts for the dashboard."""
-    from datetime import timedelta
 
     now = datetime.now(timezone.utc)  # noqa: UP017
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -201,6 +198,7 @@ async def get_policy_stats(db: AsyncSession = Depends(get_db)):
 
 
 # ── CRUD endpoints ────────────────────────────────────────────────────────────
+
 
 @router.get("", response_model=list[PolicyResponse])
 async def list_policies(limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)):

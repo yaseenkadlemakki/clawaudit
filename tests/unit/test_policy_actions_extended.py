@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from sentinel.models.policy import PolicyDecision, Rule
+from sentinel.models.policy import PolicyDecision
 from sentinel.policy.actions import (
     ACTION_PRIORITY,
     handle_alert,
