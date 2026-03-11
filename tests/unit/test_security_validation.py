@@ -83,15 +83,31 @@ def _make_body_size_app():
 
 @pytest.fixture()
 def _set_token(monkeypatch, tmp_path):
-    """Set a fixed API token, patch EventStore to use tmp_path, and rebuild middleware."""
+    """Set a fixed API token, patch EventStore and DB engine for CI, rebuild middleware."""
     monkeypatch.setenv("CLAWAUDIT_API_TOKEN", TEST_TOKEN)
+    # Use tmp_path SQLite so tests don't need the real DB path.
+    monkeypatch.setenv("DATABASE_URL", f"sqlite+aiosqlite:///{tmp_path / 'test.db'}")
     # Patch the hooks module-level EventStore so it writes to tmp_path
     # instead of the default ~/.openclaw/sentinel path (which may not exist in CI).
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: PLC0415
+    from sqlalchemy.pool import StaticPool  # noqa: PLC0415
+
     import backend.api.routes.hooks as hooks_mod  # noqa: PLC0415
+    import backend.database  # noqa: PLC0415
     from backend.main import app as _app  # noqa: PLC0415
     from sentinel.hooks.store import EventStore  # noqa: PLC0415
 
     hooks_mod._store = EventStore(db_path=tmp_path / "hook_events.db")
+
+    # Patch the SQLAlchemy engine to use in-memory DB (avoids filesystem DB errors in CI).
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(backend.database, "engine", engine)
+    monkeypatch.setattr(backend.database, "AsyncSessionLocal", session_factory)
 
     _app.middleware_stack = None
     yield
@@ -290,9 +306,7 @@ async def test_path_traversal_not_200(_full_setup):
     ) as client:
         r = await client.get("/api/v1/skills/../../../etc/passwd")
 
-    assert r.status_code != 200, (
-        f"Path traversal must not return 200 (got {r.status_code})"
-    )
+    assert r.status_code != 200, f"Path traversal must not return 200 (got {r.status_code})"
     # Must not serve real passwd file contents
     assert "root:" not in r.text, "Response must not contain /etc/passwd content"
 
@@ -320,9 +334,7 @@ def test_is_protected_true_for_openclaw_skills_subpath():
     from sentinel.remediation.engine import RemediationEngine  # noqa: PLC0415
 
     engine = RemediationEngine()
-    assert engine.is_protected(
-        Path("/opt/homebrew/lib/node_modules/openclaw/skills/test")
-    )
+    assert engine.is_protected(Path("/opt/homebrew/lib/node_modules/openclaw/skills/test"))
 
 
 def test_is_protected_true_for_direct_openclaw_prefix():
@@ -331,9 +343,7 @@ def test_is_protected_true_for_direct_openclaw_prefix():
 
     engine = RemediationEngine()
     assert engine.is_protected(Path("/opt/homebrew/lib/node_modules/openclaw"))
-    assert engine.is_protected(
-        Path("/opt/homebrew/lib/node_modules/openclaw/skills/coding-agent")
-    )
+    assert engine.is_protected(Path("/opt/homebrew/lib/node_modules/openclaw/skills/coding-agent"))
 
 
 def test_is_protected_false_for_user_skill(tmp_path):
@@ -369,9 +379,7 @@ def test_scan_for_proposals_skips_extra_protected(tmp_path):
     ]
     proposals = engine.scan_for_proposals(findings)
 
-    assert proposals == [], (
-        f"Expected no proposals for protected skill, got {proposals}"
-    )
+    assert proposals == [], f"Expected no proposals for protected skill, got {proposals}"
 
 
 def test_scan_for_proposals_skips_openclaw_system_skills(tmp_path):
@@ -399,9 +407,7 @@ def test_scan_for_proposals_skips_openclaw_system_skills(tmp_path):
     ]
     proposals = engine.scan_for_proposals(findings)
 
-    assert proposals == [], (
-        f"Protected system skill must not produce proposals, got {proposals}"
-    )
+    assert proposals == [], f"Protected system skill must not produce proposals, got {proposals}"
 
 
 # ── 6. No token leak ───────────────────────────────────────────────────────────
@@ -430,9 +436,7 @@ async def test_no_token_in_response(_full_setup, method, path, expected_status):
         r = await client.request(method, path)
 
     assert r.status_code == expected_status, f"Expected {expected_status}, got {r.status_code}"
-    assert TEST_TOKEN not in r.text, (
-        f"API token must not appear in the {path} response body"
-    )
+    assert TEST_TOKEN not in r.text, f"API token must not appear in the {path} response body"
 
 
 @_NEED_310
@@ -448,9 +452,7 @@ async def test_no_token_in_error_response(_full_setup):
         r = await client.get("/api/v1/findings")
 
     assert r.status_code == 401
-    assert TEST_TOKEN not in r.text, (
-        "API token must not appear in 401 error response body"
-    )
+    assert TEST_TOKEN not in r.text, "API token must not appear in 401 error response body"
 
 
 @_NEED_310
@@ -477,6 +479,4 @@ async def test_no_token_in_chat_response(_full_setup):
 
     # 200 or 503 (chat engine not configured) -- either way, no token leak
     assert r.status_code in (200, 503), f"Unexpected status {r.status_code}"
-    assert TEST_TOKEN not in r.text, (
-        "API token must not appear in the /api/v1/chat response body"
-    )
+    assert TEST_TOKEN not in r.text, "API token must not appear in the /api/v1/chat response body"
