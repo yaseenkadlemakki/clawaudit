@@ -64,6 +64,9 @@ export interface Skill {
   risk_score: number
   risk_level: string
   detected_at: string
+  quarantined?: boolean
+  quarantined_at?: string | null
+  quarantine_reason?: string | null
 }
 
 export interface Finding {
@@ -203,3 +206,59 @@ export const getRemediationProposals = () => req<Proposal[]>("/remediation/propo
 export const getRemediationHistory   = () => req<HistoryItem[]>("/remediation/history")
 export const applyRemediation        = (proposal: Proposal) =>
   req<unknown>("/remediation/apply", { method: "POST", body: JSON.stringify(proposal) })
+
+// ── Policies ─────────────────────────────────────────────
+export interface Policy {
+  id: string
+  name: string
+  domain: string
+  check: string
+  condition: string
+  value: string
+  severity: string
+  action: string
+  enabled: boolean
+  builtin: boolean
+  description: string | null
+  priority: number
+  tags: string | null
+  violation_count: number
+  last_triggered_at: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface PolicyCreate {
+  name: string
+  domain: string
+  check: string
+  condition: string
+  value: string
+  severity: string
+  action: string
+  enabled?: boolean
+  description?: string | null
+  priority?: number
+  tags?: string[]
+  builtin?: boolean
+}
+
+export interface PolicyStats {
+  active_count: number
+  violations_today: number
+  blocked_today: number
+  alerted_today: number
+  quarantined_skills: number
+}
+
+export const getPolicies       = () => req<Policy[]>("/policies")
+export const createPolicy      = (body: PolicyCreate) =>
+  req<Policy>("/policies", { method: "POST", body: JSON.stringify(body) })
+export const updatePolicy      = (id: string, body: Partial<PolicyCreate>) =>
+  req<Policy>(`/policies/${id}`, { method: "PUT", body: JSON.stringify(body) })
+export const deletePolicy      = (id: string) => req<void>(`/policies/${id}`, { method: "DELETE" })
+export const togglePolicy      = (id: string, enabled: boolean) => updatePolicy(id, { enabled })
+export const getPolicyStats    = () => req<PolicyStats>("/policies/stats")
+export const getViolations     = () => req<Finding[]>("/findings?domain=policy&limit=50")
+export const unquarantineSkill = (id: string) =>
+  req<unknown>(`/skills/${id}/unquarantine`, { method: "POST" })

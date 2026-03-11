@@ -51,7 +51,7 @@ test.describe("Navigation", () => {
   test("CLAWAUDIT branding visible in sidebar", async ({ page }) => {
     await page.goto("/dashboard")
     await expect(page.locator("text=CLAWAUDIT")).toBeVisible()
-    await expect(page.locator("text=Phase 7b")).toBeVisible()
+    await expect(page.locator("text=Phase 8")).toBeVisible()
   })
 
   test("active page is highlighted in sidebar", async ({ page }) => {
