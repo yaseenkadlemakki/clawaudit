@@ -46,7 +46,6 @@ POLICY_DIR = None  # Optional YAML fallback dir
 
 async def _run_startup_migrations() -> None:
     """Add new columns to existing SQLite tables (idempotent)."""
-    import sqlite3
 
     from sqlalchemy import text
 
