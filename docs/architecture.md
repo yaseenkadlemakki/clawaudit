@@ -157,6 +157,9 @@ sentinel/
 
 The frontend is a **Next.js 14 App Router** SPA with Tailwind CSS. All backend communication uses `NEXT_PUBLIC_API_URL` (REST) and `NEXT_PUBLIC_WS_URL` (WebSocket).
 
+> ⚠️ Ensure `frontend/.env.local` is populated with `NEXT_PUBLIC_API_TOKEN` before running `npm run build`,
+> otherwise the token bakes in as `undefined`.
+
 | Page | Route | Data source | Description |
 |------|-------|-------------|-------------|
 | Dashboard | `/dashboard` | `GET /api/v1/dashboard` | Overall posture score, finding counts, risk distribution |

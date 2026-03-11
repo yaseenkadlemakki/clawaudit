@@ -65,6 +65,10 @@ jobs:
       - name: Audit Node dependencies
         run: npm audit --audit-level=high
 
+      - name: Lint Next.js config
+        working-directory: frontend
+        run: npx next lint --file next.config.mjs || true
+
   # ── 3. Python static analysis (ruff) ─────────────────────────────────────────
   lint-python:
     name: Python lint (ruff)
