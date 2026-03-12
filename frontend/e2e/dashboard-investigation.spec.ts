@@ -239,4 +239,114 @@ test.describe("InvestigationPanel — Dashboard integration", () => {
       expect(capturedAuthHeader).toBeUndefined()
     }
   })
+
+  // ─── 14. 503 gateway unavailable shows yellow warning banner ─────────────
+
+  test("14. shows gateway unavailable banner when API returns 503", async ({ page }) => {
+    await page.route("**/api/v1/chat", route =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "OpenClaw gateway unavailable" }),
+      })
+    )
+
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    // Click a suggested question to trigger the 503
+    const firstSuggestion = page.locator('[data-testid="investigation-panel"] button').filter({
+      hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
+    }).first()
+    await firstSuggestion.click()
+
+    // Wait for the gateway unavailable banner text
+    await expect(page.getByText(/OpenClaw gateway unavailable\. Switch to BYOLLM mode/)).toBeVisible({ timeout: 10000 })
+    // Banner should have the Switch to BYOLLM button
+    const switchBtn = page.locator('[data-testid="investigation-panel"] button').filter({ hasText: /Switch to BYOLLM/ })
+    await expect(switchBtn).toBeVisible()
+  })
+
+  // ─── 15. "Switch to BYOLLM →" button switches mode ────────────────────────
+
+  test("15. Switch to BYOLLM button sets mode to byollm", async ({ page }) => {
+    await page.route("**/api/v1/chat", route =>
+      route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "OpenClaw gateway unavailable" }),
+      })
+    )
+
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    const firstSuggestion = page.locator('[data-testid="investigation-panel"] button').filter({
+      hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
+    }).first()
+    await firstSuggestion.click()
+
+    // Wait for banner
+    await expect(page.getByText(/OpenClaw gateway unavailable\. Switch to BYOLLM mode/)).toBeVisible({ timeout: 10000 })
+
+    // Click Switch to BYOLLM
+    const switchBtn = page.locator('[data-testid="investigation-panel"] button').filter({ hasText: /Switch to BYOLLM/ })
+    await switchBtn.click()
+
+    // API key input should now be visible
+    const apiKeyInput = page.locator('[data-testid="investigation-panel"] input[type="password"]')
+    await expect(apiKeyInput).toBeVisible({ timeout: 5000 })
+    await expect(apiKeyInput).toHaveAttribute("placeholder", /Anthropic API key/i)
+
+    // Banner should be dismissed (switch button gone)
+    await expect(switchBtn).not.toBeVisible()
+  })
+
+  // ─── 16. Conversation history is sent with subsequent messages ─────────────
+
+  test("16. sends conversation history with subsequent messages", async ({ page }) => {
+    const requestBodies: Array<{ question: string; history?: unknown[] }> = []
+
+    await page.route("**/api/v1/chat", async route => {
+      const body = route.request().postDataJSON()
+      requestBodies.push(body)
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ answer: `Answer to: ${body.question}`, mode: "openclaw", context_used: {} }),
+      })
+    })
+
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    // Send first question via suggested question button
+    const firstSuggestion = page.locator('[data-testid="investigation-panel"] button').filter({
+      hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
+    }).first()
+    await firstSuggestion.click()
+    await expect(page.getByText(/Answer to:/)).toBeVisible({ timeout: 10000 })
+
+    // Send second question via textarea
+    const textarea = page.locator('[data-testid="investigation-panel"] textarea')
+    await textarea.fill("How do I fix them?")
+    await textarea.press("Enter")
+    await expect(page.getByText(/Answer to: How do I fix them/)).toBeVisible({ timeout: 10000 })
+
+    // Second request should include history from the first exchange
+    expect(requestBodies.length).toBeGreaterThanOrEqual(2)
+    const secondRequest = requestBodies[1]
+    expect(secondRequest.history).toBeDefined()
+    expect(Array.isArray(secondRequest.history)).toBe(true)
+    expect((secondRequest.history as unknown[]).length).toBeGreaterThan(0)
+  })
 })
