@@ -22,6 +22,7 @@ class ChatRequest(BaseModel):
     question: str
     mode: Literal["openclaw", "byollm"] = "openclaw"
     api_key: str | None = None
+    history: list[dict] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -44,6 +45,7 @@ async def ask(request: ChatRequest, db: AsyncSession = Depends(get_db)):
             question=request.question,
             mode=request.mode,
             api_key=request.api_key,
+            history=request.history,
         )
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
