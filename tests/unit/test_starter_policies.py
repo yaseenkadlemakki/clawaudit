@@ -131,6 +131,10 @@ class TestSeedStarterPoliciesIdempotent:
         assert second_count == 5  # No duplicates
 
 
+@pytest.mark.skipif(
+    __import__("sys").version_info < (3, 10),
+    reason="requires Python 3.10+ (Mapped[str | None] syntax)",
+)
 class TestDeleteBuiltinPolicy403:
     """DELETE on builtin policy must return HTTP 403."""
 

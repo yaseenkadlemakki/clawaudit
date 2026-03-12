@@ -2,9 +2,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Send, Bot, User, Loader2, Key, ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:18790/api/v1"
-const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+import { API_BASE, API_TOKEN } from "@/lib/api"
 
 const SUGGESTED_QUESTIONS = [
   "Which skills allow shell execution?",
