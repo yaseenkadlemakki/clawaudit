@@ -248,7 +248,7 @@ For **OpenClaw mode** to generate real AI responses, enable the gateway's chat c
 
 Restart the OpenClaw gateway after making this change. Without this setting, OpenClaw mode will return HTTP 503 and prompt you to switch to BYOLLM mode.
 
-For **BYOLLM mode**, provide your Anthropic API key in the panel. The default model is `claude-sonnet-4-20250514`. Override with the `BYOLLM_MODEL` environment variable.
+For **BYOLLM mode**, provide your Anthropic API key in the panel. The default model is `claude-sonnet-4-6`. Override with the `BYOLLM_MODEL` environment variable.
 
 ### Knowledge Graph
 In-memory security knowledge graph tracking relationships between skills, tools, files, network endpoints, and policies. Queryable by risk score, tool usage, and skill name.

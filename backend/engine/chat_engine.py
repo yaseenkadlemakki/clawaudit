@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 OPENCLAW_GATEWAY_URL = os.getenv("OPENCLAW_GATEWAY_URL", "http://localhost:18789")
 OPENCLAW_GATEWAY_TOKEN = os.getenv("OPENCLAW_GATEWAY_TOKEN")  # None if not set
-BYOLLM_MODEL = os.getenv("BYOLLM_MODEL", "claude-sonnet-4-20250514")
+BYOLLM_MODEL = os.getenv("BYOLLM_MODEL", "claude-sonnet-4-6")
 
 SYSTEM_PROMPT = """\
 You are an expert security analyst for ClawAudit, an AI security compliance platform that audits \

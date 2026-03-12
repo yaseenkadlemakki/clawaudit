@@ -127,6 +127,44 @@ class TestBuildPrompt:
         assert "Why?" in text
 
 
+class TestDefaultModelAndEndpoint:
+    """Verify the model name constant and gateway endpoint."""
+
+    def test_default_byollm_model_is_valid_anthropic_id(self):
+        """BYOLLM_MODEL default must be a valid claude-sonnet-4-6 ID."""
+        from backend.engine.chat_engine import BYOLLM_MODEL
+
+        assert BYOLLM_MODEL == "claude-sonnet-4-6", (
+            f"BYOLLM_MODEL '{BYOLLM_MODEL}' is not a valid Anthropic model ID. "
+            "Expected 'claude-sonnet-4-6' (see docs.anthropic.com/en/docs/about-claude/models)."
+        )
+
+    @pytest.mark.asyncio
+    async def test_gateway_posts_to_v1_chat_completions(self):
+        """_ask_openclaw must call /v1/chat/completions, not /api/agent/ask."""
+        engine = ChatEngine()
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"choices": [{"message": {"content": "ok"}}]}
+
+        with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_TOKEN", "tok"):
+            with patch("backend.engine.chat_engine.OPENCLAW_GATEWAY_URL", "http://gw:1234"):
+                with patch("backend.engine.chat_engine.httpx.AsyncClient") as mock_cls:
+                    mock_client = AsyncMock()
+                    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                    mock_client.__aexit__ = AsyncMock(return_value=False)
+                    mock_client.post = AsyncMock(return_value=mock_resp)
+                    mock_cls.return_value = mock_client
+
+                    await engine._ask_openclaw([{"role": "user", "content": "test"}])
+
+        called_url = mock_client.post.call_args[0][0]
+        assert "/v1/chat/completions" in called_url, (
+            f"Expected /v1/chat/completions but got: {called_url}"
+        )
+        assert "/api/agent/ask" not in called_url
+
+
 class TestAskOpenClaw:
     @pytest.mark.asyncio
     async def test_raises_when_token_not_configured(self):
