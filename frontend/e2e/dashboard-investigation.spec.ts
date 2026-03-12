@@ -193,4 +193,50 @@ test.describe("InvestigationPanel — Dashboard integration", () => {
       page.getByText(/Run a Full Audit first to get meaningful answers/i)
     ).toBeVisible({ timeout: 5000 })
   })
+
+  // ─── 13. Chat request Authorization header behaviour ─────────────────────
+
+  test("13. chat request Authorization header is handled correctly", async ({ page }) => {
+    let capturedAuthHeader: string | undefined
+
+    // Intercept the chat API call so the test is self-contained
+    await page.route("**/api/v1/chat", async (route) => {
+      capturedAuthHeader = route.request().headers()["authorization"]
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ answer: "Test response", mode: "openclaw", context_used: {} }),
+      })
+    })
+
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    // Expand the panel
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    // Click the first suggested question
+    const firstSuggestion = page.locator('[data-testid="investigation-panel"] button').filter({
+      hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
+    }).first()
+    await firstSuggestion.click()
+
+    // Wait for the mocked response to appear in the chat
+    await page.waitForSelector("text=Test response", { timeout: 10000 })
+
+    // NEXT_PUBLIC_API_TOKEN is inlined into the JS bundle at build time.
+    // - When configured: Authorization header must be "Bearer <token>".
+    // - When not configured (empty string → falsy): header must be absent.
+    //   This is the CORRECT behaviour — the conditional spread
+    //   `...(API_TOKEN ? { Authorization: \`Bearer \${API_TOKEN}\` } : {})`
+    //   intentionally omits the header when no token is set.
+    const configuredToken = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
+    if (configuredToken) {
+      expect(capturedAuthHeader).toMatch(/^Bearer .+/)
+    } else {
+      // No token configured: Authorization header should NOT be sent
+      expect(capturedAuthHeader).toBeUndefined()
+    }
+  })
 })
