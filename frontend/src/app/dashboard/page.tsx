@@ -7,6 +7,7 @@ import { getDashboard, getPolicyStats } from "@/lib/api"
 import { ScoreGauge } from "@/components/ScoreGauge"
 import { formatDate } from "@/lib/utils"
 import { AlertTriangle, CheckCircle2, ShieldAlert, Info, ShieldX } from "lucide-react"
+import { InvestigationPanel } from "@/components/InvestigationPanel"
 
 const SEV_COLORS: Record<string, string> = {
   Critical: "#f87171",
@@ -152,6 +153,8 @@ export default function DashboardPage() {
           </table>
         </div>
       </div>
+
+      <InvestigationPanel />
     </div>
   )
 }
