@@ -2,6 +2,7 @@
 
 [![Test Suite](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/test.yml/badge.svg)](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/test.yml)
 [![Build & Publish](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/build.yml/badge.svg)](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/build.yml)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
 **OpenClaw Security Intelligence Platform**
 
@@ -28,6 +29,15 @@ docker compose --env-file docker/.env -f docker/docker-compose.yml up
 | Dashboard | http://localhost:3000 |
 | API | http://localhost:18790 |
 | API Docs | http://localhost:18790/docs |
+
+### Pull pre-built images
+
+Images are published to GitHub Container Registry on every release:
+
+```bash
+docker pull ghcr.io/yaseenkadlemakki/clawaudit-backend:latest
+docker pull ghcr.io/yaseenkadlemakki/clawaudit-frontend:latest
+```
 
 ### Local (without Docker)
 
@@ -126,10 +136,13 @@ GET    /api/v1/lifecycle/skills/{name}/health # single-skill audit pass
 ```
 
 ### Policy Engine
-YAML-based policy rules that evaluate findings and runtime events, with configurable actions and hot-reload.
+Runtime policy enforcement that intercepts every tool execution via the `before_tool_call` hook, with configurable actions and a live management UI.
 
-- **Actions**: ALLOW, ALERT, BLOCK, WARN
+- **Actions**: ALLOW, WARN, ALERT, BLOCK, QUARANTINE
 - **Condition operators**: `equals`, `not_equals`, `contains`, `gt`, `gte`, `exists`, `in`, and more
+- **Five built-in starter policies**: PTY exec blocking, credential file read alerts, elevated execution alerts, external browser navigation alerts, message-send alerts
+- **`/policies` management UI** — create, edit, enable/disable, delete custom policies with real-time violations feed
+- **Sub-500ms evaluation** — `POST /api/v1/policies/evaluate` powers the enforcement hook
 - **Default policy** ships in `sentinel/policies/default.yaml`
 - **Hot-reload** via `PolicyEngine.reload()` — no restart needed
 
@@ -144,7 +157,12 @@ GET    /api/v1/policies                     # list policies
 POST   /api/v1/policies                     # create policy
 PUT    /api/v1/policies/{id}                # update policy
 DELETE /api/v1/policies/{id}                # delete policy
+POST   /api/v1/policies/evaluate            # evaluate a tool call against policies
+GET    /api/v1/policies/stats               # violation counts for the dashboard
 ```
+
+### Skill Quarantine
+When a QUARANTINE policy action fires, the offending skill is flagged as quarantined in the database and shown with a `QuarantineBadge` in the UI. Skills can be unquarantined via the API or management UI. Quarantine state is visible in the Skills list, skill detail pages, and surfaced as findings in the Findings Explorer.
 
 ### Alert Routing
 Routes findings and runtime events to multiple channels with configurable deduplication.
@@ -216,6 +234,7 @@ Next.js 14 SPA with real-time scan progress via WebSocket.
 | `/skills/[id]` | Individual skill detail and health report |
 | `/remediation` | View proposals, apply fixes, rollback history |
 | `/chat` | AI-powered security investigation |
+| `/policies` | Policy Engine — manage rules, view violations feed, quarantine skills |
 
 ---
 
@@ -305,6 +324,16 @@ clawaudit/
 
 ---
 
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, report bugs, and submit pull requests.
+
+## License
+
+This project is licensed under the [Apache License 2.0](LICENSE).
+
+---
+
 ## Version
 
-**Phase 6 · v1.2.0** — see [CHANGELOG.md](CHANGELOG.md) for history.
+**Phase 8 · v0.4.0** — see [CHANGELOG.md](CHANGELOG.md) for history.

@@ -1,0 +1,40 @@
+name: Feature Request
+description: Suggest a new feature or improvement for ClawAudit
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! The more context you provide, the better we can evaluate it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem are you trying to solve? What's the pain point or gap?
+      placeholder: "I'm frustrated when... / There's no way to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to see. Be as specific as you can.
+      placeholder: "It would be great if ClawAudit could..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Have you tried any workarounds or considered alternative approaches?
+      placeholder: "I tried X but it doesn't work because..."
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, mockups, links to related issues, or anything else that helps.
