@@ -36,7 +36,6 @@ test.describe("Navigation", () => {
       { label: "Full Audit", path: "/audit" },
       { label: "Skill Explorer", path: "/skills" },
       { label: "Findings Explorer", path: "/findings" },
-      { label: "Investigation", path: "/chat" },
       { label: "Remediation", path: "/remediation" },
       { label: "Runtime Events", path: "/hooks" },
     ]
@@ -279,19 +278,31 @@ test.describe("Investigation Chat", () => {
   })
 
   test("clicking suggestion chip populates input or sends message", async ({ page }) => {
+    // Mock the chat endpoint so the test doesn't depend on a running backend
+    await page.route("**/api/v1/chat", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ answer: "Mock answer." }),
+      })
+    )
+
     await page.goto("/chat")
     await waitForApi(page)
 
-    const firstSuggestion = page.locator('[class*="grid"] button').or(page.locator('[class*="grid"] [class*="card"]')).first()
+    // Suggestion buttons are in a grid inside the InvestigationPanel (expanded by default on /chat)
+    const firstSuggestion = page.locator('[data-testid="investigation-panel"] button').filter({
+      hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
+    }).first()
     await firstSuggestion.click()
 
-    // Wait for either input population or message rendering
+    // After clicking a suggestion the question is sent immediately;
+    // the user-bubble (bg-primary text-white) or the assistant answer should appear
     await page.waitForLoadState("networkidle")
-    const chatInput = page.locator("textarea").last()
-    const inputValue = await chatInput.inputValue()
-    const hasMessages = await page.locator('[class*="message"]').or(page.locator('[class*="chat"]')).count() > 0
+    const hasBubble = await page.locator('[data-testid="investigation-panel"] .bg-primary').count() > 0
+    const hasAnswer  = await page.getByText("Mock answer.").count() > 0
 
-    expect(inputValue.length > 0 || hasMessages).toBeTruthy()
+    expect(hasBubble || hasAnswer).toBeTruthy()
   })
 
   test("typing message and sending shows response or error", async ({ page }) => {
