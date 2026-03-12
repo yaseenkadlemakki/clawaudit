@@ -4,6 +4,7 @@ import { Send, Bot, User, Loader2, Key, ChevronDown, ChevronRight } from "lucide
 import { cn } from "@/lib/utils"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:18790/api/v1"
+const API_TOKEN = process.env.NEXT_PUBLIC_API_TOKEN ?? ""
 
 const SUGGESTED_QUESTIONS = [
   "Which skills allow shell execution?",
@@ -56,7 +57,10 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
     try {
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(API_TOKEN ? { Authorization: `Bearer ${API_TOKEN}` } : {}),
+        },
         body: JSON.stringify({
           question,
           mode,
