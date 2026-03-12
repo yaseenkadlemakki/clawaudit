@@ -164,6 +164,11 @@ GET    /api/v1/policies/stats               # violation counts for the dashboard
 ### Skill Quarantine
 When a QUARANTINE policy action fires, the offending skill is flagged as quarantined in the database and shown with a `QuarantineBadge` in the UI. Skills can be unquarantined via the API or management UI. Quarantine state is visible in the Skills list, skill detail pages, and surfaced as findings in the Findings Explorer.
 
+**API:**
+```
+POST   /api/v1/skills/{id}/unquarantine    # unquarantine a skill
+```
+
 ### Alert Routing
 Routes findings and runtime events to multiple channels with configurable deduplication.
 
@@ -195,13 +200,33 @@ sentinel watch                              # start all collectors (60s default)
 sentinel watch --interval 30                # custom interval
 ```
 
+### WebSocket Authentication
+Scan progress is streamed via WebSocket. Authentication uses a first-message handshake (token is not placed in the URL query string):
+
+1. Client connects to `ws://localhost:18790/ws/scans`
+2. Client sends `{"type": "auth", "token": "<api-token>"}` as the first message within 5 seconds
+3. Server responds `{"type": "auth_ok"}` — scan stream begins
+4. If authentication fails or times out, the connection closes with code `4001`
+
+This avoids exposing the API token in server access logs (CWE-598).
+
 ### Command Guard
 Pre-execution classifier that detects non-shell code blocks (Python, TypeScript, Go, Rust, YAML) being mistakenly executed as shell commands. Returns verdicts with confidence levels and suggested actions (WRITE_FILE, EXECUTE, or REVIEW).
 
 ### Security Investigation Chat
-Ask natural-language questions about your scan data. Two modes:
+Ask natural-language questions about your scan data directly from the Dashboard. The **Investigation Panel** sits at the bottom of the dashboard — click the header to expand it. The `/chat` route opens it pre-expanded for direct access.
+
+Two modes:
 - **OpenClaw mode** — routes through your local OpenClaw gateway (no data leaves your machine)
 - **BYOLLM mode** — calls Anthropic directly with your own API key
+
+Suggested questions to get started:
+- Which skills allow shell execution?
+- Show me the critical findings
+- Which skills have unknown publishers?
+- What policies failed in the last scan?
+- Which skills contact external domains?
+- Explain the supply chain risks detected
 
 ### Knowledge Graph
 In-memory security knowledge graph tracking relationships between skills, tools, files, network endpoints, and policies. Queryable by risk score, tool usage, and skill name.
@@ -227,13 +252,13 @@ Next.js 14 SPA with real-time scan progress via WebSocket.
 
 | Page | Description |
 |------|-------------|
-| `/dashboard` | Risk gauge, findings breakdown, skill trust matrix |
+| `/dashboard` | Risk gauge, findings breakdown, skill trust matrix, collapsible Security Investigation panel |
 | `/audit` | Trigger and manage audit scans |
 | `/findings` | Findings list with severity/policy/skill filtering |
 | `/skills` | Skill explorer with lifecycle controls (install, enable/disable, uninstall) |
 | `/skills/[id]` | Individual skill detail and health report |
 | `/remediation` | View proposals, apply fixes, rollback history |
-| `/chat` | AI-powered security investigation |
+| `/chat` | Direct access to the Security Investigation panel (opens pre-expanded) |
 | `/policies` | Policy Engine — manage rules, view violations feed, quarantine skills |
 
 ---
@@ -271,8 +296,9 @@ clawaudit/
 │   ├── api/routes/           REST endpoints (scans, findings, skills, lifecycle, remediation, chat, graph, policies, ws)
 │   ├── engine/               Audit engine, risk scoring, knowledge graph, chat engine, scan manager
 │   └── models/               SQLAlchemy models (scan, skill, finding, policy, remediation)
-├── frontend/                 Next.js 14 dashboard UI
-│   └── src/app/              Pages: dashboard, audit, findings, skills, remediation, chat
+├── frontend/                 Next.js 15 dashboard UI
+│   ├── src/app/              Pages: dashboard, audit, findings, skills, remediation, chat, policies
+│   └── src/components/       Shared components: InvestigationPanel, Sidebar, QuarantineBadge, ...
 ├── sentinel/                 Python CLI + audit engine
 │   ├── analyzer/             Skill analyzer, config auditor, injection detector, secret scanner
 │   ├── alerts/               Alert engine + channels (file, webhook, OpenClaw)
@@ -290,7 +316,7 @@ clawaudit/
 │   ├── domains.md            Per-domain check definitions
 │   ├── scoring.md            Severity classification rules
 │   └── report-template.md    Report structure and formatting
-├── tests/                    Test suite (815+ tests across 60 files, 80% coverage gate)
+├── tests/                    Test suite (1,243+ Python tests · 188 Playwright E2E tests · 80% coverage gate)
 └── .github/
     ├── workflows/            test.yml + build.yml
     └── dependabot.yml        Weekly version bumps (Actions, pip, npm)
@@ -336,4 +362,4 @@ This project is licensed under the [Apache License 2.0](LICENSE).
 
 ## Version
 
-**Phase 8 · v0.4.0** — see [CHANGELOG.md](CHANGELOG.md) for history.
+**v0.4.0** — see [CHANGELOG.md](CHANGELOG.md) for history.
