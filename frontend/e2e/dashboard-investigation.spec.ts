@@ -59,7 +59,7 @@ test.describe("InvestigationPanel — Dashboard integration", () => {
       hasText: /shell execution|critical findings|unknown publishers|policies failed|external domains|supply chain/i,
     })
     await expect(suggestionBtns.first()).toBeVisible({ timeout: 5000 })
-    expect(await suggestionBtns.count()).toBeGreaterThanOrEqual(3)
+    expect(await suggestionBtns.count()).toBeGreaterThanOrEqual(6)
   })
 
   // ─── 5. When expanded: OpenClaw/BYOLLM toggle buttons visible ────────────
@@ -151,5 +151,46 @@ test.describe("InvestigationPanel — Dashboard integration", () => {
 
     // Security Investigation heading should be visible
     await expect(page.getByRole("heading", { name: /Security Investigation/i })).toBeVisible()
+  })
+
+  // ─── 11. BYOLLM mode toggle shows API key input ───────────────────────────
+
+  test("11. BYOLLM mode toggle reveals API key input field", async ({ page }) => {
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    // Expand the panel first
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    // Click BYOLLM mode button
+    const byollmBtn = page.locator('[data-testid="investigation-panel"]').getByText("BYOLLM")
+    await byollmBtn.click()
+
+    // API key password input should now be visible
+    const apiKeyInput = page.locator('[data-testid="investigation-panel"] input[type="password"]')
+    await expect(apiKeyInput).toBeVisible({ timeout: 5000 })
+    await expect(apiKeyInput).toHaveAttribute("placeholder", /Anthropic API key/i)
+
+    // Switching back to OpenClaw should hide the API key input
+    const openclawBtn = page.locator('[data-testid="investigation-panel"]').getByText("OpenClaw")
+    await openclawBtn.click()
+    await expect(apiKeyInput).not.toBeVisible()
+  })
+
+  // ─── 12. Empty state message visible when no messages ────────────────────
+
+  test("12. Empty state message is visible when no messages have been sent", async ({ page }) => {
+    await page.goto("/dashboard")
+    await waitForApi(page)
+
+    // Expand the panel
+    const toggleBtn = page.locator('[aria-label="Toggle investigation panel"]').first()
+    await toggleBtn.click()
+
+    // The empty-state text should be visible before any messages are sent
+    await expect(
+      page.getByText(/Run a Full Audit first to get meaningful answers/i)
+    ).toBeVisible({ timeout: 5000 })
   })
 })
