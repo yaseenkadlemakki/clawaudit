@@ -122,7 +122,7 @@ _DEFAULT_CONFIG: dict[str, Any] = {
         "gateway_url": "http://localhost:18789",
         "gateway_token": "",
         "skills_dir": "/opt/homebrew/lib/node_modules/openclaw/skills",
-        "workspace_skills_dir": "~/.openclaw/workspace",
+        "workspace_skills_dir": "~/.openclaw/workspace/skills",
         "config_file": "~/.openclaw/openclaw.json",
     },
     "sentinel": {

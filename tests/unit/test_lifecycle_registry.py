@@ -121,6 +121,22 @@ class TestSkillRegistry:
         assert rec is not None
         assert rec.source == "local"
 
+    def test_sync_discovers_skills_in_skills_subdirectory(self, tmp_path):
+        """When workspace_skills_dir points to a workspace root, sync() should
+        still discover skills in the skills/ subdirectory (defensive fallback)."""
+        workspace_root = tmp_path / "workspace"
+        skills_sub = workspace_root / "skills" / "my-plugin"
+        skills_sub.mkdir(parents=True)
+        (skills_sub / "SKILL.md").write_text("name: my-plugin\n")
+
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        reg.sync([workspace_root])
+
+        rec = reg.get("my-plugin")
+        assert rec is not None
+        assert rec.enabled is True
+        assert rec.source == "local"
+
     def test_usr_local_skill_gets_system_source(self, tmp_path, monkeypatch):
         """Skills under /usr/local protected path should get source='system'."""
         skills_dir = tmp_path / "usr" / "local" / "lib" / "node_modules" / "openclaw" / "skills"
