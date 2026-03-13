@@ -228,6 +228,28 @@ Suggested questions to get started:
 - Which skills contact external domains?
 - Explain the supply chain risks detected
 
+### Chat Engine Setup
+
+For **OpenClaw mode** to generate real AI responses, enable the gateway's chat completions endpoint in `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    }
+  }
+}
+```
+
+Restart the OpenClaw gateway after making this change. Without this setting, OpenClaw mode will return HTTP 503 and prompt you to switch to BYOLLM mode.
+
+For **BYOLLM mode**, provide your Anthropic API key in the panel. The default model is `claude-sonnet-4-6`. Override with the `BYOLLM_MODEL` environment variable.
+
 ### Knowledge Graph
 In-memory security knowledge graph tracking relationships between skills, tools, files, network endpoints, and policies. Queryable by risk score, tool usage, and skill name.
 

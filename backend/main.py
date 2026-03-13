@@ -58,6 +58,8 @@ async def _run_startup_migrations() -> None:
         "ALTER TABLE policies ADD COLUMN tags TEXT",
         "ALTER TABLE policies ADD COLUMN violation_count INTEGER DEFAULT 0",
         "ALTER TABLE policies ADD COLUMN last_triggered_at DATETIME",
+        # chat_messages table
+        "ALTER TABLE chat_messages ADD COLUMN conversation_id TEXT",
         # skills table
         "ALTER TABLE skills ADD COLUMN quarantined BOOLEAN NOT NULL DEFAULT 0",
         "ALTER TABLE skills ADD COLUMN quarantined_at DATETIME",

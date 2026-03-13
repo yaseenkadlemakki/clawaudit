@@ -468,7 +468,7 @@ async def test_no_token_in_chat_response(_full_setup):
     from backend.engine.chat_engine import ChatEngine  # noqa: PLC0415
     from backend.main import app as _app  # noqa: PLC0415
 
-    async def _fake_ask(self, question, mode, api_key):  # noqa: ARG001
+    async def _fake_ask(self, question, mode, api_key, history=None):  # noqa: ARG001
         return "safe answer with no secrets", {"scan_id": None}
 
     with _patch.object(ChatEngine, "ask", _fake_ask):

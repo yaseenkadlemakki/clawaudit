@@ -32,9 +32,11 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
   const [mode, setMode]             = useState<"openclaw" | "byollm">("openclaw")
   const [apiKey, setApiKey]         = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
+  const [gatewayUnavailable, setGatewayUnavailable] = useState(false)
   const msgIdRef  = useRef(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef  = useRef<HTMLTextAreaElement>(null)
+  const apiKeyRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -53,6 +55,18 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
     setLoading(true)
 
     try {
+      // Build paired history from alternating user/assistant messages
+      const history: Array<{question: string; answer: string}> = []
+      for (let i = 0; i < messages.length - 1; i += 2) {
+        if (messages[i]?.role === "user" && messages[i + 1]?.role === "assistant") {
+          history.push({
+            question: messages[i].content,
+            answer: messages[i + 1].content,
+          })
+        }
+      }
+      const recentHistory = history.slice(-10)
+
       const res = await fetch(`${API_BASE}/chat`, {
         method: "POST",
         headers: {
@@ -63,15 +77,22 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
           question,
           mode,
           api_key: mode === "byollm" ? apiKey || null : null,
+          history: recentHistory,
         }),
       })
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }))
-        addMessage("assistant", `Error: ${err.detail ?? "Request failed"}`, true)
+        if (res.status === 503 && mode === "openclaw") {
+          setGatewayUnavailable(true)
+          addMessage("assistant", `Error: ${err.detail ?? "Gateway unavailable"}`, true)
+        } else {
+          addMessage("assistant", `Error: ${err.detail ?? "Request failed"}`, true)
+        }
         return
       }
 
+      setGatewayUnavailable(false)
       const data = await res.json()
       addMessage("assistant", data.answer)
     } catch (err) {
@@ -111,7 +132,7 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
               {(["openclaw", "byollm"] as const).map(m => (
                 <button
                   key={m}
-                  onClick={() => { setMode(m); setShowApiKey(m === "byollm") }}
+                  onClick={() => { setMode(m); setShowApiKey(m === "byollm"); setGatewayUnavailable(false) }}
                   className={cn(
                     "px-3 py-1 rounded text-xs font-medium transition-colors",
                     mode === m ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
@@ -128,6 +149,7 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
             <div className="flex items-center gap-2 bg-card border border-border rounded-lg p-3">
               <Key size={14} className="text-muted-foreground shrink-0" />
               <input
+                ref={apiKeyRef}
                 type="password"
                 placeholder="Anthropic API key (sk-ant-...)"
                 value={apiKey}
@@ -137,6 +159,25 @@ export function InvestigationPanel({ defaultExpanded = false }: InvestigationPan
               {apiKey && (
                 <span className="text-xs text-green-400">✓ key set</span>
               )}
+            </div>
+          )}
+
+          {/* Gateway unavailable warning banner */}
+          {gatewayUnavailable && (
+            <div className="flex items-center gap-3 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-300">
+              <span>⚠️</span>
+              <span className="flex-1">OpenClaw gateway unavailable. Switch to BYOLLM mode with your Anthropic API key for full AI analysis.</span>
+              <button
+                onClick={() => {
+                  setMode("byollm")
+                  setShowApiKey(true)
+                  setGatewayUnavailable(false)
+                  setTimeout(() => apiKeyRef.current?.focus(), 100)
+                }}
+                className="whitespace-nowrap rounded bg-yellow-500/20 px-3 py-1 text-yellow-200 hover:bg-yellow-500/30"
+              >
+                Switch to BYOLLM →
+              </button>
             </div>
           )}
 
