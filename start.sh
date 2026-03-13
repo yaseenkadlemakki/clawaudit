@@ -30,18 +30,32 @@ kill_port() {
   fi
   if [[ -n "${pids:-}" ]]; then
     warn "Port $port in use (PIDs: $pids) — killing..."
-    echo "$pids" | xargs kill -9 2>/dev/null || true
-    sleep 1
+    # Graceful SIGTERM first, then SIGKILL if needed
+    echo "$pids" | xargs kill 2>/dev/null || true
+    local attempt=0
+    while [[ $attempt -lt 5 ]]; do
+      sleep 1
+      local remaining=""
+      if command -v lsof &>/dev/null; then
+        remaining=$(lsof -ti :"$port" 2>/dev/null || true)
+      elif command -v fuser &>/dev/null; then
+        remaining=$(fuser "$port"/tcp 2>/dev/null | tr ' ' '\n' || true)
+      fi
+      [[ -z "${remaining:-}" ]] && break
+      attempt=$((attempt + 1))
+      if [[ $attempt -ge 3 ]]; then
+        echo "$remaining" | xargs kill -9 2>/dev/null || true
+      fi
+    done
     success "Port $port cleared"
   fi
 }
 
 # ── Wait for a port to be ready ───────────────────────────────────────────────
 wait_for_port() {
-  local port=$1 name=$2 timeout=${3:-30} i=0
+  local port=$1 name=$2 timeout=${3:-30} health_path=${4:-/} i=0
   info "Waiting for $name on :$port..."
-  until curl -sf "http://localhost:$port" &>/dev/null || \
-        curl -sf "http://localhost:$port/api/v1/status" &>/dev/null 2>/dev/null; do
+  until curl -sf "http://localhost:$port$health_path" &>/dev/null; do
     sleep 1
     i=$((i+1))
     if [[ $i -ge $timeout ]]; then
@@ -82,7 +96,7 @@ info "Installing Node deps..."
 # ── Start backend ─────────────────────────────────────────────────────────────
 info "Starting backend on :$BACKEND_PORT..."
 "$PYTHON" -m uvicorn backend.main:app \
-  --host 0.0.0.0 \
+  --host 127.0.0.1 \
   --port "$BACKEND_PORT" \
   --reload \
   > "$LOG_DIR/backend.log" 2>&1 &
@@ -91,15 +105,17 @@ echo "$BACKEND_PID" > "$LOG_DIR/backend.pid"
 
 # ── Start frontend (PORT env forces Next.js to use exactly this port) ─────────
 info "Starting frontend on :$FRONTEND_PORT..."
-(cd "$REPO_DIR/frontend" && PORT=$FRONTEND_PORT npm run dev \
-  > "$LOG_DIR/frontend.log" 2>&1) &
+cd "$REPO_DIR/frontend"
+PORT=$FRONTEND_PORT npm run dev \
+  > "$LOG_DIR/frontend.log" 2>&1 &
 FRONTEND_PID=$!
 echo "$FRONTEND_PID" > "$LOG_DIR/frontend.pid"
+cd "$REPO_DIR"
 
 # ── Wait for both to be ready ─────────────────────────────────────────────────
 sleep 3
-wait_for_port "$BACKEND_PORT"  "Backend"  20
-wait_for_port "$FRONTEND_PORT" "Frontend" 30
+wait_for_port "$BACKEND_PORT"  "Backend"  20 "/api/v1/status"
+wait_for_port "$FRONTEND_PORT" "Frontend" 30 "/"
 
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -115,5 +131,13 @@ echo -e "  Stop with: ${YELLOW}./stop.sh${NC}  or  Ctrl+C"
 echo ""
 
 # ── Keep alive (trap Ctrl+C to stop both) ─────────────────────────────────────
-trap 'info "Stopping..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit 0' INT TERM
+cleanup() {
+  info "Stopping..."
+  # Kill process groups to catch child workers (uvicorn --reload, next dev)
+  kill -- -$BACKEND_PID 2>/dev/null || kill $BACKEND_PID 2>/dev/null || true
+  kill -- -$FRONTEND_PID 2>/dev/null || kill $FRONTEND_PID 2>/dev/null || true
+  rm -f "$LOG_DIR/backend.pid" "$LOG_DIR/frontend.pid"
+  exit 0
+}
+trap cleanup INT TERM
 wait

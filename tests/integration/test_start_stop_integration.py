@@ -8,6 +8,7 @@ import textwrap
 import threading
 import time
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -22,7 +23,7 @@ def _ensure_sbin_path(env: dict) -> dict:
     return env
 
 
-def _run(cmd: str, env: dict | None = None, cwd: Path | None = None, timeout: int = 30) -> subprocess.CompletedProcess:
+def _run(cmd: str, env: Optional[dict] = None, cwd: Optional[Path] = None, timeout: int = 30) -> subprocess.CompletedProcess:
     merged_env = _ensure_sbin_path({**os.environ, **(env or {})})
     return subprocess.run(
         cmd,
@@ -196,6 +197,60 @@ class TestStartStopIntegration:
 
             # Process should be terminated
             proc.wait(timeout=5)
+        except Exception:
+            proc.kill()
+            raise
+
+    def test_partial_failure_cleans_up_running_service(self, tmp_path: Path):
+        """If one service fails to start, the other should still be cleaned up by stop."""
+        import sys
+
+        log_dir = tmp_path / ".logs"
+        log_dir.mkdir()
+
+        # Only frontend starts — no backend PID file
+        proc = subprocess.Popen(
+            [sys.executable, "-c", "import time; time.sleep(120)"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        (log_dir / "frontend.pid").write_text(str(proc.pid))
+        # backend.pid intentionally missing — simulates failed start
+
+        try:
+            script = tmp_path / "stop_partial.sh"
+            script.write_text(textwrap.dedent(f"""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                LOG_DIR="{log_dir}"
+                NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'
+                info()    {{ echo -e "${{CYAN}}[clawaudit]${{NC}} $*"; }}
+                success() {{ echo -e "${{GREEN}}[clawaudit]${{NC}} $*"; }}
+                NEED_PORT_FALLBACK=0
+                kill_pid_file() {{
+                  local file=$1 name=$2
+                  if [[ -f "$file" ]]; then
+                    local pid
+                    pid=$(cat "$file")
+                    if kill -0 "$pid" 2>/dev/null; then
+                      kill "$pid" 2>/dev/null && info "Stopped $name (PID $pid)"
+                    fi
+                    rm -f "$file"
+                  else
+                    NEED_PORT_FALLBACK=1
+                  fi
+                }}
+                kill_pid_file "$LOG_DIR/backend.pid" "backend"
+                kill_pid_file "$LOG_DIR/frontend.pid" "frontend"
+                success "ClawAudit stopped."
+            """))
+            script.chmod(0o755)
+            result = _run(str(script))
+            assert result.returncode == 0
+            assert "Stopped frontend" in result.stdout
+            # Frontend process should be dead
+            proc.wait(timeout=5)
+            assert not (log_dir / "frontend.pid").exists()
         except Exception:
             proc.kill()
             raise

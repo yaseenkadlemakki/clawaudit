@@ -7,6 +7,7 @@ import textwrap
 import threading
 import time
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -21,7 +22,7 @@ def _ensure_sbin_path(env: dict) -> dict:
     return env
 
 
-def _run(cmd: str, env: dict | None = None, cwd: Path | None = None, timeout: int = 30) -> subprocess.CompletedProcess:
+def _run(cmd: str, env: Optional[dict] = None, cwd: Optional[Path] = None, timeout: int = 30) -> subprocess.CompletedProcess:
     merged_env = _ensure_sbin_path({**os.environ, **(env or {})})
     return subprocess.run(
         cmd,

@@ -267,9 +267,6 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install bats-core
-        run: sudo apt-get update && sudo apt-get install -y bats
-
       - name: Shell syntax check
         run: bash -n start.sh stop.sh
 

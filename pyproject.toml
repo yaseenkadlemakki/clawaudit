@@ -79,6 +79,7 @@ markers = [
     "asyncio: mark async tests (handled by pytest-asyncio)",
     "sentinel: sentinel platform tests",
     "backend: backend API and database tests",
+    "shell: shell script (start.sh/stop.sh) tests",
 ]
 
 [tool.coverage.run]

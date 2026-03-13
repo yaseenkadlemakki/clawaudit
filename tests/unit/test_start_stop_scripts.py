@@ -5,6 +5,7 @@ import signal
 import subprocess
 import textwrap
 from pathlib import Path
+from typing import Optional
 
 import pytest
 
@@ -19,7 +20,7 @@ def _ensure_sbin_path(env: dict) -> dict:
     return env
 
 
-def _run(cmd: str, env: dict | None = None, cwd: Path | None = None, timeout: int = 10) -> subprocess.CompletedProcess:
+def _run(cmd: str, env: Optional[dict] = None, cwd: Optional[Path] = None, timeout: int = 10) -> subprocess.CompletedProcess:
     """Run a shell command and return the result."""
     merged_env = _ensure_sbin_path({**os.environ, **(env or {})})
     return subprocess.run(
@@ -36,7 +37,7 @@ def _run(cmd: str, env: dict | None = None, cwd: Path | None = None, timeout: in
 # ── kill_port() logic ────────────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestKillPort:
     """Tests for the kill_port() function extracted from start.sh."""
 
@@ -123,7 +124,7 @@ class TestKillPort:
 # ── wait_for_port() logic ─────────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestWaitForPort:
     """Tests for the wait_for_port() function from start.sh."""
 
@@ -197,7 +198,7 @@ class TestWaitForPort:
 # ── stop.sh PID file handling ────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestStopPidHandling:
     """Tests for stop.sh PID-file reading and fallback."""
 
@@ -271,7 +272,7 @@ class TestStopPidHandling:
 # ── PORT env var ──────────────────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestPortEnvVar:
     """Verify that PORT env var is set in start.sh for Next.js."""
 
@@ -285,7 +286,7 @@ class TestPortEnvVar:
 # ── Prerequisite checks ─────────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestPrerequisiteChecks:
     """Test that scripts exit non-zero when prerequisites are missing."""
 
@@ -330,7 +331,7 @@ class TestPrerequisiteChecks:
 # ── .logs directory creation ──────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestLogDirCreation:
     """Test that .logs/ is created when missing."""
 
@@ -343,7 +344,7 @@ class TestLogDirCreation:
 # ── stop.sh idempotency ──────────────────────────────────────────────────────
 
 
-@pytest.mark.unit
+@pytest.mark.shell
 class TestStopIdempotency:
     """Test that stop.sh is safe to run when nothing is running."""
 
