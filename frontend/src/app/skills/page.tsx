@@ -187,7 +187,7 @@ export default function SkillsPage() {
             const isProtected = lc ? lc.source === "system" : false
             return (
               <div key={skill.id ?? skill.name} className="bg-card border border-border rounded-lg p-4 hover:border-primary/50 transition-colors group relative">
-                <Link href={`/skills/${skill.id}`} className="block">
+                <Link href={`/skills/${skill.name}`} className="block">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <Puzzle size={14} className="text-primary shrink-0 mt-0.5" />

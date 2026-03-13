@@ -45,7 +45,13 @@ export default function SkillDetailPage() {
   })
 
   const unquarantineMut = useMutation({
-    mutationFn: () => unquarantineSkill(id),
+    // NOTE: unquarantineSkill requires the UUID (skill.id), NOT the URL slug (which is now the
+    // skill name). The URL param `id` holds the name after the fix(ui) migration; always use
+    // skill.id from the fetched data to call the UUID-keyed /skills/{skill_id}/unquarantine endpoint.
+    mutationFn: () => {
+      if (!skill?.id) throw new Error("Skill ID unavailable")
+      return unquarantineSkill(skill.id)
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["skill", id] }),
   })
 
