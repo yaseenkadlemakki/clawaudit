@@ -27,6 +27,9 @@ clawaudit-report-*.json
 .env.local
 frontend/test-results/
 
+# Start/stop script runtime artifacts
+.logs/
+
 # Coverage artifacts
 .coverage
 .coverage.*
