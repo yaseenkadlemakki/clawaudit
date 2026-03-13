@@ -253,13 +253,51 @@ jobs:
       - name: Run Sentinel integration tests
         run: pytest tests/integration/test_collector_pipeline.py -v --tb=short
 
-  # ── 8. Final status gate ──────────────────────────────────────────────────────
+  # ── 8. Shell script tests ────────────────────────────────────────────────────
+  shell-script-tests:
+    name: Shell script tests
+    runs-on: ubuntu-latest
+    needs: lint-yaml
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bats-core
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Shell syntax check
+        run: bash -n start.sh stop.sh
+
+      - name: Cache pip
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306  # v5.0.3
+        with:
+          path: ~/.cache/pip
+          key: pip-shell-3.12-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: pip-shell-3.12-
+
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run shell script tests
+        run: |
+          pytest \
+            tests/unit/test_start_stop_scripts.py \
+            tests/functional/test_start_stop_functional.py \
+            tests/integration/test_start_stop_integration.py \
+            -v --tb=short
+
+  # ── 9. Final status gate ──────────────────────────────────────────────────────
   # All required jobs must pass before a PR can be merged.
   # IMPORTANT: Update the needs list and result checks whenever a new required job is added.
   all-tests-pass:
     name: All tests passed
     runs-on: ubuntu-latest
-    needs: [lint-yaml, unit-tests, functional-tests, integration-tests, coverage, sentinel-tests, backend-tests]
+    needs: [lint-yaml, unit-tests, functional-tests, integration-tests, coverage, sentinel-tests, backend-tests, shell-script-tests]
     if: always()
     steps:
       - name: Check all jobs succeeded
@@ -270,7 +308,8 @@ jobs:
                 "${{ needs.integration-tests.result }}" != "success" ||
                 "${{ needs.coverage.result }}" != "success" ||
                 "${{ needs.sentinel-tests.result }}" != "success" ||
-                "${{ needs.backend-tests.result }}" != "success" ]]; then
+                "${{ needs.backend-tests.result }}" != "success" ||
+                "${{ needs.shell-script-tests.result }}" != "success" ]]; then
             echo "One or more required jobs failed."
             exit 1
           fi
