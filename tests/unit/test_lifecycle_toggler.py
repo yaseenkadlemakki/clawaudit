@@ -109,6 +109,34 @@ class TestSkillToggler:
         toggler.enable("sys")
         assert reg.get("sys").enabled is True
 
+    def test_system_skill_roundtrip_disable_enable(self, tmp_path):
+        """Disable then re-enable a system skill — state should be restored."""
+        skill_dir = tmp_path / "skills" / "sys"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("name: sys\n")
+
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        rec = SkillRecord(
+            name="sys",
+            path=str(skill_dir),
+            source="system",
+            version="1.0",
+            installed_at="2025-01-01T00:00:00+00:00",
+            enabled=True,
+        )
+        reg.register(rec)
+        toggler = SkillToggler(reg)
+
+        toggler.disable("sys")
+        assert reg.get("sys").enabled is False
+        assert not (skill_dir / "SKILL.md").exists()
+        assert (skill_dir / "SKILL.md.disabled").exists()
+
+        toggler.enable("sys")
+        assert reg.get("sys").enabled is True
+        assert (skill_dir / "SKILL.md").exists()
+        assert not (skill_dir / "SKILL.md.disabled").exists()
+
     def test_get_status_enabled(self, tmp_path):
         reg, rec = _setup_skill(tmp_path, "on", enabled=True)
         toggler = SkillToggler(reg)

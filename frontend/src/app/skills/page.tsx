@@ -236,7 +236,7 @@ export default function SkillsPage() {
                 {lc && (
                   <div className="flex gap-1.5 mt-3 pt-3 border-t border-border">
                     <button
-                      onClick={e => { e.preventDefault(); toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
+                      onClick={e => { e.preventDefault(); if (isProtected && !window.confirm(`"${skill.name}" is a system skill. Toggling it may affect agent capabilities. Continue?`)) return; toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
                       disabled={toggleMut.isPending}
                       title={isProtected ? "System skill — disabling may affect agent capabilities" : undefined}
                       className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors", enabled ? "border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" : "border-green-500/30 text-green-400 hover:bg-green-500/10")}

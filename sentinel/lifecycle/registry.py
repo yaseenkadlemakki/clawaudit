@@ -135,7 +135,7 @@ class SkillRegistry:
             # configs that point at a workspace root instead of its skills/ child).
             scan_dirs = [d]
             skills_sub = d / "skills"
-            if skills_sub.is_dir():
+            if skills_sub.is_dir() and d.name != "skills":
                 scan_dirs.append(skills_sub)
             for scan_dir in scan_dirs:
                 for child in scan_dir.iterdir():
