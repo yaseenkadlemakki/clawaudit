@@ -108,7 +108,7 @@ export const startScan    = () => req<ScanRun>("/scans", { method: "POST", body:
 export const stopScan     = (id: string) => req<ScanRun>(`/scans/${id}/stop`, { method: "DELETE" })
 export const getScan      = (id: string) => req<ScanRun>(`/scans/${id}`)
 export const getSkills    = () => req<Skill[]>("/skills")
-export const getSkill     = (id: string) => req<Skill>(`/skills/${id}`)
+export const getSkill     = (name: string) => req<Skill>(`/skills/${name}`)
 export const getFindings  = (params: FindingsParams = {}) => {
   const qs = new URLSearchParams(
     Object.entries(params)

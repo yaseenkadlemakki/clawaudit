@@ -69,8 +69,8 @@ async function mockSkillsSuccess(page: Page) {
       body: JSON.stringify(MOCK_LIFECYCLE_SKILLS),
     })
   )
-  // Specific skill detail by ID
-  await page.route("**/api/v1/skills/skill-001*", (route) =>
+  // Specific skill detail by name
+  await page.route("**/api/v1/skills/filesystem*", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -254,8 +254,8 @@ test.describe("Skill Explorer — click skill → detail page", () => {
     await page.goto("/skills")
     await page.waitForSelector("text=filesystem", { timeout: 8000 })
 
-    // Click the link inside the first skill card
-    const skillLink = page.locator('a[href*="/skills/skill-"]').first()
+    // Click the link inside the first skill card (links now use skill name)
+    const skillLink = page.locator('a[href*="/skills/"]').first()
     await skillLink.click()
 
     // Should navigate to a skill detail page
@@ -264,7 +264,7 @@ test.describe("Skill Explorer — click skill → detail page", () => {
   })
 
   test("skill detail page shows Back to Skills link", async ({ page }) => {
-    await page.route("**/api/v1/skills/skill-001*", (route) =>
+    await page.route("**/api/v1/skills/filesystem*", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -277,7 +277,7 @@ test.describe("Skill Explorer — click skill → detail page", () => {
     await page.route("**/api/v1/skills*", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(MOCK_SKILLS) })
     )
-    await page.goto("/skills/skill-001")
+    await page.goto("/skills/filesystem")
     // The detail page should render the back link when data loads
     await expect(page.getByText(/Back to Skills/i)).toBeVisible({ timeout: 8000 })
   })
@@ -299,8 +299,48 @@ test.describe("Skill Explorer — click skill → detail page", () => {
     await expect(page.getByText(/not found|failed to load/i).first()).toBeVisible({ timeout: 8000 })
   })
 
+  test("clicking a skill card opens the skill detail page without error", async ({ page }) => {
+    await mockSkillsSuccess(page)
+    await page.goto("/skills")
+    await page.waitForLoadState("networkidle")
+
+    // Click the first skill card
+    const firstCard = page.locator(".grid > div").first()
+    await firstCard.waitFor({ timeout: 10000 })
+    await firstCard.click()
+
+    // Should navigate to /skills/<name> and show skill detail
+    await page.waitForURL(/\/skills\/[^/]+$/, { timeout: 10000 })
+
+    // Should NOT show error state
+    await expect(page.getByText(/skill not found/i)).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/failed to load/i)).not.toBeVisible()
+
+    // Should show skill detail content
+    await expect(page.getByText(/risk score|trust|shell|injection/i).first()).toBeVisible({ timeout: 10000 })
+  })
+
+  test("skill detail URL contains skill name not a UUID", async ({ page }) => {
+    await mockSkillsSuccess(page)
+    await page.goto("/skills")
+    await page.waitForLoadState("networkidle")
+
+    const firstCard = page.locator(".grid > div").first()
+    await firstCard.waitFor({ timeout: 10000 })
+    await firstCard.click()
+
+    await page.waitForURL(/\/skills\/[^/]+$/, { timeout: 10000 })
+
+    const url = page.url()
+    const slug = url.split("/skills/")[1]
+
+    // Should be a human-readable name, not a UUID pattern
+    expect(slug).not.toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)
+    expect(slug.length).toBeGreaterThan(0)
+  })
+
   test("skill detail page renders capabilities section when data loads", async ({ page }) => {
-    await page.route("**/api/v1/skills/skill-001*", (route) =>
+    await page.route("**/api/v1/skills/filesystem*", (route) =>
       route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -310,7 +350,7 @@ test.describe("Skill Explorer — click skill → detail page", () => {
     await page.route("**/api/v1/lifecycle*", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) })
     )
-    await page.goto("/skills/skill-001")
+    await page.goto("/skills/filesystem")
     // Skill name should appear in the heading
     await expect(page.getByText("filesystem").first()).toBeVisible({ timeout: 8000 })
     // Capabilities section should be rendered
