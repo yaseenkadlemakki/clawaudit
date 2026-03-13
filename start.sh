@@ -52,11 +52,15 @@ kill_port() {
 }
 
 # ── Wait for a port to be ready ───────────────────────────────────────────────
+# This is a port-liveness check, not an application-health check.
+# Any HTTP response (including 401, 403, 5xx) means the service is listening.
+# For authenticated endpoints like /api/v1/status, a 401 is expected and valid.
 wait_for_port() {
   local port=$1 name=$2 timeout=${3:-30} health_path=${4:-/} i=0
   info "Waiting for $name on :$port..."
-  # -s -o /dev/null without -f so any HTTP response (incl. 401) counts as up
-  until curl -s -o /dev/null "http://localhost:$port$health_path" &>/dev/null; do
+  # -s without -f: any HTTP response (incl. 401) counts as "port is up"
+  # --write-out logs the status code for debuggability
+  until curl -s --write-out '%{http_code}' "http://localhost:$port$health_path" &>/dev/null; do
     sleep 1
     i=$((i+1))
     if [[ $i -ge $timeout ]]; then
@@ -64,7 +68,9 @@ wait_for_port() {
       return 1
     fi
   done
-  success "$name ready on :$port"
+  local http_code
+  http_code=$(curl -s -o /dev/null --write-out '%{http_code}' "http://localhost:$port$health_path" 2>/dev/null || true)
+  success "$name ready on :$port (HTTP $http_code)"
 }
 
 # ── Python interpreter ────────────────────────────────────────────────────────

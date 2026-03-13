@@ -148,7 +148,8 @@ class TestWaitForPort:
             err()     { echo -e "${RED}[test]${NC} $*"; }
             wait_for_port() {
               local port=$1 name=$2 timeout=${3:-5} i=0
-              until curl -sf "http://localhost:$port" &>/dev/null; do
+              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
+              until curl -s "http://localhost:$port" &>/dev/null; do
                 sleep 1
                 i=$((i+1))
                 if [[ $i -ge $timeout ]]; then
@@ -159,6 +160,58 @@ class TestWaitForPort:
               echo "READY"
             }
             wait_for_port 39873 "test-server" 5
+        """))
+        script.chmod(0o755)
+        result = _run(str(script), timeout=15)
+        server.server_close()
+        assert result.returncode == 0
+        assert "READY" in result.stdout
+
+    def test_returns_ready_on_non_2xx_response(self, tmp_path: Path):
+        """wait_for_port should succeed even when server returns 401 (non-2xx).
+
+        This is the core behavioral change: without -f, curl treats any HTTP
+        response as success, so services behind auth (401) count as 'up'.
+        """
+        import threading
+
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+
+        class Unauthorized401Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(401)
+                self.end_headers()
+                self.wfile.write(b"Unauthorized")
+
+            def log_message(self, format, *args):
+                pass  # suppress stderr
+
+        server = HTTPServer(("127.0.0.1", 39877), Unauthorized401Handler)
+        t = threading.Thread(target=server.handle_request, daemon=True)
+        t.start()
+
+        script = tmp_path / "test.sh"
+        script.write_text(textwrap.dedent("""\
+            #!/usr/bin/env bash
+            set -euo pipefail
+            NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'; RED='\\033[0;31m'
+            info()    { echo -e "${CYAN}[test]${NC} $*"; }
+            success() { echo -e "${GREEN}[test]${NC} $*"; }
+            err()     { echo -e "${RED}[test]${NC} $*"; }
+            wait_for_port() {
+              local port=$1 name=$2 timeout=${3:-5} i=0
+              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
+              until curl -s "http://localhost:$port" &>/dev/null; do
+                sleep 1
+                i=$((i+1))
+                if [[ $i -ge $timeout ]]; then
+                  echo "TIMEOUT"
+                  return 1
+                fi
+              done
+              echo "READY"
+            }
+            wait_for_port 39877 "test-server" 5
         """))
         script.chmod(0o755)
         result = _run(str(script), timeout=15)
@@ -177,7 +230,8 @@ class TestWaitForPort:
             err()     { echo -e "${RED}[test]${NC} $*"; }
             wait_for_port() {
               local port=$1 name=$2 timeout=${3:-2} i=0
-              until curl -sf "http://localhost:$port" &>/dev/null; do
+              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
+              until curl -s "http://localhost:$port" &>/dev/null; do
                 sleep 1
                 i=$((i+1))
                 if [[ $i -ge $timeout ]]; then
@@ -267,6 +321,31 @@ class TestStopPidHandling:
         assert result.returncode == 0
         assert "NO_FILE" in result.stdout
         assert "PORT_FALLBACK 18790" in result.stdout
+
+
+# ── wait_for_port curl flags regression guard ─────────────────────────────
+
+
+@pytest.mark.shell
+class TestWaitForPortCurlFlags:
+    """Regression guard: wait_for_port must NOT use curl -f."""
+
+    def test_start_sh_curl_has_no_fail_flag(self):
+        """start.sh wait_for_port must use curl without -f so non-2xx responses count as up."""
+        content = (REPO_ROOT / "start.sh").read_text()
+        # Extract the wait_for_port function body
+        in_func = False
+        func_lines = []
+        for line in content.splitlines():
+            if "wait_for_port()" in line:
+                in_func = True
+            if in_func:
+                func_lines.append(line)
+                if line.strip() == "}":
+                    break
+        func_body = "\n".join(func_lines)
+        assert "curl -sf" not in func_body, "wait_for_port must not use curl -f (fails on 401)"
+        assert "curl" in func_body, "wait_for_port should use curl"
 
 
 # ── PORT env var ──────────────────────────────────────────────────────────────
