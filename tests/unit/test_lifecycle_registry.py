@@ -101,7 +101,7 @@ class TestSkillRegistry:
         skill_path.mkdir(parents=True)
         (skill_path / "SKILL.md").write_text("name: test-skill\n")
 
-        monkeypatch.setattr("sentinel.lifecycle.PROTECTED_PATHS", [skills_dir])
+        monkeypatch.setattr("sentinel.lifecycle.registry.PROTECTED_PATHS", [skills_dir])
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         reg.sync([skills_dir])
         rec = reg.get("test-skill")
@@ -128,7 +128,7 @@ class TestSkillRegistry:
         skill_path.mkdir(parents=True)
         (skill_path / "SKILL.md").write_text("name: x\n")
 
-        monkeypatch.setattr("sentinel.lifecycle.PROTECTED_PATHS", [skills_dir])
+        monkeypatch.setattr("sentinel.lifecycle.registry.PROTECTED_PATHS", [skills_dir])
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         reg.sync([skills_dir])
         rec = reg.get("x")
