@@ -93,3 +93,44 @@ class TestSkillRegistry:
     def test_get_returns_none_for_missing(self, tmp_path):
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         assert reg.get("nonexistent") is None
+
+    def test_system_skill_gets_system_source(self, tmp_path, monkeypatch):
+        """Skills under protected homebrew path should get source='system'."""
+        skills_dir = tmp_path / "opt" / "homebrew" / "lib" / "node_modules" / "openclaw" / "skills"
+        skill_path = skills_dir / "test-skill"
+        skill_path.mkdir(parents=True)
+        (skill_path / "SKILL.md").write_text("name: test-skill\n")
+
+        monkeypatch.setattr("sentinel.lifecycle.registry.PROTECTED_PATHS", [skills_dir])
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        reg.sync([skills_dir])
+        rec = reg.get("test-skill")
+        assert rec is not None
+        assert rec.source == "system"
+
+    def test_local_skill_gets_local_source(self, tmp_path):
+        """Skills under a user path should get source='local'."""
+        skills_dir = tmp_path / "user" / ".openclaw" / "skills"
+        skill_path = skills_dir / "my-skill"
+        skill_path.mkdir(parents=True)
+        (skill_path / "SKILL.md").write_text("name: my-skill\n")
+
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        reg.sync([skills_dir])
+        rec = reg.get("my-skill")
+        assert rec is not None
+        assert rec.source == "local"
+
+    def test_usr_local_skill_gets_system_source(self, tmp_path, monkeypatch):
+        """Skills under /usr/local protected path should get source='system'."""
+        skills_dir = tmp_path / "usr" / "local" / "lib" / "node_modules" / "openclaw" / "skills"
+        skill_path = skills_dir / "x"
+        skill_path.mkdir(parents=True)
+        (skill_path / "SKILL.md").write_text("name: x\n")
+
+        monkeypatch.setattr("sentinel.lifecycle.registry.PROTECTED_PATHS", [skills_dir])
+        reg = SkillRegistry(registry_path=tmp_path / "registry.json")
+        reg.sync([skills_dir])
+        rec = reg.get("x")
+        assert rec is not None
+        assert rec.source == "system"

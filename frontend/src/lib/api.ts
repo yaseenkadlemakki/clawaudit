@@ -18,7 +18,16 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
     // Built-in headers (including Authorization) spread last so callers cannot override auth.
     headers: { ...((opts?.headers as Record<string, string>) ?? {}), ...headers },
   })
-  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`)
+  if (!res.ok) {
+    let message: string
+    try {
+      const body = await res.json()
+      message = body.detail ?? body.message ?? `${res.status} ${res.statusText}`
+    } catch {
+      message = `API ${res.status}: ${await res.text().catch(() => res.statusText)}`
+    }
+    throw new Error(message)
+  }
   return res.json()
 }
 

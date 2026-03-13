@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sentinel.lifecycle import PROTECTED_PATHS
+
 try:
     import fcntl
 
@@ -30,7 +32,7 @@ class SkillRecord:
 
     name: str
     path: str  # absolute path to skill dir
-    source: str  # "local", "clawhub", or URL
+    source: str  # "local", "system", "clawhub", or URL
     version: str  # from SKILL.md metadata or "unknown"
     installed_at: str  # ISO8601
     enabled: bool  # True if SKILL.md exists (not .disabled)
@@ -136,18 +138,27 @@ class SkillRegistry:
                 if skill_md.exists() or skill_md_disabled.exists():
                     found[child.name] = child
 
-        # Add missing
+        # Add missing / refresh source for existing entries
         for name, path in found.items():
+            resolved = path.resolve()
+            computed_source = (
+                "system" if any(resolved.is_relative_to(p) for p in PROTECTED_PATHS) else "local"
+            )
             if name not in records:
                 enabled = (path / "SKILL.md").exists()
                 records[name] = SkillRecord(
                     name=name,
                     path=str(path),
-                    source="local",
+                    source=computed_source,
                     version="unknown",
                     installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
                     enabled=enabled,
                 )
+            elif records[name].source in ("local", "system"):
+                # Recompute source for entries that carry a path-derived value.
+                # This migrates registries written before PROTECTED_PATHS was
+                # checked, where homebrew skills were incorrectly tagged "local".
+                records[name].source = computed_source
 
         # Remove stale
         stale = [n for n in records if n not in found]
