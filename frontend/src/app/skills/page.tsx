@@ -92,16 +92,19 @@ export default function SkillsPage() {
   const [q, setQ] = useState("")
   const [installOpen, setInstallOpen] = useState(false)
   const [uninstallTarget, setUninstallTarget] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   const qc = useQueryClient()
 
   const toggleMut = useMutation({
     mutationFn: ({ name, enable }: { name: string; enable: boolean }) => enable ? enableSkill(name) : disableSkill(name),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lifecycle-skills"] }),
+    onError: (err: Error) => { setActionError(err.message || "Failed to toggle skill") },
   })
 
   const uninstallMut = useMutation({
     mutationFn: (name: string) => uninstallSkill(name),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lifecycle-skills"] }); setUninstallTarget(null) },
+    onError: (err: Error) => { setUninstallTarget(null); setActionError(err.message || "Failed to uninstall skill") },
   })
 
   // Merge scanned skills with lifecycle data
@@ -144,6 +147,13 @@ export default function SkillsPage() {
       {scanError && (
         <div className="rounded border border-red-500 bg-red-950/30 p-4 text-red-400 text-sm">
           Failed to load skills: {(scanError as Error).message}
+        </div>
+      )}
+
+      {actionError && (
+        <div className="flex items-center justify-between bg-red-950/30 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="ml-3 text-red-400 hover:text-red-300">✕</button>
         </div>
       )}
 

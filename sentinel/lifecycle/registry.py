@@ -11,6 +11,8 @@ from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sentinel.lifecycle import PROTECTED_PATHS
+
 try:
     import fcntl
 
@@ -140,10 +142,16 @@ class SkillRegistry:
         for name, path in found.items():
             if name not in records:
                 enabled = (path / "SKILL.md").exists()
+                resolved = path.resolve()
+                source = (
+                    "system"
+                    if any(resolved.is_relative_to(p) for p in PROTECTED_PATHS)
+                    else "local"
+                )
                 records[name] = SkillRecord(
                     name=name,
                     path=str(path),
-                    source="local",
+                    source=source,
                     version="unknown",
                     installed_at=datetime.now(timezone.utc).isoformat(),  # noqa: UP017
                     enabled=enabled,

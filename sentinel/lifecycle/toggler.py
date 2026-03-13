@@ -5,15 +5,10 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from sentinel.lifecycle import PROTECTED_PATHS
 from sentinel.lifecycle.registry import SkillRegistry
 
 logger = logging.getLogger(__name__)
-
-PROTECTED_PATHS = [
-    Path("/opt/homebrew/lib/node_modules/openclaw/skills"),
-    Path("/usr/local/lib/node_modules/openclaw/skills"),
-    Path("/usr/lib/node_modules/openclaw/skills"),
-]
 
 
 class SkillToggler:

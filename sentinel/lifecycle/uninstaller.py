@@ -8,8 +8,8 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sentinel.lifecycle import PROTECTED_PATHS
 from sentinel.lifecycle.registry import SkillRecord, SkillRegistry
-from sentinel.lifecycle.toggler import PROTECTED_PATHS
 
 # Trash dir name format: <skill-name>-<YYYYMMDD>-<HHMMSS>
 # Use a regex to reliably extract skill name even when name contains hyphens.

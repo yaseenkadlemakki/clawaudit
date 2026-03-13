@@ -337,6 +337,115 @@ test.describe("Skill Explorer — empty state", () => {
   })
 })
 
+// ─── Protected skills ─────────────────────────────────────────────────────────
+
+const MOCK_SYSTEM_LIFECYCLE_SKILLS = [
+  {
+    name: "filesystem",
+    source: "system",
+    path: "/opt/homebrew/lib/node_modules/openclaw/skills/filesystem",
+    enabled: true,
+    version: "1.2.0",
+    installed_at: new Date(Date.now() - 86400_000).toISOString(),
+    risk_level: "HIGH",
+  },
+  {
+    name: "web-browse",
+    source: "system",
+    path: "/opt/homebrew/lib/node_modules/openclaw/skills/web-browse",
+    enabled: true,
+    version: "2.0.1",
+    installed_at: new Date(Date.now() - 172800_000).toISOString(),
+    risk_level: "MEDIUM",
+  },
+]
+
+async function mockSystemSkills(page: Page) {
+  await page.route("**/api/v1/lifecycle*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_SYSTEM_LIFECYCLE_SKILLS),
+    })
+  )
+  await page.route("**/api/v1/skills*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_SKILLS),
+    })
+  )
+}
+
+test.describe("Skill Explorer — protected skills", () => {
+  test("protected system skills show lock badge and no action buttons", async ({ page }) => {
+    await mockSystemSkills(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // All lifecycle skills have source=system → Protected badge should appear
+    const protectedBadges = page.getByText("Protected")
+    await expect(protectedBadges.first()).toBeVisible({ timeout: 10000 })
+
+    // No Enable/Disable or Uninstall buttons should be visible
+    await expect(page.getByRole("button", { name: /^Disable$/ })).not.toBeVisible()
+    await expect(page.getByRole("button", { name: /^Enable$/ })).not.toBeVisible()
+    await expect(page.getByRole("button", { name: /^Uninstall$/ })).not.toBeVisible()
+  })
+
+  test("skills page loads and displays skill cards", async ({ page }) => {
+    await mockSystemSkills(page)
+    await page.goto("/skills")
+    await page.waitForLoadState("networkidle")
+    await expect(page.locator(".grid > div").first()).toBeVisible({ timeout: 10000 })
+  })
+})
+
+// ─── Action error feedback ───────────────────────────────────────────────────
+
+test.describe("Skill Explorer — action error feedback", () => {
+  test("shows error banner when toggle fails with 403", async ({ page }) => {
+    // Intercept ALL lifecycle API calls with method-aware routing
+    await page.route("**/api/v1/lifecycle**", (route) => {
+      const url = route.request().url()
+      const method = route.request().method()
+
+      // POST to disable/enable should return 403
+      if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
+        return route.fulfill({
+          status: 403,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Skill is in a protected path" }),
+        })
+      }
+
+      // GET lifecycle list
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_LIFECYCLE_SKILLS),
+      })
+    })
+    // Skills list
+    await page.route("**/api/v1/skills*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_SKILLS),
+      })
+    )
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Click the Disable button on the first skill (filesystem is enabled)
+    const disableBtn = page.getByRole("button", { name: /^Disable$/ }).first()
+    await disableBtn.click()
+
+    // Error banner should appear with the 403 error message
+    await expect(page.locator("text=403").first()).toBeVisible({ timeout: 5000 })
+  })
+})
+
 // ─── Install modal ────────────────────────────────────────────────────────────
 
 test.describe("Skill Explorer — Install modal", () => {
