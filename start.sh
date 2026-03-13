@@ -57,10 +57,14 @@ kill_port() {
 # For authenticated endpoints like /api/v1/status, a 401 is expected and valid.
 wait_for_port() {
   local port=$1 name=$2 timeout=${3:-30} health_path=${4:-/} i=0
+  local http_code=""
   info "Waiting for $name on :$port..."
   # -s without -f: any HTTP response (incl. 401) counts as "port is up"
-  # --write-out logs the status code for debuggability
-  until curl -s --write-out '%{http_code}' "http://localhost:$port$health_path" &>/dev/null; do
+  # Capture --write-out output in http_code so the same request serves both
+  # the liveness check and the status-code log (no second curl needed).
+  while true; do
+    http_code=$(curl -s -o /dev/null --write-out '%{http_code}' "http://localhost:$port$health_path" 2>/dev/null || true)
+    [[ "$http_code" != "000" ]] && break
     sleep 1
     i=$((i+1))
     if [[ $i -ge $timeout ]]; then
@@ -68,8 +72,6 @@ wait_for_port() {
       return 1
     fi
   done
-  local http_code
-  http_code=$(curl -s -o /dev/null --write-out '%{http_code}' "http://localhost:$port$health_path" 2>/dev/null || true)
   success "$name ready on :$port (HTTP $http_code)"
 }
 

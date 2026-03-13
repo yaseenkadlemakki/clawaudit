@@ -1,7 +1,9 @@
 """Unit tests for start.sh and stop.sh shell scripts."""
 
 import os
+import re
 import signal
+import socket
 import subprocess
 import textwrap
 from pathlib import Path
@@ -34,6 +36,13 @@ def _run(cmd: str, env: Optional[dict] = None, cwd: Optional[Path] = None, timeo
     )
 
 
+def _free_port() -> int:
+    """Return an OS-assigned free port."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
 # ── kill_port() logic ────────────────────────────────────────────────────────
 
 
@@ -43,25 +52,26 @@ class TestKillPort:
 
     def test_port_free_is_noop(self, tmp_path: Path):
         """When port is free, kill_port should do nothing and not fail."""
+        port = _free_port()
         script = tmp_path / "test.sh"
-        script.write_text(textwrap.dedent("""\
+        script.write_text(textwrap.dedent(f"""\
             #!/usr/bin/env bash
             set -euo pipefail
-            kill_port() {
+            kill_port() {{
               local port=$1 pids=""
               if command -v lsof &>/dev/null; then
                 pids=$(lsof -ti :"$port" 2>/dev/null || true)
               elif command -v fuser &>/dev/null; then
                 pids=$(fuser "$port"/tcp 2>/dev/null | tr ' ' '\\n' || true)
               fi
-              if [[ -n "${pids:-}" ]]; then
+              if [[ -n "${{pids:-}}" ]]; then
                 echo "KILLING $pids"
                 echo "$pids" | xargs kill -9 2>/dev/null || true
               else
                 echo "PORT_FREE"
               fi
-            }
-            kill_port 39871
+            }}
+            kill_port {port}
         """))
         script.chmod(0o755)
         result = _run(str(script))
@@ -70,13 +80,14 @@ class TestKillPort:
 
     def test_port_occupied_kills_pid(self, tmp_path: Path):
         """When port is occupied, kill_port should detect the process."""
+        port = _free_port()
         # Start a subprocess listener so lsof from child shell can see it
         listener = tmp_path / "listener.py"
-        listener.write_text(textwrap.dedent("""\
+        listener.write_text(textwrap.dedent(f"""\
             import socket, time
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind(("127.0.0.1", 39872))
+            s.bind(("127.0.0.1", {port}))
             s.listen(1)
             print("LISTENING", flush=True)
             time.sleep(60)
@@ -94,23 +105,23 @@ class TestKillPort:
 
         try:
             script = tmp_path / "test.sh"
-            script.write_text(textwrap.dedent("""\
+            script.write_text(textwrap.dedent(f"""\
                 #!/usr/bin/env bash
                 set -euo pipefail
-                kill_port() {
+                kill_port() {{
                   local port=$1 pids=""
                   if command -v lsof &>/dev/null; then
                     pids=$(lsof -ti :"$port" 2>/dev/null || true)
                   elif command -v fuser &>/dev/null; then
                     pids=$(fuser "$port"/tcp 2>/dev/null | tr ' ' '\\n' || true)
                   fi
-                  if [[ -n "${pids:-}" ]]; then
+                  if [[ -n "${{pids:-}}" ]]; then
                     echo "KILLING"
                   else
                     echo "PORT_FREE"
                   fi
-                }
-                kill_port 39872
+                }}
+                kill_port {port}
             """))
             script.chmod(0o755)
             result = _run(str(script))
@@ -133,39 +144,48 @@ class TestWaitForPort:
         import http.server
         import threading
 
+        port = _free_port()
         handler = http.server.SimpleHTTPRequestHandler
-        server = http.server.HTTPServer(("127.0.0.1", 39873), handler)
+        server = http.server.HTTPServer(("127.0.0.1", port), handler)
         t = threading.Thread(target=server.handle_request, daemon=True)
         t.start()
 
-        script = tmp_path / "test.sh"
-        script.write_text(textwrap.dedent("""\
-            #!/usr/bin/env bash
-            set -euo pipefail
-            NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'; RED='\\033[0;31m'
-            info()    { echo -e "${CYAN}[test]${NC} $*"; }
-            success() { echo -e "${GREEN}[test]${NC} $*"; }
-            err()     { echo -e "${RED}[test]${NC} $*"; }
-            wait_for_port() {
-              local port=$1 name=$2 timeout=${3:-5} i=0
-              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
-              until curl -s "http://localhost:$port" &>/dev/null; do
-                sleep 1
-                i=$((i+1))
-                if [[ $i -ge $timeout ]]; then
-                  echo "TIMEOUT"
-                  return 1
-                fi
-              done
-              echo "READY"
-            }
-            wait_for_port 39873 "test-server" 5
-        """))
-        script.chmod(0o755)
-        result = _run(str(script), timeout=15)
-        server.server_close()
-        assert result.returncode == 0
-        assert "READY" in result.stdout
+        try:
+            script = tmp_path / "test.sh"
+            # Intentional simplification: tests use a minimal version of the
+            # production wait_for_port loop. The production script captures
+            # http_code via --write-out; here we only check the liveness
+            # semantics (-s without -f, exit on any HTTP response).
+            script.write_text(textwrap.dedent(f"""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'; RED='\\033[0;31m'
+                info()    {{ echo -e "${{CYAN}}[test]${{NC}} $*"; }}
+                success() {{ echo -e "${{GREEN}}[test]${{NC}} $*"; }}
+                err()     {{ echo -e "${{RED}}[test]${{NC}} $*"; }}
+                wait_for_port() {{
+                  local port=$1 name=$2 timeout=${{3:-5}} i=0 http_code=""
+                  # Mirrors start.sh: curl -s -o /dev/null --write-out for liveness
+                  while true; do
+                    http_code=$(curl -s -o /dev/null --write-out '%{{http_code}}' "http://localhost:$port" 2>/dev/null || true)
+                    [[ "$http_code" != "000" ]] && break
+                    sleep 1
+                    i=$((i+1))
+                    if [[ $i -ge $timeout ]]; then
+                      echo "TIMEOUT"
+                      return 1
+                    fi
+                  done
+                  echo "READY"
+                }}
+                wait_for_port {port} "test-server" 5
+            """))
+            script.chmod(0o755)
+            result = _run(str(script), timeout=15)
+            assert result.returncode == 0
+            assert "READY" in result.stdout
+        finally:
+            server.server_close()
 
     def test_returns_ready_on_non_2xx_response(self, tmp_path: Path):
         """wait_for_port should succeed even when server returns 401 (non-2xx).
@@ -177,6 +197,8 @@ class TestWaitForPort:
 
         from http.server import BaseHTTPRequestHandler, HTTPServer
 
+        port = _free_port()
+
         class Unauthorized401Handler(BaseHTTPRequestHandler):
             def do_GET(self):
                 self.send_response(401)
@@ -186,52 +208,59 @@ class TestWaitForPort:
             def log_message(self, format, *args):
                 pass  # suppress stderr
 
-        server = HTTPServer(("127.0.0.1", 39877), Unauthorized401Handler)
+        server = HTTPServer(("127.0.0.1", port), Unauthorized401Handler)
         t = threading.Thread(target=server.handle_request, daemon=True)
         t.start()
 
-        script = tmp_path / "test.sh"
-        script.write_text(textwrap.dedent("""\
-            #!/usr/bin/env bash
-            set -euo pipefail
-            NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'; RED='\\033[0;31m'
-            info()    { echo -e "${CYAN}[test]${NC} $*"; }
-            success() { echo -e "${GREEN}[test]${NC} $*"; }
-            err()     { echo -e "${RED}[test]${NC} $*"; }
-            wait_for_port() {
-              local port=$1 name=$2 timeout=${3:-5} i=0
-              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
-              until curl -s "http://localhost:$port" &>/dev/null; do
-                sleep 1
-                i=$((i+1))
-                if [[ $i -ge $timeout ]]; then
-                  echo "TIMEOUT"
-                  return 1
-                fi
-              done
-              echo "READY"
-            }
-            wait_for_port 39877 "test-server" 5
-        """))
-        script.chmod(0o755)
-        result = _run(str(script), timeout=15)
-        server.server_close()
-        assert result.returncode == 0
-        assert "READY" in result.stdout
+        try:
+            script = tmp_path / "test.sh"
+            script.write_text(textwrap.dedent(f"""\
+                #!/usr/bin/env bash
+                set -euo pipefail
+                NC='\\033[0m'; CYAN='\\033[0;36m'; GREEN='\\033[0;32m'; RED='\\033[0;31m'
+                info()    {{ echo -e "${{CYAN}}[test]${{NC}} $*"; }}
+                success() {{ echo -e "${{GREEN}}[test]${{NC}} $*"; }}
+                err()     {{ echo -e "${{RED}}[test]${{NC}} $*"; }}
+                wait_for_port() {{
+                  local port=$1 name=$2 timeout=${{3:-5}} i=0 http_code=""
+                  # Mirrors start.sh: curl -s -o /dev/null --write-out for liveness
+                  while true; do
+                    http_code=$(curl -s -o /dev/null --write-out '%{{http_code}}' "http://localhost:$port" 2>/dev/null || true)
+                    [[ "$http_code" != "000" ]] && break
+                    sleep 1
+                    i=$((i+1))
+                    if [[ $i -ge $timeout ]]; then
+                      echo "TIMEOUT"
+                      return 1
+                    fi
+                  done
+                  echo "READY"
+                }}
+                wait_for_port {port} "test-server" 5
+            """))
+            script.chmod(0o755)
+            result = _run(str(script), timeout=15)
+            assert result.returncode == 0
+            assert "READY" in result.stdout
+        finally:
+            server.server_close()
 
     def test_times_out_if_port_never_opens(self, tmp_path: Path):
         """wait_for_port should fail after timeout when port never opens."""
+        port = _free_port()
         script = tmp_path / "test.sh"
-        script.write_text(textwrap.dedent("""\
+        script.write_text(textwrap.dedent(f"""\
             #!/usr/bin/env bash
             set -uo pipefail
             NC='\\033[0m'; CYAN='\\033[0;36m'; RED='\\033[0;31m'
-            info()    { echo -e "${CYAN}[test]${NC} $*"; }
-            err()     { echo -e "${RED}[test]${NC} $*"; }
-            wait_for_port() {
-              local port=$1 name=$2 timeout=${3:-2} i=0
-              # Match start.sh: -s without -f so any HTTP response (incl. 401) counts as up
-              until curl -s "http://localhost:$port" &>/dev/null; do
+            info()    {{ echo -e "${{CYAN}}[test]${{NC}} $*"; }}
+            err()     {{ echo -e "${{RED}}[test]${{NC}} $*"; }}
+            wait_for_port() {{
+              local port=$1 name=$2 timeout=${{3:-2}} i=0 http_code=""
+              # Mirrors start.sh: curl -s -o /dev/null --write-out for liveness
+              while true; do
+                http_code=$(curl -s -o /dev/null --write-out '%{{http_code}}' "http://localhost:$port" 2>/dev/null || true)
+                [[ "$http_code" != "000" ]] && break
                 sleep 1
                 i=$((i+1))
                 if [[ $i -ge $timeout ]]; then
@@ -240,8 +269,8 @@ class TestWaitForPort:
                 fi
               done
               echo "READY"
-            }
-            wait_for_port 39874 "test-server" 2
+            }}
+            wait_for_port {port} "test-server" 2
         """))
         script.chmod(0o755)
         result = _run(str(script), timeout=15)
@@ -331,7 +360,7 @@ class TestWaitForPortCurlFlags:
     """Regression guard: wait_for_port must NOT use curl -f."""
 
     def test_start_sh_curl_has_no_fail_flag(self):
-        """start.sh wait_for_port must use curl without -f so non-2xx responses count as up."""
+        """start.sh wait_for_port must use curl without -f/--fail so non-2xx responses count as up."""
         content = (REPO_ROOT / "start.sh").read_text()
         # Extract the wait_for_port function body
         in_func = False
@@ -344,8 +373,13 @@ class TestWaitForPortCurlFlags:
                 if line.strip() == "}":
                     break
         func_body = "\n".join(func_lines)
-        assert "curl -sf" not in func_body, "wait_for_port must not use curl -f (fails on 401)"
         assert "curl" in func_body, "wait_for_port should use curl"
+        # Match all fail-flag forms: -f, -sf, -fs, -fsS, --fail, etc.
+        fail_flag_pattern = re.compile(r"curl\s+[^|;]*(?:-[a-zA-Z]*f[a-zA-Z]*\b|--fail\b)")
+        match = fail_flag_pattern.search(func_body)
+        assert match is None, (
+            f"wait_for_port must not use curl -f/--fail (fails on 401): found '{match.group()}'"
+        )
 
 
 # ── PORT env var ──────────────────────────────────────────────────────────────
@@ -429,6 +463,8 @@ class TestStopIdempotency:
 
     def test_stop_idempotent_no_pid_files(self, tmp_path: Path):
         """stop.sh logic should exit 0 even with no PID files and free ports."""
+        port_a = _free_port()
+        port_b = _free_port()
         script = tmp_path / "test.sh"
         log_dir = tmp_path / ".logs"
         log_dir.mkdir()
@@ -461,8 +497,8 @@ class TestStopIdempotency:
             }}
             kill_pid_file "$LOG_DIR/backend.pid" "backend"
             kill_pid_file "$LOG_DIR/frontend.pid" "frontend"
-            kill_port 39875
-            kill_port 39876
+            kill_port {port_a}
+            kill_port {port_b}
             success "ClawAudit stopped."
         """))
         script.chmod(0o755)
@@ -472,6 +508,8 @@ class TestStopIdempotency:
 
     def test_stop_idempotent_run_twice(self, tmp_path: Path):
         """Running stop logic twice should succeed both times."""
+        port_a = _free_port()
+        port_b = _free_port()
         script = tmp_path / "test.sh"
         log_dir = tmp_path / ".logs"
         log_dir.mkdir()
@@ -493,8 +531,8 @@ class TestStopIdempotency:
             }}
             kill_pid_file "$LOG_DIR/backend.pid" "backend"
             kill_pid_file "$LOG_DIR/frontend.pid" "frontend"
-            kill_port 39875
-            kill_port 39876
+            kill_port {port_a}
+            kill_port {port_b}
             success "ClawAudit stopped."
         """))
         script.chmod(0o755)

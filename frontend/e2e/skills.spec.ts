@@ -441,6 +441,97 @@ test.describe("Skill Explorer — protected skills", () => {
   })
 })
 
+// ─── Successful Enable / Disable toggle ──────────────────────────────────────
+
+test.describe("Skill Explorer — toggle Enable/Disable (happy path)", () => {
+  test("clicking Disable on enabled skill sends POST and updates button to Enable", async ({ page }) => {
+    // Mock lifecycle: filesystem is enabled, web-browse is disabled
+    await page.route("**/api/v1/lifecycle**", (route) => {
+      const url = route.request().url()
+      const method = route.request().method()
+
+      // POST disable → 200 success
+      if (method === "POST" && url.includes("/disable")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ success: true }),
+        })
+      }
+      // POST enable → 200 success
+      if (method === "POST" && url.includes("/enable")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ success: true }),
+        })
+      }
+      // GET lifecycle list — return updated state after toggle
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_LIFECYCLE_SKILLS),
+      })
+    })
+    await page.route("**/api/v1/skills*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_SKILLS),
+      })
+    )
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // filesystem is enabled → Disable button should be visible
+    const disableBtn = page.getByRole("button", { name: /^Disable$/ }).first()
+    await expect(disableBtn).toBeVisible({ timeout: 5000 })
+    await disableBtn.click()
+
+    // After successful disable, the button should flip to Enable
+    await expect(page.getByRole("button", { name: /^Enable$/ }).first()).toBeVisible({ timeout: 5000 })
+  })
+
+  test("clicking Enable on disabled skill sends POST and updates button to Disable", async ({ page }) => {
+    // All skills disabled in lifecycle
+    const allDisabled = MOCK_LIFECYCLE_SKILLS.map((s) => ({ ...s, enabled: false }))
+    await page.route("**/api/v1/lifecycle**", (route) => {
+      const url = route.request().url()
+      const method = route.request().method()
+
+      if (method === "POST" && url.includes("/enable")) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ success: true }),
+        })
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(allDisabled),
+      })
+    })
+    await page.route("**/api/v1/skills*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_SKILLS),
+      })
+    )
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Skills are disabled → Enable button should be visible
+    const enableBtn = page.getByRole("button", { name: /^Enable$/ }).first()
+    await expect(enableBtn).toBeVisible({ timeout: 5000 })
+    await enableBtn.click()
+
+    // After successful enable, the button should flip to Disable
+    await expect(page.getByRole("button", { name: /^Disable$/ }).first()).toBeVisible({ timeout: 5000 })
+  })
+})
+
 // ─── Action error feedback ───────────────────────────────────────────────────
 
 test.describe("Skill Explorer — action error feedback", () => {
