@@ -58,11 +58,14 @@ def registered_skill(mock_registry, skill_dir):
 
 
 @pytest.fixture
-def protected_skill(mock_registry):
-    """Register a skill in a protected path."""
+def protected_skill(mock_registry, tmp_path):
+    """Register a system skill with a real directory on disk."""
+    skill_path = tmp_path / "system-skills" / "protected-skill"
+    skill_path.mkdir(parents=True)
+    (skill_path / "SKILL.md").write_text("name: protected-skill\nversion: 1.0\n")
     rec = SkillRecord(
         name="protected-skill",
-        path="/opt/homebrew/lib/node_modules/openclaw/skills/protected-skill",
+        path=str(skill_path),
         source="system",
         version="1.0",
         installed_at="2025-01-01T00:00:00+00:00",
@@ -176,10 +179,12 @@ class TestLifecycleAPI:
         assert resp.status_code == 200
         assert resp.json()["enabled"] is False
 
-    async def test_disable_protected_403(self, client, mock_registry, protected_skill):
+    async def test_disable_system_skill_allowed(self, client, mock_registry, protected_skill):
+        """System skills can be disabled (enable/disable is no longer blocked)."""
         with patch("backend.api.routes.lifecycle._get_registry", return_value=mock_registry):
             resp = await client.post("/api/v1/lifecycle/protected-skill/disable")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
+        assert resp.json()["enabled"] is False
 
     async def test_uninstall_skill(
         self, client, mock_registry, registered_skill, tmp_path, monkeypatch
@@ -191,7 +196,10 @@ class TestLifecycleAPI:
         assert resp.status_code == 200
         assert resp.json()["name"] == "test-skill"
 
-    async def test_uninstall_protected_403(self, client, mock_registry, protected_skill):
+    async def test_uninstall_protected_403(self, client, mock_registry, protected_skill, monkeypatch):
+        # Patch PROTECTED_PATHS so the tmp_path-based skill is treated as protected by the uninstaller
+        skill_parent = Path(protected_skill.path).parent
+        monkeypatch.setattr("sentinel.lifecycle.uninstaller.PROTECTED_PATHS", [skill_parent])
         with patch("backend.api.routes.lifecycle._get_registry", return_value=mock_registry):
             resp = await client.delete("/api/v1/lifecycle/protected-skill")
         assert resp.status_code == 403

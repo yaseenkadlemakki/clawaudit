@@ -30,8 +30,6 @@ class SkillToggler:
             raise FileNotFoundError(f"Skill '{name}' not found in registry")
 
         skill_path = Path(record.path)
-        if self.is_protected(skill_path):
-            raise PermissionError(f"Skill '{name}' is in a protected path and cannot be disabled")
 
         skill_md = skill_path / "SKILL.md"
         if not skill_md.exists():
@@ -55,8 +53,6 @@ class SkillToggler:
             raise FileNotFoundError(f"Skill '{name}' not found in registry")
 
         skill_path = Path(record.path)
-        if self.is_protected(skill_path):
-            raise PermissionError(f"Skill '{name}' is in a protected path and cannot be enabled")
 
         disabled_md = skill_path / "SKILL.md.disabled"
         if not disabled_md.exists():

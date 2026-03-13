@@ -235,24 +235,24 @@ export default function SkillsPage() {
                 {/* Lifecycle action buttons */}
                 {lc && (
                   <div className="flex gap-1.5 mt-3 pt-3 border-t border-border">
+                    <button
+                      onClick={e => { e.preventDefault(); toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
+                      disabled={toggleMut.isPending}
+                      title={isProtected ? "System skill — disabling may affect agent capabilities" : undefined}
+                      className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors", enabled ? "border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" : "border-green-500/30 text-green-400 hover:bg-green-500/10")}
+                    >
+                      {enabled ? <><PowerOff size={10} /> Disable</> : <><Power size={10} /> Enable</>}
+                      {isProtected && <AlertTriangle size={10} className="text-yellow-400 ml-0.5" />}
+                    </button>
                     {isProtected ? (
                       <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock size={10} /> Protected</span>
                     ) : (
-                      <>
-                        <button
-                          onClick={e => { e.preventDefault(); toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
-                          disabled={toggleMut.isPending}
-                          className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors", enabled ? "border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" : "border-green-500/30 text-green-400 hover:bg-green-500/10")}
-                        >
-                          {enabled ? <><PowerOff size={10} /> Disable</> : <><Power size={10} /> Enable</>}
-                        </button>
-                        <button
-                          onClick={e => { e.preventDefault(); setUninstallTarget(skill.name) }}
-                          className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
-                        >
-                          <Trash2 size={10} /> Uninstall
-                        </button>
-                      </>
+                      <button
+                        onClick={e => { e.preventDefault(); setUninstallTarget(skill.name) }}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                      >
+                        <Trash2 size={10} /> Uninstall
+                      </button>
                     )}
                   </div>
                 )}

@@ -130,13 +130,21 @@ class SkillRegistry:
         for d in skills_dirs:
             if not d.exists():
                 continue
-            for child in d.iterdir():
-                if not child.is_dir():
-                    continue
-                skill_md = child / "SKILL.md"
-                skill_md_disabled = child / "SKILL.md.disabled"
-                if skill_md.exists() or skill_md_disabled.exists():
-                    found[child.name] = child
+            # Build list of directories to scan: the dir itself, plus a
+            # ``skills/`` subdirectory if one exists (defensive fallback for
+            # configs that point at a workspace root instead of its skills/ child).
+            scan_dirs = [d]
+            skills_sub = d / "skills"
+            if skills_sub.is_dir():
+                scan_dirs.append(skills_sub)
+            for scan_dir in scan_dirs:
+                for child in scan_dir.iterdir():
+                    if not child.is_dir():
+                        continue
+                    skill_md = child / "SKILL.md"
+                    skill_md_disabled = child / "SKILL.md.disabled"
+                    if skill_md.exists() or skill_md_disabled.exists():
+                        found[child.name] = child
 
         # Add missing / refresh source for existing entries
         for name, path in found.items():

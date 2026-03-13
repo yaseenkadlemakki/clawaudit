@@ -69,11 +69,16 @@ class TestSkillToggler:
         with pytest.raises(ValueError, match="already enabled"):
             toggler.enable("on")
 
-    def test_protected_path_blocks_disable(self, tmp_path):
+    def test_system_skill_can_be_disabled(self, tmp_path):
+        """System skills should be toggleable (enable/disable), not blocked."""
+        skill_dir = tmp_path / "skills" / "sys"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("name: sys\n")
+
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         rec = SkillRecord(
             name="sys",
-            path="/opt/homebrew/lib/node_modules/openclaw/skills/sys",
+            path=str(skill_dir),
             source="system",
             version="1.0",
             installed_at="2025-01-01T00:00:00+00:00",
@@ -81,14 +86,19 @@ class TestSkillToggler:
         )
         reg.register(rec)
         toggler = SkillToggler(reg)
-        with pytest.raises(PermissionError, match="protected"):
-            toggler.disable("sys")
+        toggler.disable("sys")
+        assert reg.get("sys").enabled is False
 
-    def test_protected_path_blocks_enable(self, tmp_path):
+    def test_system_skill_can_be_enabled(self, tmp_path):
+        """System skills should be toggleable (enable/disable), not blocked."""
+        skill_dir = tmp_path / "skills" / "sys"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md.disabled").write_text("name: sys\n")
+
         reg = SkillRegistry(registry_path=tmp_path / "registry.json")
         rec = SkillRecord(
             name="sys",
-            path="/opt/homebrew/lib/node_modules/openclaw/skills/sys",
+            path=str(skill_dir),
             source="system",
             version="1.0",
             installed_at="2025-01-01T00:00:00+00:00",
@@ -96,8 +106,8 @@ class TestSkillToggler:
         )
         reg.register(rec)
         toggler = SkillToggler(reg)
-        with pytest.raises(PermissionError, match="protected"):
-            toggler.enable("sys")
+        toggler.enable("sys")
+        assert reg.get("sys").enabled is True
 
     def test_get_status_enabled(self, tmp_path):
         reg, rec = _setup_skill(tmp_path, "on", enabled=True)
