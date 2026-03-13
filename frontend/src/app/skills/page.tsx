@@ -153,9 +153,9 @@ export default function SkillsPage() {
       )}
 
       {actionError && (
-        <div className="flex items-center justify-between bg-red-950/30 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm">
+        <div role="alert" className="flex items-center justify-between bg-red-950/30 border border-red-500/30 text-red-400 rounded-lg px-4 py-3 text-sm">
           <span>{actionError}</span>
-          <button onClick={() => setActionError(null)} className="ml-3 text-red-400 hover:text-red-300">✕</button>
+          <button onClick={() => setActionError(null)} aria-label="Dismiss error" className="ml-3 text-red-400 hover:text-red-300">✕</button>
         </div>
       )}
 
