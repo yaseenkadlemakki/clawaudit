@@ -55,7 +55,8 @@ kill_port() {
 wait_for_port() {
   local port=$1 name=$2 timeout=${3:-30} health_path=${4:-/} i=0
   info "Waiting for $name on :$port..."
-  until curl -sf "http://localhost:$port$health_path" &>/dev/null; do
+  # -s -o /dev/null without -f so any HTTP response (incl. 401) counts as up
+  until curl -s -o /dev/null "http://localhost:$port$health_path" &>/dev/null; do
     sleep 1
     i=$((i+1))
     if [[ $i -ge $timeout ]]; then
