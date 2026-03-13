@@ -441,8 +441,8 @@ test.describe("Skill Explorer — action error feedback", () => {
     const disableBtn = page.getByRole("button", { name: /^Disable$/ }).first()
     await disableBtn.click()
 
-    // Error banner should appear with the 403 error message
-    await expect(page.locator("text=403").first()).toBeVisible({ timeout: 5000 })
+    // Error banner should appear with the parsed API detail string (not raw JSON)
+    await expect(page.getByText(/Skill is in a protected path/i).first()).toBeVisible({ timeout: 5000 })
   })
 })
 

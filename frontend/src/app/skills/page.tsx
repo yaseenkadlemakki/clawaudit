@@ -97,12 +97,14 @@ export default function SkillsPage() {
 
   const toggleMut = useMutation({
     mutationFn: ({ name, enable }: { name: string; enable: boolean }) => enable ? enableSkill(name) : disableSkill(name),
+    onMutate: () => { setActionError(null) },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lifecycle-skills"] }),
     onError: (err: Error) => { setActionError(err.message || "Failed to toggle skill") },
   })
 
   const uninstallMut = useMutation({
     mutationFn: (name: string) => uninstallSkill(name),
+    onMutate: () => { setActionError(null) },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["lifecycle-skills"] }); setUninstallTarget(null) },
     onError: (err: Error) => { setUninstallTarget(null); setActionError(err.message || "Failed to uninstall skill") },
   })

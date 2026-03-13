@@ -136,10 +136,10 @@ class TestScoringRubricMatchesRiskScoring:
         thresholds = context["scoring_rubric"]["thresholds"]
         # risk_scoring.py: <=20 Low, <=40 Medium, <=70 High, >70 Critical
         # overall_score = 100 - avg(risk_score), so:
-        assert thresholds["low"] == ">=80"      # risk <=20
-        assert thresholds["medium"] == "60-79"   # risk 21-40
-        assert thresholds["high"] == "30-59"     # risk 41-70
-        assert thresholds["critical"] == "<30"   # risk >70
+        assert thresholds["low"] == ">=80"  # risk <=20
+        assert thresholds["medium"] == "60-79"  # risk 21-40
+        assert thresholds["high"] == "30-59"  # risk 41-70
+        assert thresholds["critical"] == "<30"  # risk >70
 
     def test_key_risk_factors_match_risk_scoring(self):
         """Risk factor weights in scoring_rubric must match RISK_FACTORS in risk_scoring.py."""
@@ -147,9 +147,9 @@ class TestScoringRubricMatchesRiskScoring:
         factors = context["scoring_rubric"]["risk_factors"]
         assert factors["shell_execution"] == 30
         assert factors["injection_HIGH"] == 25
-        assert factors["injection_MEDIUM"] == 10   # not 15
+        assert factors["injection_MEDIUM"] == 10  # not 15
         assert factors["credential_access"] == 20
-        assert factors["network_outbound"] == 15   # not 10
+        assert factors["network_outbound"] == 15  # not 10
 
 
 class TestDefaultModelAndEndpoint:
