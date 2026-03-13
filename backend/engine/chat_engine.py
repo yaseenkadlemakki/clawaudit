@@ -35,9 +35,9 @@ Secrets, Network, Supply Chain, and Observability.
 
 SCORING MODEL:
 - overall_score = 100 - average(skill_risk_score). Range 0-100. Higher = safer.
-- Thresholds: >=80 Low risk | 60-79 Medium | 40-59 High | <40 Critical
+- Thresholds: >=80 Low risk | 60-79 Medium | 30-59 High | <30 Critical
 - Key risk factors per skill: shell_execution (+30pts), HIGH injection (+25pts), \
-MEDIUM injection (+15pts), secret_exposure (+20pts), unvalidated network (+10pts)
+MEDIUM injection (+10pts), credential_access (+20pts), network_outbound (+15pts)
 
 INSTRUCTIONS:
 - Answer the user's question directly using the scan data provided.
@@ -170,15 +170,15 @@ class ChatEngine:
                 "thresholds": {
                     "low": ">=80",
                     "medium": "60-79",
-                    "high": "40-59",
-                    "critical": "<40",
+                    "high": "30-59",
+                    "critical": "<30",
                 },
                 "risk_factors": {
                     "shell_execution": 30,
                     "injection_HIGH": 25,
-                    "injection_MEDIUM": 15,
-                    "secret_exposure": 20,
-                    "network_call_unvalidated": 10,
+                    "injection_MEDIUM": 10,
+                    "credential_access": 20,
+                    "network_outbound": 15,
                 },
             },
             "domain_breakdown": domain_breakdown,

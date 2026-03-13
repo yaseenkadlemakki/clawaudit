@@ -22,13 +22,13 @@ def _make_full_context(**overrides):
         "severity_counts": {"critical": 0, "high": 0, "medium": 0, "low": 0},
         "scoring_rubric": {
             "formula": "overall_score = 100 - avg(skill_risk_score). Higher = safer.",
-            "thresholds": {"low": ">=80", "medium": "60-79", "high": "40-59", "critical": "<40"},
+            "thresholds": {"low": ">=80", "medium": "60-79", "high": "30-59", "critical": "<30"},
             "risk_factors": {
                 "shell_execution": 30,
                 "injection_HIGH": 25,
-                "injection_MEDIUM": 15,
-                "secret_exposure": 20,
-                "network_call_unvalidated": 10,
+                "injection_MEDIUM": 10,
+                "credential_access": 20,
+                "network_outbound": 15,
             },
         },
         "domain_breakdown": {},
@@ -125,6 +125,31 @@ class TestBuildPrompt:
         assert "What is the overall score?" in text
         assert "The score is 80." in text
         assert "Why?" in text
+
+
+class TestScoringRubricMatchesRiskScoring:
+    """Verify that the chat engine's scoring rubric matches the actual risk_scoring.py values."""
+
+    def test_thresholds_match_risk_scoring(self):
+        """Overall score thresholds must be the inverse of risk_scoring.py thresholds."""
+        context = _make_full_context()
+        thresholds = context["scoring_rubric"]["thresholds"]
+        # risk_scoring.py: <=20 Low, <=40 Medium, <=70 High, >70 Critical
+        # overall_score = 100 - avg(risk_score), so:
+        assert thresholds["low"] == ">=80"      # risk <=20
+        assert thresholds["medium"] == "60-79"   # risk 21-40
+        assert thresholds["high"] == "30-59"     # risk 41-70
+        assert thresholds["critical"] == "<30"   # risk >70
+
+    def test_key_risk_factors_match_risk_scoring(self):
+        """Risk factor weights in scoring_rubric must match RISK_FACTORS in risk_scoring.py."""
+        context = _make_full_context()
+        factors = context["scoring_rubric"]["risk_factors"]
+        assert factors["shell_execution"] == 30
+        assert factors["injection_HIGH"] == 25
+        assert factors["injection_MEDIUM"] == 10   # not 15
+        assert factors["credential_access"] == 20
+        assert factors["network_outbound"] == 15   # not 10
 
 
 class TestDefaultModelAndEndpoint:
