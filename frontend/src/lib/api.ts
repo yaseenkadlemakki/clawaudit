@@ -269,5 +269,5 @@ export const deletePolicy      = (id: string) => req<void>(`/policies/${id}`, { 
 export const togglePolicy      = (id: string, enabled: boolean) => updatePolicy(id, { enabled })
 export const getPolicyStats    = () => req<PolicyStats>("/policies/stats")
 export const getViolations     = () => req<Finding[]>("/findings?domain=policy&limit=50")
-export const unquarantineSkill = (id: string) =>
-  req<unknown>(`/skills/${id}/unquarantine`, { method: "POST" })
+export const unquarantineSkill = (skillId: string) =>
+  req<unknown>(`/skills/${skillId}/unquarantine`, { method: "POST" })
