@@ -417,8 +417,41 @@ async function mockSystemSkills(page: Page) {
   )
 }
 
+/**
+ * Mock system skills with a toggle route that tracks calls.
+ * Returns a getter for whether the toggle was called.
+ */
+async function mockSystemSkillsWithToggle(page: Page): Promise<{ getToggleCalled: () => boolean }> {
+  let toggleCalled = false
+  await page.route("**/api/v1/lifecycle**", (route) => {
+    const url = route.request().url()
+    const method = route.request().method()
+    if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
+      toggleCalled = true
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true }),
+      })
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_SYSTEM_LIFECYCLE_SKILLS),
+    })
+  })
+  await page.route("**/api/v1/skills*", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(MOCK_SKILLS),
+    })
+  )
+  return { getToggleCalled: () => toggleCalled }
+}
+
 test.describe("Skill Explorer — protected skills", () => {
-  test("protected system skills show lock badge and no action buttons", async ({ page }) => {
+  test("protected system skills show lock badge and Disable button (gated by dialog)", async ({ page }) => {
     await mockSystemSkills(page)
     await page.goto("/skills")
     await page.waitForSelector("text=filesystem", { timeout: 8000 })
@@ -427,10 +460,83 @@ test.describe("Skill Explorer — protected skills", () => {
     const protectedBadges = page.getByText("Protected")
     await expect(protectedBadges.first()).toBeVisible({ timeout: 10000 })
 
-    // No Enable/Disable or Uninstall buttons should be visible
-    await expect(page.getByRole("button", { name: /^Disable$/ })).not.toBeVisible()
-    await expect(page.getByRole("button", { name: /^Enable$/ })).not.toBeVisible()
+    // System skills DO show a Disable/Enable button (click is gated by ConfirmDialog)
+    await expect(page.getByRole("button", { name: /Disable|Enable/ }).first()).toBeVisible()
+
+    // Uninstall should NOT be visible for system skills
     await expect(page.getByRole("button", { name: /^Uninstall$/ })).not.toBeVisible()
+  })
+
+  test("clicking Disable on a system skill shows the ConfirmDialog", async ({ page }) => {
+    await mockSystemSkills(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Click the first Disable button (system skill)
+    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
+    await disableBtn.click()
+
+    // ConfirmDialog should appear
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/system skill/i)).toBeVisible()
+  })
+
+  test("clicking Cancel on ConfirmDialog does NOT invoke the toggle API", async ({ page }) => {
+    const { getToggleCalled } = await mockSystemSkillsWithToggle(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Open the confirm dialog
+    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
+    await disableBtn.click()
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+
+    // Click Cancel
+    await page.getByRole("button", { name: /^Cancel$/ }).click()
+
+    // Dialog should be gone
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5000 })
+
+    // Toggle API must NOT have been called
+    expect(getToggleCalled()).toBe(false)
+  })
+
+  test("pressing Escape on ConfirmDialog does NOT invoke the toggle API", async ({ page }) => {
+    const { getToggleCalled } = await mockSystemSkillsWithToggle(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Open the confirm dialog
+    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
+    await disableBtn.click()
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+
+    // Press Escape
+    await page.keyboard.press("Escape")
+
+    // Dialog should be gone
+    await expect(page.getByRole("dialog")).not.toBeVisible({ timeout: 5000 })
+
+    // Toggle API must NOT have been called
+    expect(getToggleCalled()).toBe(false)
+  })
+
+  test("confirming on ConfirmDialog calls the toggle API", async ({ page }) => {
+    const { getToggleCalled } = await mockSystemSkillsWithToggle(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Open the confirm dialog
+    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
+    await disableBtn.click()
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+
+    // Click the confirm button (Disable / Enable label)
+    await page.getByRole("button", { name: /^Disable$/ }).last().click()
+
+    // Toggle API MUST have been called
+    await page.waitForFunction(() => true) // let microtask queue flush
+    expect(getToggleCalled()).toBe(true)
   })
 
   test("skills page loads and displays skill cards", async ({ page }) => {
@@ -438,151 +544,6 @@ test.describe("Skill Explorer — protected skills", () => {
     await page.goto("/skills")
     await page.waitForLoadState("networkidle")
     await expect(page.locator(".grid > div").first()).toBeVisible({ timeout: 10000 })
-  })
-})
-
-// ─── System skill confirm dialog ─────────────────────────────────────────────
-
-test.describe("Skill Explorer — system skill confirm dialog", () => {
-  async function mockSystemSkillsWithToggle(page: Page) {
-    await page.route("**/api/v1/lifecycle**", (route) => {
-      const method = route.request().method()
-      const url = route.request().url()
-      if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ ok: true }),
-        })
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_SYSTEM_LIFECYCLE_SKILLS),
-      })
-    })
-    await page.route("**/api/v1/skills*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_SKILLS),
-      })
-    )
-  }
-
-  test("clicking Disable on a system skill opens ConfirmDialog, not native dialog", async ({ page }) => {
-    await mockSystemSkillsWithToggle(page)
-    await page.goto("/skills")
-    await page.waitForSelector("text=filesystem", { timeout: 8000 })
-
-    // Listen for native dialog — it should NOT fire
-    let nativeDialogFired = false
-    page.on("dialog", () => { nativeDialogFired = true })
-
-    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
-    await disableBtn.click()
-
-    // ConfirmDialog should appear with system skill warning
-    await expect(page.getByText(/This is a system skill/i)).toBeVisible({ timeout: 3000 })
-    expect(nativeDialogFired).toBe(false)
-  })
-
-  test("clicking Cancel in ConfirmDialog closes it without toggling", async ({ page }) => {
-    await mockSystemSkillsWithToggle(page)
-    await page.goto("/skills")
-    await page.waitForSelector("text=filesystem", { timeout: 8000 })
-
-    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
-    await disableBtn.click()
-
-    await expect(page.getByText(/This is a system skill/i)).toBeVisible({ timeout: 3000 })
-
-    // Click Cancel
-    await page.getByRole("button", { name: /Cancel/ }).click()
-
-    // Dialog should close
-    await expect(page.getByText(/This is a system skill/i)).not.toBeVisible()
-  })
-
-  test("clicking confirm button in ConfirmDialog triggers the toggle", async ({ page }) => {
-    let toggleCalled = false
-    await page.route("**/api/v1/lifecycle**", (route) => {
-      const method = route.request().method()
-      const url = route.request().url()
-      if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
-        toggleCalled = true
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ ok: true }),
-        })
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_SYSTEM_LIFECYCLE_SKILLS),
-      })
-    })
-    await page.route("**/api/v1/skills*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_SKILLS),
-      })
-    )
-    await page.goto("/skills")
-    await page.waitForSelector("text=filesystem", { timeout: 8000 })
-
-    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
-    await disableBtn.click()
-
-    await expect(page.getByText(/This is a system skill/i)).toBeVisible({ timeout: 3000 })
-
-    // Click the confirm Disable button inside the dialog
-    const confirmBtn = page.locator("[role=dialog] button").filter({ hasText: /Disable/ })
-    await confirmBtn.click()
-
-    // Dialog should close and API should have been called
-    await expect(page.getByText(/This is a system skill/i)).not.toBeVisible({ timeout: 5000 })
-    expect(toggleCalled).toBe(true)
-  })
-
-  test("non-system skills toggle immediately without confirm dialog", async ({ page }) => {
-    let toggleCalled = false
-    await page.route("**/api/v1/lifecycle**", (route) => {
-      const method = route.request().method()
-      const url = route.request().url()
-      if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
-        toggleCalled = true
-        return route.fulfill({
-          status: 200,
-          contentType: "application/json",
-          body: JSON.stringify({ ok: true }),
-        })
-      }
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_LIFECYCLE_SKILLS),
-      })
-    })
-    await page.route("**/api/v1/skills*", (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify(MOCK_SKILLS),
-      })
-    )
-    await page.goto("/skills")
-    await page.waitForSelector("text=filesystem", { timeout: 8000 })
-
-    // filesystem is local source (not system), so toggle should fire immediately
-    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
-    await disableBtn.click()
-
-    // No confirm dialog should appear
-    await expect(page.getByText(/This is a system skill/i)).not.toBeVisible()
-    expect(toggleCalled).toBe(true)
   })
 })
 
@@ -628,6 +589,79 @@ test.describe("Skill Explorer — action error feedback", () => {
 
     // Error banner should appear with the parsed API detail string (not raw JSON)
     await expect(page.getByText(/Skill is in a protected path/i).first()).toBeVisible({ timeout: 5000 })
+  })
+})
+
+// ─── ConfirmDialog — native dialog replaced ──────────────────────────────────
+
+test.describe("Skill Explorer — ConfirmDialog replaces window.confirm", () => {
+  test("window.confirm is never called for system skill toggle", async ({ page }) => {
+    // Track whether window.confirm was invoked
+    let nativeConfirmCalled = false
+    await page.addInitScript(() => {
+      // @ts-ignore
+      window.__nativeConfirmCalled = false
+      window.confirm = () => {
+        // @ts-ignore
+        window.__nativeConfirmCalled = true
+        return true
+      }
+    })
+
+    await mockSystemSkills(page)
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // Click Disable to trigger the protected-skill flow
+    const disableBtn = page.getByRole("button", { name: /Disable/ }).first()
+    await disableBtn.click()
+
+    // ConfirmDialog should appear (not a native dialog)
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 5000 })
+
+    // window.confirm must NOT have been called
+    nativeConfirmCalled = await page.evaluate(() => (window as any).__nativeConfirmCalled)
+    expect(nativeConfirmCalled).toBe(false)
+  })
+})
+
+// ─── Toggle API error path ────────────────────────────────────────────────────
+
+test.describe("Skill Explorer — toggle API error path", () => {
+  test("shows error banner when toggle API returns 500", async ({ page }) => {
+    await page.route("**/api/v1/lifecycle**", (route) => {
+      const url = route.request().url()
+      const method = route.request().method()
+      if (method === "POST" && (url.includes("/disable") || url.includes("/enable"))) {
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "Internal server error" }),
+        })
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_LIFECYCLE_SKILLS),
+      })
+    })
+    await page.route("**/api/v1/skills*", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(MOCK_SKILLS),
+      })
+    )
+
+    await page.goto("/skills")
+    await page.waitForSelector("text=filesystem", { timeout: 8000 })
+
+    // filesystem is enabled → click Disable (non-system, direct toggle)
+    const disableBtn = page.getByRole("button", { name: /^Disable$/ }).first()
+    await disableBtn.click()
+
+    // Error banner should appear
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 5000 })
   })
 })
 

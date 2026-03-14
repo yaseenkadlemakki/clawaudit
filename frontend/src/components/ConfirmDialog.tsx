@@ -1,23 +1,26 @@
 "use client"
+import { useId } from "react"
 import * as Dialog from "@radix-ui/react-dialog"
+import { AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface ConfirmDialogProps {
+type Variant = "warning" | "danger"
+
+export interface ConfirmDialogProps {
   open: boolean
   title: string
   description: string
   confirmLabel?: string
   cancelLabel?: string
-  variant?: "default" | "danger" | "warning"
+  variant?: Variant
+  isPending?: boolean
   onConfirm: () => void
   onCancel: () => void
-  isPending?: boolean
 }
 
-const variantStyles: Record<string, string> = {
-  default: "bg-primary text-primary-foreground hover:bg-primary/90",
-  danger: "bg-red-500 text-white hover:bg-red-600",
-  warning: "bg-amber-500 text-black hover:bg-amber-600",
+const variantStyles: Record<NonNullable<ConfirmDialogProps["variant"]>, string> = {
+  warning: "bg-yellow-500 hover:bg-yellow-600 text-black",
+  danger: "bg-red-500 hover:bg-red-600 text-white",
 }
 
 export function ConfirmDialog({
@@ -26,27 +29,43 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  variant = "default",
+  variant = "warning",
+  isPending = false,
   onConfirm,
   onCancel,
-  isPending = false,
 }: ConfirmDialogProps) {
+  const descId = useId()
+
   return (
-    <Dialog.Root open={open} onOpenChange={o => { if (!o) onCancel() }}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={o => {
+        if (!o && !isPending) onCancel()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 bg-black/60 z-50" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 bg-card border border-border rounded-lg p-6 w-full max-w-sm focus:outline-none"
-          aria-describedby="confirm-dialog-desc"
+          aria-describedby={descId}
+          className="fixed z-50 left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-xl"
         >
-          <Dialog.Title className="font-bold text-sm">{title}</Dialog.Title>
-          <Dialog.Description id="confirm-dialog-desc" className="text-sm text-muted-foreground mt-2">
-            {description}
-          </Dialog.Description>
-          <div className="flex gap-2 justify-end mt-5">
+          <div className="flex items-start gap-3 mb-4">
+            <AlertTriangle
+              size={18}
+              className={cn(variant === "danger" ? "text-red-400" : "text-yellow-400")}
+            />
+            <div>
+              <Dialog.Title className="font-bold text-sm mb-1">{title}</Dialog.Title>
+              <Dialog.Description id={descId} className="text-sm text-muted-foreground">
+                {description}
+              </Dialog.Description>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
             <button
               onClick={onCancel}
-              className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted"
+              disabled={isPending}
+              className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted disabled:opacity-50"
             >
               {cancelLabel}
             </button>
@@ -54,17 +73,11 @@ export function ConfirmDialog({
               onClick={onConfirm}
               disabled={isPending}
               className={cn(
-                "px-3 py-1.5 text-sm rounded disabled:opacity-50 flex items-center gap-1.5",
-                variantStyles[variant],
+                "px-3 py-1.5 text-sm rounded disabled:opacity-50",
+                variantStyles[variant]
               )}
             >
-              {isPending && (
-                <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-              )}
-              {confirmLabel}
+              {isPending ? "Please wait…" : confirmLabel}
             </button>
           </div>
         </Dialog.Content>
