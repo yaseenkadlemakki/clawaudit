@@ -4,11 +4,20 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
+import platform
+import shutil
+import sys
 import uuid
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
+import httpx
 import typer
 from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from sentinel.alerts.engine import AlertEngine
@@ -20,8 +29,8 @@ from sentinel.policy.engine import PolicyEngine
 from sentinel.reporter.compliance import ComplianceReporter
 
 app = typer.Typer(
-    name="sentinel",
-    help="ClawAudit Sentinel — real-time security monitoring for OpenClaw",
+    name="clawaudit",
+    help="ClawAudit — forensic security auditor for OpenClaw deployments",
     add_completion=True,
 )
 console = Console()
@@ -951,6 +960,433 @@ def hooks_simulate() -> None:
 
 
 app.add_typer(hooks_app)
+
+
+# ── New quick-start commands ──────────────────────────────────────────────────
+
+
+def _find_openclaw() -> Path | None:
+    """Find the OpenClaw installation root directory."""
+    # Check explicit env override first
+    env_path = os.environ.get("OPENCLAW_PATH")
+    if env_path:
+        p = Path(env_path)
+        if p.exists():
+            return p
+
+    # Check well-known install paths
+    well_known = [
+        Path("/opt/homebrew/lib/node_modules/openclaw"),
+        Path("/usr/local/lib/node_modules/openclaw"),
+        Path("/usr/lib/node_modules/openclaw"),
+    ]
+    for p in well_known:
+        if p.exists() and (p / "package.json").exists():
+            return p
+
+    # Find via PATH binary and walk up to install root
+    openclaw_bin = shutil.which("openclaw")
+    if openclaw_bin:
+        bin_path = Path(openclaw_bin).resolve()
+        # Binary may be a symlink or in bin/ — walk up to find openclaw root
+        for parent in [bin_path.parent, *bin_path.parents]:
+            if parent.name == "openclaw" and (parent / "package.json").exists():
+                return parent
+
+    # NVM installs
+    nvm_base = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_base.exists():
+        for node_dir in sorted(nvm_base.iterdir(), reverse=True):
+            p = node_dir / "lib" / "node_modules" / "openclaw"
+            if p.exists() and (p / "package.json").exists():
+                return p
+
+    return None
+
+
+@app.command()
+def version() -> None:
+    """Print ClawAudit version, Python version, platform, and OpenClaw detection."""
+    try:
+        ver = pkg_version("clawaudit-sentinel")
+    except PackageNotFoundError:
+        ver = "unknown"
+
+    py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    plat = platform.platform()
+    oc_path = _find_openclaw()
+
+    console.print(f"ClawAudit  {ver}")
+    console.print(f"Python     {py_ver}")
+    console.print(f"Platform   {plat}")
+    if oc_path:
+        console.print(f"OpenClaw   [green]✓ found at {oc_path}[/green]")
+    else:
+        console.print("OpenClaw   [yellow]✗ not found[/yellow]")
+
+
+@app.command()
+def doctor(
+    skip_services: bool = typer.Option(
+        False,
+        "--skip-services",
+        help="Skip backend/dashboard reachability checks (useful for CI/offline)",
+    ),
+) -> None:
+    """Validate environment readiness step by step."""
+    checks: list[tuple[str, bool, str]] = []
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        # 1. Python version
+        task = progress.add_task("Checking Python version...", total=1)
+        py_ok = sys.version_info >= (3, 10)
+        py_hint = "" if py_ok else "Upgrade to Python 3.10+: https://python.org/downloads"
+        checks.append(
+            (
+                f"Python ≥ 3.10 (found {sys.version_info.major}.{sys.version_info.minor})",
+                py_ok,
+                py_hint,
+            )
+        )
+        progress.advance(task)
+
+        # 2. OpenClaw binary / skills dir
+        task = progress.add_task("Locating OpenClaw...", total=1)
+        oc_path = _find_openclaw()
+        oc_ok = oc_path is not None
+        oc_hint = "" if oc_ok else "Install OpenClaw: npm install -g openclaw"
+        checks.append(
+            (
+                f"OpenClaw installation ({oc_path or 'not found'})",
+                oc_ok,
+                oc_hint,
+            )
+        )
+        progress.advance(task)
+
+        # 3. Sentinel config
+        task = progress.add_task("Checking sentinel config...", total=1)
+        sentinel_yaml = Path.home() / ".openclaw" / "sentinel" / "sentinel.yaml"
+        cfg_ok = sentinel_yaml.exists()
+        cfg_hint = "" if cfg_ok else "Run: clawaudit config init"
+        checks.append(
+            (
+                f"Sentinel config ({sentinel_yaml})",
+                cfg_ok,
+                cfg_hint,
+            )
+        )
+        progress.advance(task)
+
+        # 4. Skill registry
+        task = progress.add_task("Checking skill registry...", total=1)
+        registry_path = Path.home() / ".openclaw" / "sentinel" / "skill-registry.json"
+        reg_ok = registry_path.exists()
+        reg_hint = "" if reg_ok else "Registry will be created on first skill install"
+        checks.append(
+            (
+                f"Skill registry ({registry_path})",
+                reg_ok,
+                reg_hint,
+            )
+        )
+        progress.advance(task)
+
+        # 5. Backend reachable
+        if not skip_services:
+            task = progress.add_task("Checking backend (localhost:18790)...", total=1)
+            backend_ok = False
+            try:
+                httpx.get("http://localhost:18790/health", timeout=3)
+                backend_ok = True
+            except Exception:
+                pass
+            backend_hint = "" if backend_ok else "Start backend: clawaudit-api or ./start.sh"
+            checks.append(("Backend reachable (localhost:18790)", backend_ok, backend_hint))
+            progress.advance(task)
+
+            # 6. Dashboard reachable
+            task = progress.add_task("Checking dashboard (localhost:3000)...", total=1)
+            dash_ok = False
+            try:
+                httpx.get("http://localhost:3000", timeout=3)
+                dash_ok = True
+            except Exception:
+                pass
+            dash_hint = "" if dash_ok else "Start dashboard: cd frontend && npm run dev"
+            checks.append(("Dashboard reachable (localhost:3000)", dash_ok, dash_hint))
+            progress.advance(task)
+
+    # Print results
+    console.print()
+    passed = 0
+    failed = 0
+    for label, ok, hint in checks:
+        if ok:
+            console.print(f"  [green]✓[/green] {label}")
+            passed += 1
+        else:
+            console.print(f"  [red]✗[/red] {label}")
+            if hint:
+                console.print(f"    [dim]Fix: {hint}[/dim]")
+            failed += 1
+
+    console.print()
+    if failed == 0:
+        console.print(f"[green]All {passed} checks passed — environment is ready.[/green]")
+    else:
+        console.print(f"[green]{passed} passed[/green], [red]{failed} failed[/red]")
+
+
+@app.command()
+def scan(
+    fix: bool = typer.Option(False, "--fix", help="Attempt auto-remediation (v2)"),
+    format: str = typer.Option(
+        "markdown", "--format", "-f", help="Output format: markdown or json"
+    ),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Save report to file"),
+    config_path: Path | None = typer.Option(None, "--config", "-c", help="Sentinel config file"),
+) -> None:
+    """Run a full ClawAudit security scan (alias for audit)."""
+    audit(fix=fix, format=format, output=output, config_path=config_path)
+
+
+@app.command()
+def monitor(
+    interval: int = typer.Option(60, "--interval", "-i", help="Scan interval in seconds"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Start continuous monitoring (alias for watch)."""
+    watch(interval=interval, config_path=config_path)
+
+
+@app.command()
+def findings(
+    severity: str | None = typer.Option(
+        None, "--severity", "-s", help="Filter by severity: CRITICAL, HIGH, MEDIUM, LOW"
+    ),
+    limit: int = typer.Option(50, "--limit", "-n", help="Max findings to display"),
+    format: str = typer.Option("table", "--format", "-f", help="Output format: table or json"),
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Show findings from the last scan."""
+    cfg = load_config(config_path)
+    findings_path = cfg.findings_file
+
+    if not findings_path.exists():
+        console.print("[yellow]No findings recorded yet. Run: clawaudit scan[/yellow]")
+        raise typer.Exit(0)
+
+    all_records: list[dict] = []
+    for line in findings_path.read_text().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            all_records.append(json.loads(line))
+        except json.JSONDecodeError:
+            continue
+
+    if not all_records:
+        console.print("[yellow]No findings recorded yet. Run: clawaudit scan[/yellow]")
+        raise typer.Exit(0)
+
+    # Group by run_id and show only the most recent run
+    runs: dict[str, list[dict]] = {}
+    for r in all_records:
+        rid = r.get("run_id", "unknown")
+        runs.setdefault(rid, []).append(r)
+
+    # Pick latest run_id by max detected_at, falling back to last-seen order
+    def _run_sort_key(rid: str) -> str:
+        entries = runs[rid]
+        timestamps = [e.get("detected_at", "") for e in entries if e.get("detected_at")]
+        return max(timestamps) if timestamps else ""
+
+    latest_run_id = max(runs, key=_run_sort_key) if len(runs) > 1 else next(iter(runs))
+    records = runs[latest_run_id]
+
+    # Filter by severity
+    if severity:
+        sev_upper = severity.upper()
+        records = [r for r in records if r.get("severity", "").upper() == sev_upper]
+
+    # Sort by severity
+    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "INFO": 4}
+    records.sort(key=lambda r: sev_order.get(r.get("severity", "INFO"), 99))
+
+    # Apply limit
+    records = records[:limit]
+
+    if format == "json":
+        console.print(json.dumps(records, indent=2))
+        return
+
+    table = Table(title="ClawAudit Findings", show_lines=True)
+    table.add_column("Severity")
+    table.add_column("Check ID", style="bold")
+    table.add_column("Title")
+    table.add_column("Location", overflow="fold")
+
+    for r in records:
+        sev = r.get("severity", "INFO")
+        color = _severity_color(sev)
+        table.add_row(
+            f"[{color}]{sev}[/{color}]",
+            r.get("check_id", ""),
+            r.get("title", "")[:60],
+            r.get("location", "")[:50],
+        )
+
+    console.print(table)
+    console.print(
+        f"[dim]Showing {len(records)} finding(s) from run {latest_run_id[:8]} — run 'clawaudit scan' for fresh results[/dim]"
+    )
+
+
+@app.command()
+def quickstart(
+    config_path: Path | None = typer.Option(None, "--config", "-c"),
+) -> None:
+    """Full onboarding flow — detect environment, scan, and display results."""
+    console.print(
+        Panel(
+            "[bold]ClawAudit Quick Start[/bold]\nForensic security auditor for OpenClaw",
+            style="blue",
+        )
+    )
+    console.print()
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+    ) as progress:
+        # Step 1 — Detect environment
+        task = progress.add_task("Step 1: Detecting environment...", total=1)
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        plat = platform.platform()
+        progress.advance(task)
+        progress.update(task, description=f"Step 1: Python {py_ver} on {plat}")
+
+        # Step 2 — Find OpenClaw
+        task = progress.add_task("Step 2: Finding OpenClaw...", total=1)
+        oc_path = _find_openclaw()
+        if not oc_path:
+            progress.stop()
+            console.print(
+                "\n[red]✗ OpenClaw not found.[/red]\n"
+                "[dim]Install OpenClaw: npm install -g openclaw\n"
+                "Or set OPENCLAW_PATH environment variable.[/dim]"
+            )
+            raise typer.Exit(1)
+        progress.advance(task)
+        progress.update(task, description=f"Step 2: OpenClaw at {oc_path}")
+
+        # Step 3 — Check skills directory
+        task = progress.add_task("Step 3: Checking skills directory...", total=1)
+        skills_dir = oc_path / "skills" if (oc_path / "skills").exists() else None
+        skill_count = 0
+        if skills_dir:
+            skill_count = sum(1 for _ in skills_dir.glob("*/SKILL.md"))
+        progress.advance(task)
+        progress.update(task, description=f"Step 3: {skill_count} skill(s) found")
+
+        # Step 4 — Validate/create config
+        task = progress.add_task("Step 4: Validating configuration...", total=1)
+        sentinel_yaml = Path.home() / ".openclaw" / "sentinel" / "sentinel.yaml"
+        if not sentinel_yaml.exists():
+            progress.update(task, description="Step 4: Creating default config...")
+            try:
+                from sentinel.config import SecurityConfig
+
+                SecurityConfig.write_defaults()
+            except (OSError, ValueError) as exc:
+                console.print(f"[yellow]  ⚠ Could not create default config: {exc}[/yellow]")
+        progress.advance(task)
+        progress.update(task, description="Step 4: Configuration ready")
+
+        # Step 5 — Run security scan
+        task = progress.add_task("Step 5: Running security scan...", total=1)
+        cfg = load_config(config_path)
+        reporter = ComplianceReporter(cfg)
+        run_id, scan_findings = reporter.run_full_audit()
+        progress.advance(task)
+        progress.update(
+            task,
+            description=f"Step 5: Scan complete — {len(scan_findings)} finding(s)",
+        )
+
+    # Save findings
+    findings_file = cfg.findings_file
+    findings_file.parent.mkdir(parents=True, exist_ok=True)
+    with findings_file.open("a") as fh:
+        for f in scan_findings:
+            fh.write(json.dumps(f.to_dict()) + "\n")
+
+    # Step 6 — Display results
+    console.print()
+
+    # Count by severity
+    counts: dict[str, int] = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    passes = 0
+    for f in scan_findings:
+        if f.result == "PASS":
+            passes += 1
+        if f.severity in counts:
+            counts[f.severity] += 1
+
+    total = len(scan_findings)
+
+    summary_lines = [
+        "[bold]ClawAudit Security Scan Complete[/bold]",
+        "",
+        f"  [red]CRITICAL  {counts['CRITICAL']}[/red]    "
+        f"[orange3]HIGH   {counts['HIGH']}[/orange3]    "
+        f"[yellow]MEDIUM  {counts['MEDIUM']}[/yellow]",
+        f"  [blue]LOW       {counts['LOW']}[/blue]    "
+        f"[green]PASS  {passes}[/green]    "
+        f"Total   {total}",
+    ]
+
+    # Top findings (up to 3 CRITICAL/HIGH)
+    top = [
+        f
+        for f in sorted(
+            scan_findings,
+            key=lambda x: (
+                ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"].index(x.severity)
+                if x.severity in ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"]
+                else 99
+            ),
+        )
+        if f.result == "FAIL" and f.severity in ("CRITICAL", "HIGH")
+    ][:3]
+
+    if top:
+        summary_lines.append("")
+        summary_lines.append("[bold]Top findings:[/bold]")
+        sev_icons = {"CRITICAL": "[red]CRITICAL[/red]", "HIGH": "[orange3]HIGH[/orange3]"}
+        for f in top:
+            icon = sev_icons.get(f.severity, f.severity)
+            summary_lines.append(f"  {icon} {f.location} — {f.title}")
+
+    summary_lines.extend(
+        [
+            "",
+            "[bold]Next steps:[/bold]",
+            "  clawaudit findings       view all findings",
+            "  clawaudit remediate      preview auto-fixes",
+            "  clawaudit monitor        continuous monitoring",
+            "  clawaudit report -o r.md export full report",
+        ]
+    )
+
+    console.print(Panel("\n".join(summary_lines), style="green", padding=(1, 2)))
 
 
 if __name__ == "__main__":

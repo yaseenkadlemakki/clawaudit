@@ -4,68 +4,32 @@
 [![Build & Publish](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/build.yml/badge.svg)](https://github.com/yaseenkadlemakki/clawaudit/actions/workflows/build.yml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-**OpenClaw Security Intelligence Platform**
-
-ClawAudit audits OpenClaw deployments for security risks — exposed credentials, supply chain threats, shell-execution abuse, and policy violations — and surfaces everything through a live web dashboard, AI-powered investigation chat, automated remediation, and full skill lifecycle management.
+> Forensic security auditor for OpenClaw deployments — 43 checks, real-time monitoring, automated remediation, and a live dashboard.
 
 ---
 
 ## Quick Start
 
-### Docker (recommended)
-
 ```bash
-git clone https://github.com/yaseenkadlemakki/clawaudit.git
-cd clawaudit
-
-cp docker/.env.example docker/.env
-# Edit docker/.env and set POSTGRES_PASSWORD
-
-docker compose --env-file docker/.env -f docker/docker-compose.yml up
+pip install -e .
+clawaudit quickstart
 ```
 
-| Service | URL |
-|---------|-----|
-| Dashboard | http://localhost:3000 |
-| API | http://localhost:18790 |
-| API Docs | http://localhost:18790/docs |
+That's it. `quickstart` detects your environment, locates OpenClaw, runs a full security scan, and shows you what to do next.
 
-### Pull pre-built images
-
-Images are published to GitHub Container Registry on every release:
+### Individual commands
 
 ```bash
-docker pull ghcr.io/yaseenkadlemakki/clawaudit-backend:latest
-docker pull ghcr.io/yaseenkadlemakki/clawaudit-frontend:latest
+clawaudit doctor                # validate environment
+clawaudit scan                  # full security scan
+clawaudit findings              # view findings from last scan
+clawaudit findings --severity CRITICAL
+clawaudit monitor               # continuous monitoring
+clawaudit remediate             # preview auto-fixes
+clawaudit report -o report.md   # export compliance report
 ```
 
-### Local (without Docker)
-
-```bash
-pip install -e ".[backend,dev]"
-cd frontend && npm install && cd ..
-
-# Terminal 1 — backend
-uvicorn backend.main:app --host 0.0.0.0 --port 18790 --reload
-
-# Terminal 2 — frontend
-cd frontend && npm run dev
-```
-
-### CLI
-
-```bash
-sentinel audit                              # full security scan
-sentinel audit --format json --output r.json # export as JSON
-sentinel watch                              # continuous monitoring (60s default)
-sentinel skills list                        # list installed skills
-sentinel skills install ./my.skill          # install a skill
-sentinel remediate                          # preview remediation proposals
-sentinel remediate --apply                  # apply fixes (with snapshots)
-sentinel report                             # generate compliance report
-sentinel alerts                             # view recent alerts
-sentinel policies --list                    # list loaded policy rules
-```
+See [docs/quickstart.md](docs/quickstart.md) for the full walkthrough.
 
 ---
 
@@ -73,219 +37,6 @@ sentinel policies --list                    # list loaded policy rules
 
 ### Security Audit Engine
 43 checks across 6 domains — configuration hardening, skill permissions, secrets, network exposure, supply chain, and observability.
-
-### Advanced Detection (5 rules)
-- **ADV-001** Unrestricted shell execution (HIGH)
-- **ADV-002** Unknown publisher/provenance (MEDIUM)
-- **ADV-003** Supply chain risk — unlisted outbound domains (HIGH)
-- **ADV-004** Unsigned skill (LOW)
-- **ADV-005** Credentials exposed in SKILL.md (CRITICAL)
-
-### Remediation Engine
-Automatically proposes and applies fixes for security findings with dry-run preview and snapshot-based rollback.
-
-- **Three strategies**: restrict shell access (ADV-001), redact exposed secrets (ADV-005), restrict overly-broad permissions (PERM-001)
-- **Dry-run by default** — preview proposals before applying
-- **Snapshot rollback** — every applied fix creates a snapshot; roll back with one command
-- **Protected paths** — system skills cannot be modified
-
-```bash
-sentinel remediate                          # dry-run: list proposals
-sentinel remediate --apply --yes            # apply all proposals
-sentinel remediate --skill my-skill --check ADV-001 --apply
-sentinel snapshots list                     # list available snapshots
-sentinel snapshots rollback <snapshot-name> # restore from snapshot
-```
-
-**API:**
-```
-GET    /api/v1/remediation/proposals      # list proposed remediations
-POST   /api/v1/remediation/apply          # apply a remediation
-POST   /api/v1/remediation/rollback       # restore from snapshot
-GET    /api/v1/remediation/history        # remediation history
-```
-
-### Skill Lifecycle Management
-Install, enable, disable, uninstall, and recover skills — with a JSON-backed registry, trash-based recovery, and protected-path enforcement.
-
-- **Install** from local `.skill` (tar.gz) files or HTTPS URLs
-- **Enable/disable** via `SKILL.md` <-> `SKILL.md.disabled` rename (fully reversible)
-- **Uninstall to trash** — never deletes, always recoverable from `~/.openclaw/sentinel/skill-trash/`
-- **Health check** — run the security analyzer against a single skill on demand
-- **Protected paths** — system skills under `/opt/homebrew/lib/node_modules/openclaw/skills/` are blocked from all operations
-
-```bash
-sentinel skills list                                     # list all skills with status
-sentinel skills install ./my-skill.skill                 # install from file
-sentinel skills install https://clawhub.com/skills/x     # install from URL
-sentinel skills enable <name>                            # enable a disabled skill
-sentinel skills disable <name>                           # disable a skill
-sentinel skills uninstall <name>                         # move to trash
-sentinel skills recover <trash-name>                     # recover from trash
-sentinel skills health <name>                            # run security analysis
-```
-
-**API:**
-```
-GET    /api/v1/lifecycle/skills              # list all skills with status
-POST   /api/v1/lifecycle/skills/install      # install from file path or URL
-POST   /api/v1/lifecycle/skills/{name}/enable
-POST   /api/v1/lifecycle/skills/{name}/disable
-DELETE /api/v1/lifecycle/skills/{name}       # uninstall to trash
-GET    /api/v1/lifecycle/skills/{name}/health # single-skill audit pass
-```
-
-### Policy Engine
-Runtime policy enforcement that intercepts every tool execution via the `before_tool_call` hook, with configurable actions and a live management UI.
-
-- **Actions**: ALLOW, WARN, ALERT, BLOCK, QUARANTINE
-- **Condition operators**: `equals`, `not_equals`, `contains`, `gt`, `gte`, `exists`, `in`, and more
-- **Five built-in starter policies**: PTY exec blocking, credential file read alerts, elevated execution alerts, external browser navigation alerts, message-send alerts
-- **`/policies` management UI** — create, edit, enable/disable, delete custom policies with real-time violations feed
-- **Sub-500ms evaluation** — `POST /api/v1/policies/evaluate` powers the enforcement hook
-- **Default policy** ships in `sentinel/policies/default.yaml`
-- **Hot-reload** via `PolicyEngine.reload()` — no restart needed
-
-```bash
-sentinel policies --list                    # list loaded rules
-sentinel policies --validate                # validate policy files
-```
-
-**API:**
-```
-GET    /api/v1/policies                     # list policies
-POST   /api/v1/policies                     # create policy
-PUT    /api/v1/policies/{id}                # update policy
-DELETE /api/v1/policies/{id}                # delete policy
-POST   /api/v1/policies/evaluate            # evaluate a tool call against policies
-GET    /api/v1/policies/stats               # violation counts for the dashboard
-```
-
-### Skill Quarantine
-When a QUARANTINE policy action fires, the offending skill is flagged as quarantined in the database and shown with a `QuarantineBadge` in the UI. Skills can be unquarantined via the API or management UI. Quarantine state is visible in the Skills list, skill detail pages, and surfaced as findings in the Findings Explorer.
-
-**API:**
-```
-POST   /api/v1/skills/{id}/unquarantine    # unquarantine a skill
-```
-
-### Alert Routing
-Routes findings and runtime events to multiple channels with configurable deduplication.
-
-| Channel | Description |
-|---------|-------------|
-| **File** | Appends to `~/.openclaw/sentinel/alerts.jsonl` (default) |
-| **Webhook** | HTTP POST with JSON payload to any URL |
-| **OpenClaw** | Routes through gateway to Discord, Telegram, etc. |
-
-```bash
-sentinel alerts                             # view recent alerts
-sentinel alerts --last 50                   # show last 50
-sentinel alerts --ack <id>                  # acknowledge an alert
-```
-
-### Real-time Monitoring
-Five background collectors continuously watch for runtime security events:
-
-| Collector | What it watches |
-|-----------|-----------------|
-| **ConfigCollector** | Gateway config drift (polling + hash comparison) |
-| **SessionCollector** | Active agent sessions |
-| **CronCollector** | Scheduled jobs |
-| **LogCollector** | Agent execution logs (async tail) |
-| **SkillCollector** | Skill directory for new/modified skills |
-
-```bash
-sentinel watch                              # start all collectors (60s default)
-sentinel watch --interval 30                # custom interval
-```
-
-### WebSocket Authentication
-Scan progress is streamed via WebSocket. Authentication uses a first-message handshake (token is not placed in the URL query string):
-
-1. Client connects to `ws://localhost:18790/ws/scans`
-2. Client sends `{"type": "auth", "token": "<api-token>"}` as the first message within 5 seconds
-3. Server responds `{"type": "auth_ok"}` — scan stream begins
-4. If authentication fails or times out, the connection closes with code `4001`
-
-This avoids exposing the API token in server access logs (CWE-598).
-
-### Command Guard
-Pre-execution classifier that detects non-shell code blocks (Python, TypeScript, Go, Rust, YAML) being mistakenly executed as shell commands. Returns verdicts with confidence levels and suggested actions (WRITE_FILE, EXECUTE, or REVIEW).
-
-### Security Investigation Chat
-Ask natural-language questions about your scan data directly from the Dashboard. The **Investigation Panel** sits at the bottom of the dashboard — click the header to expand it. The `/chat` route opens it pre-expanded for direct access.
-
-Two modes:
-- **OpenClaw mode** — routes through your local OpenClaw gateway (no data leaves your machine)
-- **BYOLLM mode** — calls Anthropic directly with your own API key
-
-Suggested questions to get started:
-- Which skills allow shell execution?
-- Show me the critical findings
-- Which skills have unknown publishers?
-- What policies failed in the last scan?
-- Which skills contact external domains?
-- Explain the supply chain risks detected
-
-### Chat Engine Setup
-
-For **OpenClaw mode** to generate real AI responses, enable the gateway's chat completions endpoint in `~/.openclaw/openclaw.json`:
-
-```json
-{
-  "gateway": {
-    "http": {
-      "endpoints": {
-        "chatCompletions": {
-          "enabled": true
-        }
-      }
-    }
-  }
-}
-```
-
-Restart the OpenClaw gateway after making this change. Without this setting, OpenClaw mode will return HTTP 503 and prompt you to switch to BYOLLM mode.
-
-For **BYOLLM mode**, provide your Anthropic API key in the panel. The default model is `claude-sonnet-4-6`. Override with the `BYOLLM_MODEL` environment variable.
-
-### Knowledge Graph
-In-memory security knowledge graph tracking relationships between skills, tools, files, network endpoints, and policies. Queryable by risk score, tool usage, and skill name.
-
-**API:**
-```
-GET    /api/v1/graph                        # full graph (JSON)
-GET    /api/v1/graph/skill/{name}           # single skill subgraph
-```
-
-### Compliance Reporting
-Generate markdown or JSON compliance reports with unified findings, severity sorting, and run IDs.
-
-```bash
-sentinel report                             # print markdown report
-sentinel report --format json --output r.json
-sentinel baseline --create                  # snapshot current config
-sentinel baseline --diff                    # compare against baseline
-```
-
-### Live Dashboard
-Next.js 14 SPA with real-time scan progress via WebSocket.
-
-| Page | Description |
-|------|-------------|
-| `/dashboard` | Risk gauge, findings breakdown, skill trust matrix, collapsible Security Investigation panel |
-| `/audit` | Trigger and manage audit scans |
-| `/findings` | Findings list with severity/policy/skill filtering |
-| `/skills` | Skill explorer with lifecycle controls (install, enable/disable, uninstall) |
-| `/skills/[id]` | Individual skill detail and health report |
-| `/remediation` | View proposals, apply fixes, rollback history |
-| `/chat` | Direct access to the Security Investigation panel (opens pre-expanded) |
-| `/policies` | Policy Engine — manage rules, view violations feed, quarantine skills |
-
----
-
-## What it audits
 
 | Domain | Checks |
 |--------|--------|
@@ -296,21 +47,73 @@ Next.js 14 SPA with real-time scan progress via WebSocket.
 | Supply Chain Risk | 7 checks — version pinning, publisher identity, dependency locking |
 | Audit Logging & Observability | 5 checks — invocation logging, SIEM shipping, alerting, retention |
 
+### Advanced Detection (5 rules)
+- **ADV-001** Unrestricted shell execution (HIGH)
+- **ADV-002** Unknown publisher/provenance (MEDIUM)
+- **ADV-003** Supply chain risk — unlisted outbound domains (HIGH)
+- **ADV-004** Unsigned skill (LOW)
+- **ADV-005** Credentials exposed in SKILL.md (CRITICAL)
+
+### Remediation Engine
+Automatically proposes and applies fixes with dry-run preview and snapshot-based rollback.
+
+```bash
+clawaudit remediate                          # dry-run: list proposals
+clawaudit remediate --apply --yes            # apply all proposals
+clawaudit remediate --skill my-skill --check ADV-001 --apply
+clawaudit snapshots list                     # list available snapshots
+clawaudit snapshots rollback <snapshot-name> # restore from snapshot
+```
+
+### Real-time Monitoring
+Five background collectors watch for runtime security events:
+
+| Collector | What it watches |
+|-----------|-----------------|
+| **ConfigCollector** | Gateway config drift (polling + hash comparison) |
+| **SessionCollector** | Active agent sessions |
+| **CronCollector** | Scheduled jobs |
+| **LogCollector** | Agent execution logs (async tail) |
+| **SkillCollector** | Skill directory for new/modified skills |
+
+```bash
+clawaudit monitor                # start all collectors (60s default)
+clawaudit monitor --interval 30  # custom interval
+```
+
+### Policy Engine
+Runtime policy enforcement with configurable actions (ALLOW, WARN, ALERT, BLOCK, QUARANTINE), hot-reloadable YAML rules, and a management UI.
+
+```bash
+clawaudit policies --list       # list loaded rules
+clawaudit policies --validate   # validate policy files
+```
+
+### Alert Routing
+Routes findings and runtime events to multiple channels with deduplication.
+
+| Channel | Description |
+|---------|-------------|
+| **File** | Appends to `~/.openclaw/sentinel/alerts.jsonl` (default) |
+| **Webhook** | HTTP POST with JSON payload to any URL |
+| **OpenClaw** | Routes through gateway to Discord, Telegram, etc. |
+
+### Skill Lifecycle Management
+Install, enable, disable, uninstall, and recover skills with a JSON-backed registry, trash-based recovery, and protected-path enforcement.
+
+```bash
+clawaudit skills list                        # list all skills
+clawaudit skills install ./my-skill.skill    # install from file
+clawaudit skills enable <name>               # enable a disabled skill
+clawaudit skills disable <name>              # disable a skill
+clawaudit skills uninstall <name>            # move to trash
+clawaudit skills recover <trash-name>        # recover from trash
+clawaudit skills health <name>               # run security analysis
+```
+
 ---
 
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [docs/setup.md](docs/setup.md) | Full setup guide — local + Docker |
-| [docs/architecture.md](docs/architecture.md) | System design, data flows, component overview |
-| [docs/risk-scoring.md](docs/risk-scoring.md) | How risk scores are calculated; ADV-* check details |
-| [docs/chat-investigation.md](docs/chat-investigation.md) | Investigation chat usage + example questions |
-| [docs/ci-cd.md](docs/ci-cd.md) | CI/CD pipeline stages and how to extend them |
-
----
-
-## Repository Structure
+## Architecture
 
 ```
 clawaudit/
@@ -338,50 +141,124 @@ clawaudit/
 │   ├── domains.md            Per-domain check definitions
 │   ├── scoring.md            Severity classification rules
 │   └── report-template.md    Report structure and formatting
-├── tests/                    Test suite (1,243+ Python tests · 188 Playwright E2E tests · 80% coverage gate)
-└── .github/
-    ├── workflows/            test.yml + build.yml
-    └── dependabot.yml        Weekly version bumps (Actions, pip, npm)
+├── SKILL.md                  ClawAudit audit skill orchestration
+└── tests/                    Test suite (unit, functional, integration)
+```
+
+Data flow: **Collectors → Events → PolicyEngine → AlertEngine → Channels**
+
+---
+
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `clawaudit quickstart` | Full onboarding flow |
+| `clawaudit version` | Version, Python, platform, OpenClaw status |
+| `clawaudit doctor` | Validate environment readiness |
+| `clawaudit scan` | Full security scan |
+| `clawaudit findings` | View findings from last scan |
+| `clawaudit monitor` | Continuous monitoring daemon |
+| `clawaudit audit` | Security scan (original name) |
+| `clawaudit watch` | Monitoring (original name) |
+| `clawaudit skills` | Skill trust scores |
+| `clawaudit skills list/install/enable/disable/uninstall/recover/health/verify` | Skill lifecycle |
+| `clawaudit remediate` | Preview or apply remediations |
+| `clawaudit report` | Generate compliance report |
+| `clawaudit policies` | List or validate policy rules |
+| `clawaudit alerts` | View recent alerts |
+| `clawaudit baseline` | Manage config baselines |
+| `clawaudit snapshots` | Manage remediation snapshots |
+| `clawaudit config show/init` | Manage configuration |
+| `clawaudit hooks status/register/unregister/events/simulate` | Runtime hook integration |
+
+---
+
+## Dashboard
+
+Next.js 15 SPA with real-time scan progress via WebSocket.
+
+| Page | Description |
+|------|-------------|
+| `/dashboard` | Risk gauge, findings breakdown, skill trust matrix, investigation panel |
+| `/audit` | Trigger and manage audit scans |
+| `/findings` | Findings list with severity/policy/skill filtering |
+| `/skills` | Skill explorer with lifecycle controls |
+| `/remediation` | View proposals, apply fixes, rollback history |
+| `/chat` | Security investigation chat |
+| `/policies` | Policy engine — manage rules, view violations |
+
+### Docker deployment
+
+```bash
+cp docker/.env.example docker/.env
+# Edit docker/.env and set POSTGRES_PASSWORD
+docker compose --env-file docker/.env -f docker/docker-compose.yml up
+```
+
+| Service | URL |
+|---------|-----|
+| Dashboard | http://localhost:3000 |
+| API | http://localhost:18790 |
+| API Docs | http://localhost:18790/docs |
+
+---
+
+## Remediation
+
+```bash
+clawaudit remediate                          # dry-run: list proposals
+clawaudit remediate --apply --yes            # apply all proposals
+clawaudit remediate --skill my-skill --check ADV-001 --apply
+clawaudit snapshots list
+clawaudit snapshots rollback <snapshot-name>
+```
+
+**API:**
+```
+GET    /api/v1/remediation/proposals
+POST   /api/v1/remediation/apply
+POST   /api/v1/remediation/rollback
+GET    /api/v1/remediation/history
 ```
 
 ---
 
-## CI/CD Pipeline
+## CI Integration
 
-| Stage | Description |
-|-------|-------------|
-| YAML Lint | Validates all YAML files |
-| Python Audit | `pip-audit` on dependencies |
-| Node Audit | `npm audit` on frontend |
-| Lint | `ruff check` + `ruff format --check` |
-| Test | pytest with 80% coverage gate (Python 3.10/3.11/3.12) |
-| Docker Build | Multi-stage build (backend + frontend), cached via GitHub Actions |
-| Publish | Push to GHCR on version tags (`v*.*.*`) with stable + latest image tags |
-| Dependabot | Weekly PRs for Actions, pip, and npm dependency updates |
+Add ClawAudit to your CI pipeline:
+
+```yaml
+# .github/workflows/security.yml
+- name: Security Scan
+  run: |
+    pip install -e .
+    clawaudit scan --format json --output security-report.json
+```
+
+The `scan` command exits with code 1 when `FAIL` findings are detected, making it suitable as a CI gate.
 
 ---
 
-## Design Principles
+## Configuration
 
-- **Read-only audits**: The audit engine only reads files and queries the gateway config. It never writes, edits, or executes.
-- **Safe remediation**: Remediations are dry-run by default. Applied fixes create snapshots for instant rollback. System skills are protected.
-- **No secret leakage**: Pattern matches report type + location only. Secret values are redacted before entering any event evidence.
-- **Conservative scoring**: UNKNOWN results count as FAIL.
-- **Hostile-content isolation**: Skill bodies are treated as untrusted text — never evaluated or executed.
-- **Trash, not delete**: Skill uninstalls move to trash. Nothing is permanently deleted.
+Sentinel configuration lives at `~/.openclaw/sentinel/sentinel.yaml`. Initialize with defaults:
+
+```bash
+clawaudit config init
+clawaudit config show
+```
+
+Environment variables can be interpolated using `${ENV_VAR}` syntax in the YAML config.
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started, report bugs, and submit pull requests.
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+---
 
 ## License
 
 This project is licensed under the [Apache License 2.0](LICENSE).
-
----
-
-## Version
-
-**v0.4.0** — see [CHANGELOG.md](CHANGELOG.md) for history.

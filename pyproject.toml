@@ -45,6 +45,7 @@ dev = [
 ]
 
 [project.scripts]
+clawaudit = "sentinel.main:app"
 sentinel = "sentinel.main:app"
 clawaudit-api = "backend.main:start"
 
