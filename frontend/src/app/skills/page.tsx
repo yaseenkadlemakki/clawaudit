@@ -1,11 +1,12 @@
 "use client"
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import Link from "next/link"
 import { getSkills, getLifecycleSkills, enableSkill, disableSkill, uninstallSkill, installSkillFromUrl, installSkillFromFile, type LifecycleSkill } from "@/lib/api"
 import { riskColor, cn } from "@/lib/utils"
 import { ChevronRight, Search, Puzzle, Shell, Globe, AlertTriangle, Power, PowerOff, Trash2, Lock, Download, X, Upload, Link2 } from "lucide-react"
 import { QuarantineBadge } from "@/components/QuarantineBadge"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
   return enabled
@@ -92,6 +93,7 @@ export default function SkillsPage() {
   const [q, setQ] = useState("")
   const [installOpen, setInstallOpen] = useState(false)
   const [uninstallTarget, setUninstallTarget] = useState<string | null>(null)
+  const [confirmState, setConfirmState] = useState<{ skillName: string; enable: boolean } | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const qc = useQueryClient()
 
@@ -100,6 +102,7 @@ export default function SkillsPage() {
     onMutate: () => { setActionError(null) },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lifecycle-skills"] }),
     onError: (err: Error) => { setActionError(err.message || "Failed to toggle skill") },
+    onSettled: () => { setConfirmState(null) },
   })
 
   const uninstallMut = useMutation({
@@ -236,8 +239,15 @@ export default function SkillsPage() {
                 {lc && (
                   <div className="flex gap-1.5 mt-3 pt-3 border-t border-border">
                     <button
-                      onClick={e => { e.preventDefault(); if (isProtected && !window.confirm(`"${skill.name}" is a system skill. Toggling it may affect agent capabilities. Continue?`)) return; toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
-                      disabled={toggleMut.isPending}
+                      onClick={e => {
+                        e.preventDefault()
+                        if (isProtected) {
+                          setConfirmState({ skillName: skill.name, enable: !enabled })
+                        } else {
+                          toggleMut.mutate({ name: skill.name, enable: !enabled })
+                        }
+                      }}
+                      disabled={toggleMut.isPending && confirmState?.skillName === skill.name}
                       title={isProtected ? "System skill — disabling may affect agent capabilities" : undefined}
                       className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors", enabled ? "border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" : "border-green-500/30 text-green-400 hover:bg-green-500/10")}
                     >
@@ -275,6 +285,18 @@ export default function SkillsPage() {
         onClose={() => setUninstallTarget(null)}
         isPending={uninstallMut.isPending}
       />
+      {confirmState && (
+        <ConfirmDialog
+          open
+          variant="warning"
+          title={`Toggle system skill "${confirmState.skillName}"?`}
+          description={`"${confirmState.skillName}" is a system skill. ${confirmState.enable ? "Enabling" : "Disabling"} it may affect agent capabilities.`}
+          confirmLabel={confirmState.enable ? "Enable" : "Disable"}
+          isPending={toggleMut.isPending}
+          onConfirm={() => toggleMut.mutate({ name: confirmState.skillName, enable: confirmState.enable })}
+          onCancel={() => setConfirmState(null)}
+        />
+      )}
     </div>
   )
 }
