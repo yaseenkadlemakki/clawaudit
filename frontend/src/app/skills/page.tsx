@@ -6,6 +6,7 @@ import { getSkills, getLifecycleSkills, enableSkill, disableSkill, uninstallSkil
 import { riskColor, cn } from "@/lib/utils"
 import { ChevronRight, Search, Puzzle, Shell, Globe, AlertTriangle, Power, PowerOff, Trash2, Lock, Download, X, Upload, Link2 } from "lucide-react"
 import { QuarantineBadge } from "@/components/QuarantineBadge"
+import { ConfirmDialog } from "@/components/ConfirmDialog"
 
 function StatusBadge({ enabled }: { enabled: boolean }) {
   return enabled
@@ -93,6 +94,11 @@ export default function SkillsPage() {
   const [installOpen, setInstallOpen] = useState(false)
   const [uninstallTarget, setUninstallTarget] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean
+    skillName: string
+    enable: boolean
+  } | null>(null)
   const qc = useQueryClient()
 
   const toggleMut = useMutation({
@@ -236,7 +242,14 @@ export default function SkillsPage() {
                 {lc && (
                   <div className="flex gap-1.5 mt-3 pt-3 border-t border-border">
                     <button
-                      onClick={e => { e.preventDefault(); if (isProtected && !window.confirm(`"${skill.name}" is a system skill. Toggling it may affect agent capabilities. Continue?`)) return; toggleMut.mutate({ name: skill.name, enable: !enabled }) }}
+                      onClick={e => {
+                        e.preventDefault()
+                        if (isProtected) {
+                          setConfirmState({ open: true, skillName: skill.name, enable: !enabled })
+                        } else {
+                          toggleMut.mutate({ name: skill.name, enable: !enabled })
+                        }
+                      }}
                       disabled={toggleMut.isPending}
                       title={isProtected ? "System skill — disabling may affect agent capabilities" : undefined}
                       className={cn("flex items-center gap-1 text-xs px-2 py-1 rounded border transition-colors", enabled ? "border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10" : "border-green-500/30 text-green-400 hover:bg-green-500/10")}
@@ -275,6 +288,24 @@ export default function SkillsPage() {
         onClose={() => setUninstallTarget(null)}
         isPending={uninstallMut.isPending}
       />
+
+      {confirmState && (
+        <ConfirmDialog
+          open={confirmState.open}
+          title={confirmState.enable ? `Enable "${confirmState.skillName}"?` : `Disable "${confirmState.skillName}"?`}
+          description={`This is a system skill. ${confirmState.enable ? "Enabling" : "Disabling"} it may affect agent capabilities.`}
+          confirmLabel={confirmState.enable ? "Enable" : "Disable"}
+          variant="warning"
+          isPending={toggleMut.isPending}
+          onConfirm={() => {
+            toggleMut.mutate(
+              { name: confirmState.skillName, enable: confirmState.enable },
+              { onSettled: () => setConfirmState(null) },
+            )
+          }}
+          onCancel={() => setConfirmState(null)}
+        />
+      )}
     </div>
   )
 }
