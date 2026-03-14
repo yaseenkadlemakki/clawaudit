@@ -168,9 +168,9 @@ class TestDoctorIntegration:
         except Exception:
             pass
 
-        result = runner.invoke(app, ["doctor"])
-        if backend_up:
-            # Should not show error for backend
-            assert "18790" in result.output
-        else:
+        if not backend_up:
             pytest.skip("Backend not running on :18790")
+
+        result = runner.invoke(app, ["doctor"])
+        # Should not show error for backend
+        assert "18790" in result.output

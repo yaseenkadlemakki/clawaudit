@@ -9,6 +9,7 @@ import platform
 import shutil
 import sys
 import uuid
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 
@@ -963,36 +964,42 @@ app.add_typer(hooks_app)
 
 # ── New quick-start commands ──────────────────────────────────────────────────
 
-_OPENCLAW_SEARCH_PATHS = [
-    "/opt/homebrew/lib/node_modules/openclaw",
-    "/usr/local/lib/node_modules/openclaw",
-]
-
 
 def _find_openclaw() -> Path | None:
-    """Locate the OpenClaw installation directory."""
+    """Find the OpenClaw installation root directory."""
+    # Check explicit env override first
     env_path = os.environ.get("OPENCLAW_PATH")
     if env_path:
         p = Path(env_path)
         if p.exists():
             return p
 
-    for candidate in _OPENCLAW_SEARCH_PATHS:
-        p = Path(candidate)
-        if p.exists():
+    # Check well-known install paths
+    well_known = [
+        Path("/opt/homebrew/lib/node_modules/openclaw"),
+        Path("/usr/local/lib/node_modules/openclaw"),
+        Path("/usr/lib/node_modules/openclaw"),
+    ]
+    for p in well_known:
+        if p.exists() and (p / "package.json").exists():
             return p
 
-    # Search ~/.nvm for openclaw
-    nvm_dir = Path.home() / ".nvm"
-    if nvm_dir.exists():
-        for match in nvm_dir.glob("versions/node/*/lib/node_modules/openclaw"):
-            if match.exists():
-                return match
-
-    # Check if openclaw is on PATH
+    # Find via PATH binary and walk up to install root
     openclaw_bin = shutil.which("openclaw")
     if openclaw_bin:
-        return Path(openclaw_bin).resolve().parent
+        bin_path = Path(openclaw_bin).resolve()
+        # Binary may be a symlink or in bin/ — walk up to find openclaw root
+        for parent in [bin_path.parent, *bin_path.parents]:
+            if parent.name == "openclaw" and (parent / "package.json").exists():
+                return parent
+
+    # NVM installs
+    nvm_base = Path.home() / ".nvm" / "versions" / "node"
+    if nvm_base.exists():
+        for node_dir in sorted(nvm_base.iterdir(), reverse=True):
+            p = node_dir / "lib" / "node_modules" / "openclaw"
+            if p.exists() and (p / "package.json").exists():
+                return p
 
     return None
 
@@ -1002,7 +1009,7 @@ def version() -> None:
     """Print ClawAudit version, Python version, platform, and OpenClaw detection."""
     try:
         ver = pkg_version("clawaudit-sentinel")
-    except Exception:
+    except PackageNotFoundError:
         ver = "unknown"
 
     py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
@@ -1019,7 +1026,13 @@ def version() -> None:
 
 
 @app.command()
-def doctor() -> None:
+def doctor(
+    skip_services: bool = typer.Option(
+        False,
+        "--skip-services",
+        help="Skip backend/dashboard reachability checks (useful for CI/offline)",
+    ),
+) -> None:
     """Validate environment readiness step by step."""
     checks: list[tuple[str, bool, str]] = []
 
@@ -1084,28 +1097,29 @@ def doctor() -> None:
         progress.advance(task)
 
         # 5. Backend reachable
-        task = progress.add_task("Checking backend (localhost:18790)...", total=1)
-        backend_ok = False
-        try:
-            httpx.get("http://localhost:18790/health", timeout=3)
-            backend_ok = True
-        except Exception:
-            pass
-        backend_hint = "" if backend_ok else "Start backend: clawaudit-api or ./start.sh"
-        checks.append(("Backend reachable (localhost:18790)", backend_ok, backend_hint))
-        progress.advance(task)
+        if not skip_services:
+            task = progress.add_task("Checking backend (localhost:18790)...", total=1)
+            backend_ok = False
+            try:
+                httpx.get("http://localhost:18790/health", timeout=3)
+                backend_ok = True
+            except Exception:
+                pass
+            backend_hint = "" if backend_ok else "Start backend: clawaudit-api or ./start.sh"
+            checks.append(("Backend reachable (localhost:18790)", backend_ok, backend_hint))
+            progress.advance(task)
 
-        # 6. Dashboard reachable
-        task = progress.add_task("Checking dashboard (localhost:3000)...", total=1)
-        dash_ok = False
-        try:
-            httpx.get("http://localhost:3000", timeout=3)
-            dash_ok = True
-        except Exception:
-            pass
-        dash_hint = "" if dash_ok else "Start dashboard: cd frontend && npm run dev"
-        checks.append(("Dashboard reachable (localhost:3000)", dash_ok, dash_hint))
-        progress.advance(task)
+            # 6. Dashboard reachable
+            task = progress.add_task("Checking dashboard (localhost:3000)...", total=1)
+            dash_ok = False
+            try:
+                httpx.get("http://localhost:3000", timeout=3)
+                dash_ok = True
+            except Exception:
+                pass
+            dash_hint = "" if dash_ok else "Start dashboard: cd frontend && npm run dev"
+            checks.append(("Dashboard reachable (localhost:3000)", dash_ok, dash_hint))
+            progress.advance(task)
 
     # Print results
     console.print()
@@ -1130,6 +1144,7 @@ def doctor() -> None:
 
 @app.command()
 def scan(
+    fix: bool = typer.Option(False, "--fix", help="Attempt auto-remediation (v2)"),
     format: str = typer.Option(
         "markdown", "--format", "-f", help="Output format: markdown or json"
     ),
@@ -1137,7 +1152,7 @@ def scan(
     config_path: Path | None = typer.Option(None, "--config", "-c", help="Sentinel config file"),
 ) -> None:
     """Run a full ClawAudit security scan (alias for audit)."""
-    audit(format=format, output=output, config_path=config_path)
+    audit(fix=fix, format=format, output=output, config_path=config_path)
 
 
 @app.command()
@@ -1164,21 +1179,36 @@ def findings(
 
     if not findings_path.exists():
         console.print("[yellow]No findings recorded yet. Run: clawaudit scan[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(0)
 
-    records: list[dict] = []
+    all_records: list[dict] = []
     for line in findings_path.read_text().splitlines():
         line = line.strip()
         if not line:
             continue
         try:
-            records.append(json.loads(line))
+            all_records.append(json.loads(line))
         except json.JSONDecodeError:
             continue
 
-    if not records:
+    if not all_records:
         console.print("[yellow]No findings recorded yet. Run: clawaudit scan[/yellow]")
-        raise typer.Exit(1)
+        raise typer.Exit(0)
+
+    # Group by run_id and show only the most recent run
+    runs: dict[str, list[dict]] = {}
+    for r in all_records:
+        rid = r.get("run_id", "unknown")
+        runs.setdefault(rid, []).append(r)
+
+    # Pick latest run_id by max detected_at, falling back to last-seen order
+    def _run_sort_key(rid: str) -> str:
+        entries = runs[rid]
+        timestamps = [e.get("detected_at", "") for e in entries if e.get("detected_at")]
+        return max(timestamps) if timestamps else ""
+
+    latest_run_id = max(runs, key=_run_sort_key) if len(runs) > 1 else next(iter(runs))
+    records = runs[latest_run_id]
 
     # Filter by severity
     if severity:
@@ -1213,7 +1243,9 @@ def findings(
         )
 
     console.print(table)
-    console.print(f"[dim]Showing {len(records)} finding(s)[/dim]")
+    console.print(
+        f"[dim]Showing {len(records)} finding(s) from run {latest_run_id[:8]} — run 'clawaudit scan' for fresh results[/dim]"
+    )
 
 
 @app.command()
@@ -1273,8 +1305,8 @@ def quickstart(
                 from sentinel.config import SecurityConfig
 
                 SecurityConfig.write_defaults()
-            except Exception:
-                pass
+            except (OSError, ValueError) as exc:
+                console.print(f"[yellow]  ⚠ Could not create default config: {exc}[/yellow]")
         progress.advance(task)
         progress.update(task, description="Step 4: Configuration ready")
 

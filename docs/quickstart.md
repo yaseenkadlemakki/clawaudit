@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- **Python 3.10+** (3.11+ recommended)
+- **Python 3.11+**
 - **OpenClaw** installed (`npm install -g openclaw`)
 - **pip** (included with Python)
 

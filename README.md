@@ -176,7 +176,7 @@ Data flow: **Collectors → Events → PolicyEngine → AlertEngine → Channels
 
 ## Dashboard
 
-Next.js 14 SPA with real-time scan progress via WebSocket.
+Next.js 15 SPA with real-time scan progress via WebSocket.
 
 | Page | Description |
 |------|-------------|

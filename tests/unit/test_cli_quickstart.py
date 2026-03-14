@@ -120,7 +120,8 @@ class TestMonitor:
         result = runner.invoke(app, ["monitor", "--interval", "30"])
         # The command itself may try to call watch directly;
         # we just verify no crash and correct exit
-        assert result.exit_code in (0, 1, 2) or mock_watch.called
+        assert mock_watch.called, "monitor command must delegate to watch()"
+        assert result.exit_code in (0, 1), f"unexpected exit code: {result.exit_code}"
 
 
 # ── findings ─────────────────────────────────────────────────────────────────
@@ -294,3 +295,96 @@ class TestQuickstart:
         result = runner.invoke(app, ["quickstart"])
         assert result.exit_code == 1
         assert "not found" in result.output
+
+
+# ── additional coverage ─────────────────────────────────────────────────────
+
+
+def test_findings_handles_corrupt_jsonl(tmp_path: Path) -> None:
+    """Corrupt JSONL lines are skipped gracefully."""
+    findings_file = tmp_path / "findings.jsonl"
+    findings_file.write_text(
+        '{"check_id":"X","severity":"HIGH","title":"t","location":"l","run_id":"abc"}\n'
+        "not valid json at all\n"
+        '{"check_id":"Y","severity":"LOW","title":"t2","location":"l2","run_id":"abc"}\n'
+    )
+
+    with patch("sentinel.main.load_config") as mock_cfg:
+        mock_cfg_instance = MagicMock()
+        mock_cfg_instance.findings_file = findings_file
+        mock_cfg.return_value = mock_cfg_instance
+
+        result = runner.invoke(app, ["findings"])
+        assert result.exit_code == 0
+        assert "X" in result.output
+        assert "Y" in result.output
+
+
+@patch("sentinel.main.Path.home")
+def test_find_openclaw_walks_up_to_install_root(
+    mock_home: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """_find_openclaw() finds root dir named 'openclaw' with package.json, not bin dir."""
+    # Point home to tmp_path so NVM check doesn't find real dirs
+    mock_home.return_value = tmp_path / "fakehome"
+
+    # simulate /fake/openclaw/bin/openclaw binary
+    openclaw_root = tmp_path / "openclaw"
+    openclaw_root.mkdir()
+    (openclaw_root / "package.json").write_text('{"name":"openclaw"}')
+    bin_dir = openclaw_root / "bin"
+    bin_dir.mkdir()
+    fake_bin = bin_dir / "openclaw"
+    fake_bin.touch()
+
+    monkeypatch.setattr("shutil.which", lambda _: str(fake_bin))
+    # Clear OPENCLAW_PATH so it doesn't short-circuit
+    monkeypatch.delenv("OPENCLAW_PATH", raising=False)
+
+    import sentinel.main as main_mod
+
+    # Temporarily replace the well-known paths with non-existent ones
+    original_fn = main_mod._find_openclaw.__wrapped__ if hasattr(main_mod._find_openclaw, '__wrapped__') else None
+    # Patch well-known paths to empty list by redefining the function scope isn't feasible,
+    # so instead we use a different approach: patch Path.exists for well-known paths
+    _original_exists = Path.exists
+
+    well_known_strs = {
+        "/opt/homebrew/lib/node_modules/openclaw",
+        "/usr/local/lib/node_modules/openclaw",
+        "/usr/lib/node_modules/openclaw",
+    }
+
+    def _patched_exists(self: Path) -> bool:
+        if str(self) in well_known_strs:
+            return False
+        return _original_exists(self)
+
+    monkeypatch.setattr(Path, "exists", _patched_exists)
+
+    from sentinel.main import _find_openclaw
+
+    result = _find_openclaw()
+    assert result == openclaw_root
+
+
+def test_version_shows_unknown_when_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """version command shows 'unknown' when package metadata is missing."""
+    from importlib.metadata import PackageNotFoundError
+
+    def _raise(_name: str) -> None:
+        raise PackageNotFoundError(_name)
+
+    monkeypatch.setattr("sentinel.main.pkg_version", _raise)
+    result = runner.invoke(app, ["version"])
+    assert "unknown" in result.output
+
+
+@patch("sentinel.main.httpx.get")
+@patch("sentinel.main._find_openclaw")
+def test_doctor_skip_services(mock_oc: MagicMock, mock_get: MagicMock, tmp_path: Path) -> None:
+    """With --skip-services, no HTTP calls are made."""
+    mock_oc.return_value = tmp_path / "openclaw"
+    result = runner.invoke(app, ["doctor", "--skip-services"])
+    mock_get.assert_not_called()
+    assert "Python" in result.output
