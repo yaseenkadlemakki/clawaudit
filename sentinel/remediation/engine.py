@@ -93,6 +93,7 @@ class RemediationEngine:
         check_id: str,
         skill_name: str,
         skill_path: Path,
+        severity: str = "",
     ) -> list[RemediationProposal]:
         """Generate proposals for a single finding."""
         strategy = _STRATEGY_MAP.get(check_id)
@@ -107,6 +108,8 @@ class RemediationEngine:
             finding_id=finding_id,
             check_id=check_id,
         )
+        if proposal and severity:
+            proposal.severity = severity
         return [proposal] if proposal else []
 
     def scan_for_proposals(
@@ -126,12 +129,14 @@ class RemediationEngine:
             List of proposals (may be empty if no strategies match).
         """
         proposals: list[RemediationProposal] = []
+        seen: set[tuple[str, str]] = set()  # (check_id, resolved_path) dedup
 
         for finding in findings:
             fid = finding.get("id", "")
             check_id = finding.get("check_id", "")
             skill_name = finding.get("skill_name", "")
             skill_path_str = finding.get("location", "")
+            severity = finding.get("severity", "")
 
             if check_ids and check_id not in check_ids:
                 continue
@@ -143,11 +148,16 @@ class RemediationEngine:
                 if skill_names and "openclaw-config" not in skill_names:
                     continue
                 config_path = self._config_dir / "openclaw.json"
+                dedup_key = (check_id, str(config_path))
+                if dedup_key in seen:
+                    continue
                 if config_path.exists():
                     new_proposals = self.proposals_for_finding(
                         fid, check_id, "openclaw-config", config_path,
+                        severity=severity,
                     )
                     proposals.extend(new_proposals)
+                    seen.add(dedup_key)
                 continue
 
             if skill_names and skill_name not in skill_names:
@@ -172,8 +182,15 @@ class RemediationEngine:
                 logger.info("Skipping protected skill: %s", skill_name)
                 continue
 
-            new_proposals = self.proposals_for_finding(fid, check_id, skill_name, skill_path)
+            dedup_key = (check_id, str(skill_path))
+            if dedup_key in seen:
+                continue
+
+            new_proposals = self.proposals_for_finding(
+                fid, check_id, skill_name, skill_path, severity=severity,
+            )
             proposals.extend(new_proposals)
+            seen.add(dedup_key)
 
         return proposals
 

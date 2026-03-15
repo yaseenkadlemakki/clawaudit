@@ -19,19 +19,25 @@ from sentinel.remediation.engine import RemediationEngine
 
 logger = logging.getLogger(__name__)
 
-# Allowed parent directories for skill paths and snapshots
+# Allowed parent directories for skill paths and snapshots.
+# Config patches target ~/.openclaw/openclaw.json — validated separately
+# in apply_proposal() via action_type-aware check (not in this broad list).
 _ALLOWED_SKILL_PARENTS = [
     Path.home() / ".openclaw" / "workspace",
     Path.home() / ".openclaw" / "skills",
-    Path.home() / ".openclaw",  # config_patch proposals target openclaw.json
 ]
 _ALLOWED_SNAPSHOT_DIR = Path.home() / ".openclaw" / "sentinel" / "snapshots"
+_ALLOWED_CONFIG_DIR = Path.home() / ".openclaw"
 
 
 def _validate_skill_path(raw_path: str) -> Path:
-    """Validate that a skill path is within allowed directories."""
+    """Validate that a skill path is within allowed directories.
+
+    Uses ``is_relative_to`` instead of string prefix matching to prevent
+    path-traversal bypasses (e.g. ``~/.openclaw-evil/payload``).
+    """
     path = Path(raw_path).resolve()
-    if not any(str(path).startswith(str(p.resolve())) for p in _ALLOWED_SKILL_PARENTS):
+    if not any(path.is_relative_to(p.resolve()) for p in _ALLOWED_SKILL_PARENTS):
         raise HTTPException(
             status_code=400,
             detail="Skill path must be within an allowed skills directory.",
@@ -42,7 +48,7 @@ def _validate_skill_path(raw_path: str) -> Path:
 def _validate_snapshot_path(raw_path: str) -> Path:
     """Validate that a snapshot path is within the snapshots directory."""
     path = Path(raw_path).resolve()
-    if not str(path).startswith(str(_ALLOWED_SNAPSHOT_DIR.resolve())):
+    if not path.is_relative_to(_ALLOWED_SNAPSHOT_DIR.resolve()):
         raise HTTPException(
             status_code=400,
             detail="Snapshot path must be within the snapshots directory.",
@@ -180,7 +186,17 @@ async def apply_proposal(
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown action_type: {req.action_type}")
 
-    skill_path = _validate_skill_path(req.skill_path)
+    # Config patches target ~/.openclaw/ — validated via exact match, not the
+    # broad skill parents list (which would expose DB, sentinel config, etc.).
+    if action_type == ActionType.CONFIG_PATCH:
+        skill_path = Path(req.skill_path).resolve()
+        if skill_path != _ALLOWED_CONFIG_DIR.resolve():
+            raise HTTPException(
+                status_code=400,
+                detail="Config patches must target the OpenClaw config directory.",
+            )
+    else:
+        skill_path = _validate_skill_path(req.skill_path)
 
     proposal = RemediationProposal(
         proposal_id=req.proposal_id,

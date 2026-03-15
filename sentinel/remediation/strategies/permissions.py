@@ -22,6 +22,7 @@ def propose(
     skill_name: str,
     skill_path: Path,
     finding_id: str,
+    check_id: str = "PERM-001",
     **kwargs: object,
 ) -> RemediationProposal | None:
     """Propose a remediation for overly-broad tool permissions."""
@@ -56,7 +57,7 @@ def propose(
 
     return RemediationProposal.create(
         finding_id=finding_id,
-        check_id="PERM-001",
+        check_id=check_id,
         skill_name=skill_name,
         skill_path=skill_path,
         description=(

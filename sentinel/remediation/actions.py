@@ -52,6 +52,7 @@ class RemediationProposal:
         diff_preview: str,
         impact: list[str] | None = None,
         reversible: bool = True,
+        severity: str = "",
     ) -> RemediationProposal:
         return cls(
             proposal_id=str(uuid.uuid4()),
@@ -64,6 +65,7 @@ class RemediationProposal:
             diff_preview=diff_preview,
             impact=impact or [],
             reversible=reversible,
+            severity=severity,
         )
 
 

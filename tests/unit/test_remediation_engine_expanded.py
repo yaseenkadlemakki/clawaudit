@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from sentinel.remediation.engine import RemediationEngine, _STRATEGY_MAP
-from sentinel.remediation.strategies import config_patch, permissions
+from sentinel.remediation.strategies import config_patch, permissions, shell_access
 
 
 @pytest.mark.unit
@@ -180,3 +180,183 @@ class TestExistingStrategyRegression:
         ])
         assert len(proposals) == 1
         assert proposals[0].check_id == "ADV-005"
+
+
+@pytest.mark.unit
+class TestDeduplication:
+    """Verify that duplicate findings produce only one proposal."""
+
+    def _write_config(self, path: Path, config: dict) -> Path:
+        config_file = path / "openclaw.json"
+        config_file.write_text(json.dumps(config, indent=2))
+        return config_file
+
+    def test_duplicate_config_findings_produce_single_proposal(self, tmp_path):
+        """Two identical CONF-03 findings should yield exactly one proposal."""
+        self._write_config(tmp_path, {"gateway": {"bind": "0.0.0.0"}})
+
+        engine = RemediationEngine(skills_dir=tmp_path / "skills", config_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "CONF-03",
+                "skill_name": "",
+                "location": "",
+            },
+            {
+                "id": "f2",
+                "check_id": "CONF-03",
+                "skill_name": "",
+                "location": "",
+            },
+        ])
+        assert len(proposals) == 1, f"Expected 1 proposal but got {len(proposals)}"
+
+    def test_duplicate_skill_findings_produce_single_proposal(self, tmp_path):
+        """Two identical ADV-001 findings for the same skill should yield one proposal."""
+        skill_dir = tmp_path / "dup-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("exec:\n  pty: true\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "dup-skill",
+                "location": str(skill_dir),
+            },
+            {
+                "id": "f2",
+                "check_id": "ADV-001",
+                "skill_name": "dup-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+
+    def test_different_check_ids_same_path_not_deduped(self, tmp_path):
+        """Different check_ids for the same skill should produce separate proposals."""
+        skill_dir = tmp_path / "multi-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("pty: true\npermissions: all\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "multi-skill",
+                "location": str(skill_dir),
+            },
+            {
+                "id": "f2",
+                "check_id": "PERM-001",
+                "skill_name": "multi-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 2
+
+
+@pytest.mark.unit
+class TestCheckIdPassthrough:
+    """Verify that SKILL-01 findings get the correct check_id on proposals."""
+
+    def test_skill01_proposal_has_correct_check_id(self, tmp_path):
+        """SKILL-01 maps to permissions strategy but must keep check_id='SKILL-01'."""
+        skill_dir = tmp_path / "broad-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("allowed-tools: '*'\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "SKILL-01",
+                "skill_name": "broad-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].check_id == "SKILL-01", (
+            f"Expected check_id='SKILL-01' but got '{proposals[0].check_id}'"
+        )
+
+    def test_perm001_proposal_still_works(self, tmp_path):
+        """PERM-001 should still use the default check_id."""
+        skill_dir = tmp_path / "perm-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("permissions: all\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "PERM-001",
+                "skill_name": "perm-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].check_id == "PERM-001"
+
+
+@pytest.mark.unit
+class TestSeverityPropagation:
+    """Verify that severity flows through from findings to proposals."""
+
+    def test_severity_propagated_to_skill_proposal(self, tmp_path):
+        """Severity from finding dict should appear on the generated proposal."""
+        skill_dir = tmp_path / "sev-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("exec:\n  pty: true\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "sev-skill",
+                "location": str(skill_dir),
+                "severity": "HIGH",
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].severity == "HIGH"
+
+    def test_severity_propagated_to_config_proposal(self, tmp_path):
+        """Severity from config finding should appear on the config proposal."""
+        config_file = tmp_path / "openclaw.json"
+        config_file.write_text(json.dumps({"gateway": {"bind": "0.0.0.0"}}))
+
+        engine = RemediationEngine(skills_dir=tmp_path / "skills", config_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "CONF-03",
+                "skill_name": "",
+                "location": "",
+                "severity": "CRITICAL",
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].severity == "CRITICAL"
+
+    def test_empty_severity_defaults_to_empty_string(self, tmp_path):
+        """Missing severity should default to empty string."""
+        skill_dir = tmp_path / "nosev-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("exec:\n  pty: true\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "nosev-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].severity == ""

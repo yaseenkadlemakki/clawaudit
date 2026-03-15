@@ -47,6 +47,7 @@ def propose(
     skill_name: str,
     skill_path: Path,
     finding_id: str,
+    check_id: str = "ADV-005",
     **kwargs: object,
 ) -> RemediationProposal | None:
     """Propose a remediation for ADV-005 (exposed secrets)."""
@@ -79,7 +80,7 @@ def propose(
 
     return RemediationProposal.create(
         finding_id=finding_id,
-        check_id="ADV-005",
+        check_id=check_id,
         skill_name=skill_name,
         skill_path=skill_path,
         description=(
