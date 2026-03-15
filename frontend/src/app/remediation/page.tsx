@@ -30,27 +30,36 @@ function ProposalCard({
   const colorClass = SEVERITY_COLORS[proposal.check_id] ?? "text-blue-400 bg-blue-400/10 border-blue-400/30"
 
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3 bg-card">
+    <div className={`border rounded-lg p-4 space-y-3 bg-card ${
+      proposal.apply_available === true ? "border-border" : "border-dashed border-muted-foreground/30"
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-mono px-2 py-0.5 rounded border ${colorClass}`}>
             {proposal.check_id}
           </span>
           <span className="text-sm font-medium">{proposal.skill_name}</span>
-          {proposal.reversible && (
+          {proposal.reversible && proposal.apply_available === true && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <RotateCcw className="h-3 w-3" /> reversible
             </span>
           )}
         </div>
-        <button
-          onClick={() => onApply(proposal)}
-          disabled={applying}
-          className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors flex items-center gap-1"
-        >
-          <Zap className="h-3 w-3" />
-          {applying ? "Applying…" : "Apply Fix"}
-        </button>
+        {proposal.apply_available === true ? (
+          <button
+            onClick={() => onApply(proposal)}
+            disabled={applying}
+            className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors flex items-center gap-1"
+          >
+            <Zap className="h-3 w-3" />
+            {applying ? "Applying…" : "Apply Fix"}
+          </button>
+        ) : (
+          <span className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-muted text-muted-foreground border border-border flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            Advisory
+          </span>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">{proposal.description}</p>

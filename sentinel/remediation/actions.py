@@ -20,6 +20,7 @@ class ActionType(str, Enum):  # noqa: UP042
     REDACT_SECRET = "redact_secret"
     RESTRICT_PERMISSIONS = "restrict_permissions"
     REMOVE_ENV_VAR = "remove_env_var"
+    ADVISORY = "advisory"  # guidance only — no automated patch available
     CONFIG_PATCH = "config_patch"
 
 
@@ -37,6 +38,7 @@ class RemediationProposal:
     diff_preview: str  # unified diff of proposed change
     impact: list[str] = field(default_factory=list)
     reversible: bool = True
+    apply_available: bool = True  # False for advisory-only or protected system skills
     status: RemediationStatus = RemediationStatus.PENDING
     severity: str = ""
 
@@ -52,6 +54,7 @@ class RemediationProposal:
         diff_preview: str,
         impact: list[str] | None = None,
         reversible: bool = True,
+        apply_available: bool = True,
         severity: str = "",
     ) -> RemediationProposal:
         return cls(
@@ -65,6 +68,7 @@ class RemediationProposal:
             diff_preview=diff_preview,
             impact=impact or [],
             reversible=reversible,
+            apply_available=apply_available,
             severity=severity,
         )
 
