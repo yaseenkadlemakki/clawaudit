@@ -9,7 +9,7 @@ export function RiskBadge({ severity, className }: Props) {
       severityColor(severity),
       className
     )}>
-      {severity.toUpperCase()}
+      {(severity ?? "").toUpperCase()}
     </span>
   )
 }

@@ -17,7 +17,7 @@ export function riskColor(score: number): string {
 }
 
 export function severityColor(sev: string): string {
-  const s = sev.toLowerCase()
+  const s = (sev ?? "").toLowerCase()
   if (s === "critical") return "bg-red-500/20 text-red-400 border-red-500/30"
   if (s === "high")     return "bg-orange-500/20 text-orange-400 border-orange-500/30"
   if (s === "medium")   return "bg-yellow-500/20 text-yellow-400 border-yellow-500/30"

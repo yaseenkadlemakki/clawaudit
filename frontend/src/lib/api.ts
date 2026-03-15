@@ -196,7 +196,7 @@ export interface Proposal {
   impact: string[]
   reversible: boolean
   status: string
-  severity?: string
+  severity?: string // Backend defaults to "" when absent; undefined means no severity data available
 }
 
 export interface HistoryItem {
