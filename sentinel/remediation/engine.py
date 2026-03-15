@@ -153,7 +153,10 @@ class RemediationEngine:
                     continue
                 if config_path.exists():
                     new_proposals = self.proposals_for_finding(
-                        fid, check_id, "openclaw-config", config_path,
+                        fid,
+                        check_id,
+                        "openclaw-config",
+                        config_path,
                         severity=severity,
                     )
                     proposals.extend(new_proposals)
@@ -187,7 +190,11 @@ class RemediationEngine:
                 continue
 
             new_proposals = self.proposals_for_finding(
-                fid, check_id, skill_name, skill_path, severity=severity,
+                fid,
+                check_id,
+                skill_name,
+                skill_path,
+                severity=severity,
             )
             proposals.extend(new_proposals)
             seen.add(dedup_key)

@@ -124,12 +124,14 @@ def propose(
 
     original_text = json.dumps(original, indent=2).splitlines(keepends=True)
     patched_text = json.dumps(patched, indent=2).splitlines(keepends=True)
-    diff = "".join(difflib.unified_diff(
-        original_text,
-        patched_text,
-        fromfile="a/openclaw.json",
-        tofile="b/openclaw.json",
-    ))
+    diff = "".join(
+        difflib.unified_diff(
+            original_text,
+            patched_text,
+            fromfile="a/openclaw.json",
+            tofile="b/openclaw.json",
+        )
+    )
 
     key_path_str = ".".join(str(k) for k in fix["key_path"])
 
@@ -138,9 +140,7 @@ def propose(
         check_id=check_id,
         skill_name="openclaw-config",
         skill_path=config_file.parent,
-        description=(
-            f"{fix['title']}: set {key_path_str} = {json.dumps(fix['target'])}"
-        ),
+        description=(f"{fix['title']}: set {key_path_str} = {json.dumps(fix['target'])}"),
         action_type=ActionType.CONFIG_PATCH,
         diff_preview=diff,
         impact=fix["impact"],
