@@ -17,6 +17,7 @@ const MOCK_PROPOSALS = [
     ],
     reversible: true,
     status: "pending",
+    severity: "HIGH",
     diff_preview: `--- a/filesystem.skill\n+++ b/filesystem.skill\n-shell_access: true\n+shell_access: false`,
   },
   {
@@ -30,6 +31,7 @@ const MOCK_PROPOSALS = [
     impact: ["Skill will only be able to contact explicitly whitelisted domains."],
     reversible: true,
     status: "pending",
+    severity: "CRITICAL",
     diff_preview: `--- a/web-browse.skill\n+++ b/web-browse.skill\n+outbound_domains:\n+  - api.safe-example.com`,
   },
 ]
