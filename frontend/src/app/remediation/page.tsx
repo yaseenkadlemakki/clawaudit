@@ -12,9 +12,10 @@ import {
 } from "@/lib/api"
 
 const SEVERITY_COLORS: Record<string, string> = {
-  "ADV-001": "text-orange-400 bg-orange-400/10 border-orange-400/30",
-  "ADV-005": "text-red-400 bg-red-400/10 border-red-400/30",
-  "PERM-001": "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+  CRITICAL: "text-red-400 bg-red-400/10 border-red-400/30",
+  HIGH: "text-orange-400 bg-orange-400/10 border-orange-400/30",
+  MEDIUM: "text-yellow-400 bg-yellow-400/10 border-yellow-400/30",
+  LOW: "text-blue-400 bg-blue-400/10 border-blue-400/30",
 }
 
 function ProposalCard({
@@ -27,13 +28,19 @@ function ProposalCard({
   applying: boolean
 }) {
   const [showDiff, setShowDiff] = useState(false)
-  const colorClass = SEVERITY_COLORS[proposal.check_id] ?? "text-blue-400 bg-blue-400/10 border-blue-400/30"
+  const severityKey = (proposal.severity || "").toUpperCase()
+  const colorClass = SEVERITY_COLORS[severityKey] ?? "text-blue-400 bg-blue-400/10 border-blue-400/30"
 
   return (
     <div className="border border-border rounded-lg p-4 space-y-3 bg-card">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-xs font-mono px-2 py-0.5 rounded border ${colorClass}`}>
+          {severityKey && (
+            <span className={`text-xs font-mono px-2 py-0.5 rounded border ${colorClass}`}>
+              {severityKey}
+            </span>
+          )}
+          <span className="text-xs font-mono px-2 py-0.5 rounded border text-muted-foreground border-border">
             {proposal.check_id}
           </span>
           <span className="text-sm font-medium">{proposal.skill_name}</span>
