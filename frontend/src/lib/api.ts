@@ -196,7 +196,7 @@ export interface Proposal {
   impact: string[]
   reversible: boolean
   status: string
-  severity: string
+  severity?: string
 }
 
 export interface HistoryItem {
