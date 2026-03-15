@@ -361,13 +361,14 @@ def test_is_protected_false_for_user_skill(tmp_path):
     assert not engine.is_protected(user_skill)
 
 
-def test_scan_for_proposals_skips_extra_protected(tmp_path):
-    """scan_for_proposals skips skills added to extra_protected_paths."""
+def test_scan_for_proposals_marks_extra_protected_readonly(tmp_path):
+    """scan_for_proposals generates read-only proposals for extra_protected_paths."""
     from sentinel.remediation.engine import RemediationEngine  # noqa: PLC0415
 
     # Create a real directory so is_dir() passes
     protected_dir = tmp_path / "protected-skill"
     protected_dir.mkdir()
+    (protected_dir / "SKILL.md").write_text("pty: true\n")
 
     engine = RemediationEngine(
         skills_dir=tmp_path,
@@ -384,11 +385,12 @@ def test_scan_for_proposals_skips_extra_protected(tmp_path):
     ]
     proposals = engine.scan_for_proposals(findings)
 
-    assert proposals == [], f"Expected no proposals for protected skill, got {proposals}"
+    assert len(proposals) >= 1, "Protected skills should produce read-only proposals"
+    assert all(p.apply_available is False for p in proposals)
 
 
-def test_scan_for_proposals_skips_openclaw_system_skills(tmp_path):
-    """scan_for_proposals skips skills whose path is under the openclaw prefix.
+def test_scan_for_proposals_marks_openclaw_system_skills_readonly(tmp_path):
+    """scan_for_proposals generates read-only proposals for openclaw system skills.
 
     Uses tmp_path to simulate the protected prefix so the test is portable
     (no dependency on a real openclaw installation).
@@ -398,6 +400,7 @@ def test_scan_for_proposals_skips_openclaw_system_skills(tmp_path):
     # Simulate an openclaw-like directory under tmp_path
     fake_openclaw = tmp_path / "node_modules" / "openclaw" / "skills" / "coding-agent"
     fake_openclaw.mkdir(parents=True)
+    (fake_openclaw / "SKILL.md").write_text("pty: true\n")
 
     engine = RemediationEngine(
         extra_protected_paths=[tmp_path / "node_modules" / "openclaw"],
@@ -412,7 +415,8 @@ def test_scan_for_proposals_skips_openclaw_system_skills(tmp_path):
     ]
     proposals = engine.scan_for_proposals(findings)
 
-    assert proposals == [], f"Protected system skill must not produce proposals, got {proposals}"
+    assert len(proposals) >= 1, "Protected system skills should produce read-only proposals"
+    assert all(p.apply_available is False for p in proposals)
 
 
 # ── 6. No token leak ───────────────────────────────────────────────────────────

@@ -195,6 +195,7 @@ export interface Proposal {
   diff_preview: string
   impact: string[]
   reversible: boolean
+  apply_available: boolean
   status: string
 }
 

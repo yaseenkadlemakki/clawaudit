@@ -43,14 +43,21 @@ function ProposalCard({
             </span>
           )}
         </div>
-        <button
-          onClick={() => onApply(proposal)}
-          disabled={applying}
-          className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors flex items-center gap-1"
-        >
-          <Zap className="h-3 w-3" />
-          {applying ? "Applying…" : "Apply Fix"}
-        </button>
+        {proposal.apply_available !== false ? (
+          <button
+            onClick={() => onApply(proposal)}
+            disabled={applying}
+            className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:bg-primary/80 disabled:opacity-50 transition-colors flex items-center gap-1"
+          >
+            <Zap className="h-3 w-3" />
+            {applying ? "Applying…" : "Apply Fix"}
+          </button>
+        ) : (
+          <span className="shrink-0 px-3 py-1.5 text-xs rounded-md bg-muted text-muted-foreground border border-border flex items-center gap-1">
+            <Eye className="h-3 w-3" />
+            Advisory
+          </span>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">{proposal.description}</p>

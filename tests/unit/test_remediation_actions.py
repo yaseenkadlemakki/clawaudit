@@ -28,6 +28,9 @@ class TestActionType:
         assert ActionType.RESTRICT_PERMISSIONS == "restrict_permissions"
         assert ActionType.REMOVE_ENV_VAR == "remove_env_var"
 
+    def test_advisory_action_type_exists(self):
+        assert ActionType.ADVISORY.value == "advisory"
+
 
 class TestRemediationProposal:
     def test_create_factory(self, tmp_path):
@@ -96,6 +99,31 @@ class TestRemediationProposal:
             reversible=False,
         )
         assert proposal.reversible is False
+
+    def test_apply_available_defaults_true(self, tmp_path):
+        proposal = RemediationProposal.create(
+            finding_id="f",
+            check_id="ADV-001",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.RESTRICT_SHELL,
+            diff_preview="",
+        )
+        assert proposal.apply_available is True
+
+    def test_apply_available_false_propagates(self, tmp_path):
+        proposal = RemediationProposal.create(
+            finding_id="f",
+            check_id="ADV-002",
+            skill_name="s",
+            skill_path=tmp_path,
+            description="d",
+            action_type=ActionType.ADVISORY,
+            diff_preview="",
+            apply_available=False,
+        )
+        assert proposal.apply_available is False
 
 
 class TestRemediationResult:

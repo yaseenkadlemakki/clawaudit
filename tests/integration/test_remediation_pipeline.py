@@ -39,7 +39,8 @@ class TestDryRunMode:
         assert "dry_run" in (result.error or "")
         assert (skill_dir / "SKILL.md").read_text() == original_content
 
-    def test_no_proposals_for_clean_skill(self, tmp_path):
+    def test_clean_skill_gets_advisory_proposal(self, tmp_path):
+        """Clean skills now get advisory proposals instead of empty list."""
         _make_skill(tmp_path, "clean-skill", "---\nname: clean\n---\nDoes safe things.\n")
         engine = RemediationEngine(skills_dir=tmp_path, dry_run=True)
         findings = [
@@ -51,7 +52,9 @@ class TestDryRunMode:
             }
         ]
         proposals = engine.scan_for_proposals(findings)
-        assert proposals == []
+        assert len(proposals) == 1
+        assert proposals[0].action_type == ActionType.ADVISORY
+        assert proposals[0].apply_available is False
 
 
 class TestApplyMode:
@@ -427,3 +430,31 @@ class TestSecretsContextBoundary:
         proposal = secrets.propose("key-skill", skill_dir, "find-1")
         assert proposal is not None
         assert "[REDACTED]" in proposal.diff_preview
+
+
+class TestAdvisoryEndToEnd:
+    def test_advisory_end_to_end(self, tmp_path):
+        """ADV-002 finding (no strategy) → advisory proposal with correct fields."""
+        _make_skill(tmp_path, "unsigned", "---\nname: unsigned\n---\n")
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=True)
+        findings = [
+            {
+                "id": "f1",
+                "check_id": "ADV-002",
+                "skill_name": "unsigned",
+                "location": str(tmp_path / "unsigned"),
+                "severity": "MEDIUM",
+            },
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        assert len(proposals) == 1
+        p = proposals[0]
+        assert p.action_type == ActionType.ADVISORY
+        assert p.apply_available is False
+        assert p.severity == "MEDIUM"
+        assert "author" in p.description.lower()
+
+        # Attempting to apply should be rejected
+        result = engine.apply_proposal(p)
+        assert result.success is False
+        assert "Advisory-only" in (result.error or "")

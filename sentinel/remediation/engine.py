@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from sentinel.remediation.actions import (
+    ActionType,
     RemediationProposal,
     RemediationResult,
     RemediationStatus,
@@ -66,6 +67,91 @@ class RemediationEngine:
         dry_run: When True (default), proposals are generated but never applied.
     """
 
+    # Advisory text for check IDs that may not have an automated strategy or
+    # whose strategy returns None (e.g. clean SKILL.md files).  These produce
+    # guidance-only proposals with apply_available=False.
+    _ADVISORY: dict[str, dict[str, object]] = {
+        "ADV-001": {
+            "description": (
+                "Restrict shell execution: set pty:false and downgrade the "
+                "security profile from 'full' to 'allowlist'."
+            ),
+            "impact": [
+                "Skill can no longer run in a pseudo-terminal (PTY).",
+                "Shell-based tool calls may fail or require explicit allow-listing.",
+            ],
+        },
+        "ADV-002": {
+            "description": (
+                "Unknown publisher: add an 'author' field to SKILL.md with a verified identity."
+            ),
+            "impact": ["Skill provenance remains unverified."],
+        },
+        "ADV-003": {
+            "description": (
+                "Unknown outbound domains detected. Review each domain and "
+                "add trusted ones to an allowlist."
+            ),
+            "impact": ["Unreviewed domains may exfiltrate data."],
+        },
+        "ADV-004": {
+            "description": (
+                "Unsigned skill. Sign skills using the OpenClaw signing "
+                "mechanism to establish integrity."
+            ),
+            "impact": ["Skill integrity cannot be verified."],
+        },
+        "ADV-005": {
+            "description": (
+                "Exposed credential detected. Rotate the exposed key "
+                "immediately and remove it from source."
+            ),
+            "impact": ["Credential may already be compromised."],
+        },
+        "SKILL-01": {
+            "description": (
+                "Skill has shell access. Scope access with an allowed-tools "
+                "constraint in the skill manifest."
+            ),
+            "impact": ["Unrestricted shell access increases attack surface."],
+        },
+        "SKILL-02": {
+            "description": (
+                "High injection risk detected. Validate and sanitise all "
+                "user input before passing to tools."
+            ),
+            "impact": ["Prompt or command injection may be possible."],
+        },
+        "SCR-004": {
+            "description": (
+                "Credential file access pattern detected. Remove or refactor "
+                "to use a secrets manager."
+            ),
+            "impact": ["Credential files may be read by untrusted code."],
+        },
+        "SCR-005": {
+            "description": (
+                "Hardcoded external IP or domain detected. Externalise into "
+                "configuration or an allowlist."
+            ),
+            "impact": ["Hardcoded endpoints cannot be audited centrally."],
+        },
+        "PERM-001": {
+            "description": (
+                "Wildcard tool permission detected. Replace with an explicit "
+                "list of required tools."
+            ),
+            "impact": ["Wildcard grants access to every tool, current and future."],
+        },
+        "CONF-01": {
+            "description": (
+                "Review the OpenClaw groupPolicy setting and apply the "
+                "recommended hardening configuration."
+            ),
+            "impact": ["Misconfigured group policy may weaken isolation."],
+        },
+    }
+
     def __init__(
         self,
         skills_dir: Path | None = None,
@@ -85,6 +171,35 @@ class RemediationEngine:
         resolved = skill_path.resolve()
         return any(resolved == p or resolved.is_relative_to(p) for p in self._protected)
 
+    # ── Advisory helper ─────────────────────────────────────────────────────
+
+    def _advisory_proposal(
+        self,
+        finding_id: str,
+        check_id: str,
+        skill_name: str,
+        skill_path: Path,
+        severity: str = "",
+    ) -> RemediationProposal | None:
+        """Create a guidance-only advisory proposal if text exists for *check_id*."""
+        advisory = self._ADVISORY.get(check_id)
+        if advisory is None:
+            return None
+        proposal = RemediationProposal.create(
+            finding_id=finding_id,
+            check_id=check_id,
+            skill_name=skill_name,
+            skill_path=skill_path,
+            description=str(advisory["description"]),
+            action_type=ActionType.ADVISORY,
+            diff_preview="",
+            impact=list(advisory.get("impact", [])),  # type: ignore[arg-type]
+            reversible=False,
+            apply_available=False,
+            severity=severity,
+        )
+        return proposal
+
     # ── Proposal generation ───────────────────────────────────────────────────
 
     def proposals_for_finding(
@@ -95,21 +210,33 @@ class RemediationEngine:
         skill_path: Path,
         severity: str = "",
     ) -> list[RemediationProposal]:
-        """Generate proposals for a single finding."""
-        strategy = _STRATEGY_MAP.get(check_id)
-        if strategy is None:
-            logger.debug("No strategy for check_id=%s", check_id)
-            return []
+        """Generate proposals for a single finding.
 
-        # All strategies accept **kwargs, so check_id is always safe to pass.
-        proposal = strategy.propose(
-            skill_name=skill_name,
-            skill_path=skill_path,
-            finding_id=finding_id,
-            check_id=check_id,
-        )
-        if proposal and severity:
-            proposal.severity = severity
+        Fallback chain:
+        1. If a strategy exists, try strategy.propose().
+        2. If the strategy returns None, fall back to an advisory proposal.
+        3. If no strategy exists, fall back to an advisory proposal.
+        4. If no advisory text exists, return [].
+        """
+        strategy = _STRATEGY_MAP.get(check_id)
+        proposal: RemediationProposal | None = None
+
+        if strategy is not None:
+            proposal = strategy.propose(
+                skill_name=skill_name,
+                skill_path=skill_path,
+                finding_id=finding_id,
+                check_id=check_id,
+            )
+            if proposal and severity:
+                proposal.severity = severity
+
+        # Fallback to advisory when no strategy or strategy returned None
+        if proposal is None:
+            proposal = self._advisory_proposal(
+                finding_id, check_id, skill_name, skill_path, severity
+            )
+
         return [proposal] if proposal else []
 
     def scan_for_proposals(
@@ -181,9 +308,7 @@ class RemediationEngine:
                 logger.debug("Skill directory not found: %s", skill_path)
                 continue
 
-            if self.is_protected(skill_path):
-                logger.info("Skipping protected skill: %s", skill_name)
-                continue
+            protected = self.is_protected(skill_path)
 
             dedup_key = (check_id, str(skill_path))
             if dedup_key in seen:
@@ -196,6 +321,9 @@ class RemediationEngine:
                 skill_path,
                 severity=severity,
             )
+            if protected:
+                for p in new_proposals:
+                    p.apply_available = False
             proposals.extend(new_proposals)
             seen.add(dedup_key)
 
@@ -209,6 +337,13 @@ class RemediationEngine:
         Returns a RemediationResult. If dry_run=True, returns success=False with
         an error message explaining that dry-run mode is active.
         """
+        if proposal.action_type == ActionType.ADVISORY:
+            return RemediationResult(
+                proposal=proposal,
+                success=False,
+                error="Advisory-only — no automated patch available.",
+            )
+
         if self._dry_run:
             return RemediationResult(
                 proposal=proposal,

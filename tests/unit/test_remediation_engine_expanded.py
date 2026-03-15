@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from sentinel.remediation.actions import ActionType, RemediationProposal
 from sentinel.remediation.engine import RemediationEngine, _STRATEGY_MAP
 from sentinel.remediation.strategies import config_patch, permissions, shell_access
 
@@ -360,3 +361,126 @@ class TestSeverityPropagation:
         ])
         assert len(proposals) == 1
         assert proposals[0].severity == ""
+
+
+@pytest.mark.unit
+class TestAdvisoryFallback:
+    """Verify advisory fallback when no strategy or strategy returns None."""
+
+    def test_advisory_fallback_when_no_strategy(self, tmp_path):
+        """ADV-002 has no strategy in _STRATEGY_MAP but has advisory text."""
+        skill_dir = tmp_path / "unsigned-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: unsigned\n---\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-002",
+                "skill_name": "unsigned-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].action_type == ActionType.ADVISORY
+        assert proposals[0].apply_available is False
+
+    def test_advisory_fallback_when_strategy_returns_none(self, tmp_path):
+        """ADV-001 strategy returns None for clean SKILL.md → falls back to advisory."""
+        skill_dir = tmp_path / "clean-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("---\nname: clean\n---\nDoes safe things.\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "clean-skill",
+                "location": str(skill_dir),
+            },
+        ])
+        assert len(proposals) == 1
+        assert proposals[0].action_type == ActionType.ADVISORY
+        assert proposals[0].apply_available is False
+
+    def test_advisory_proposal_fields(self, tmp_path):
+        """Advisory proposals have correct action_type, apply_available, and empty diff."""
+        skill_dir = tmp_path / "adv-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("safe content\n")
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.proposals_for_finding(
+            "f1", "ADV-002", "adv-skill", skill_dir, severity="HIGH"
+        )
+        assert len(proposals) == 1
+        p = proposals[0]
+        assert p.action_type == ActionType.ADVISORY
+        assert p.apply_available is False
+        assert p.diff_preview == ""
+        assert p.reversible is False
+        assert p.severity == "HIGH"
+
+    def test_protected_skill_generates_readonly_proposals(self, tmp_path):
+        """Protected skills produce proposals with apply_available=False."""
+        protected_dir = tmp_path / "protected-skill"
+        protected_dir.mkdir()
+        (protected_dir / "SKILL.md").write_text("pty: true\n")
+
+        engine = RemediationEngine(
+            skills_dir=tmp_path,
+            extra_protected_paths=[protected_dir],
+        )
+        findings = [
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "protected-skill",
+                "location": str(protected_dir),
+            },
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        assert len(proposals) >= 1
+        assert all(p.apply_available is False for p in proposals)
+
+    def test_protected_skill_not_skipped(self, tmp_path):
+        """Protected skills produce proposals (not empty list)."""
+        protected_dir = tmp_path / "protected-skill"
+        protected_dir.mkdir()
+        (protected_dir / "SKILL.md").write_text("safe content\n")
+
+        engine = RemediationEngine(
+            skills_dir=tmp_path,
+            extra_protected_paths=[protected_dir],
+        )
+        findings = [
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "protected-skill",
+                "location": str(protected_dir),
+            },
+        ]
+        proposals = engine.scan_for_proposals(findings)
+        # Should get an advisory even for clean protected skills
+        assert len(proposals) >= 1
+        assert all(p.apply_available is False for p in proposals)
+
+    def test_apply_advisory_proposal_rejected(self, tmp_path):
+        """Applying an advisory proposal should return success=False."""
+        engine = RemediationEngine(skills_dir=tmp_path, dry_run=False)
+        proposal = RemediationProposal.create(
+            finding_id="f1",
+            check_id="ADV-002",
+            skill_name="test",
+            skill_path=tmp_path,
+            description="Advisory only",
+            action_type=ActionType.ADVISORY,
+            diff_preview="",
+            apply_available=False,
+        )
+        result = engine.apply_proposal(proposal)
+        assert result.success is False
+        assert "Advisory-only" in (result.error or "")

@@ -73,6 +73,7 @@ class ProposalResponse(BaseModel):
     diff_preview: str
     impact: list[str]
     reversible: bool
+    apply_available: bool = True
     status: str
     severity: str = ""
 
@@ -166,6 +167,7 @@ async def get_proposals(
             diff_preview=p.diff_preview,
             impact=p.impact,
             reversible=p.reversible,
+            apply_available=p.apply_available,
             status=p.status.value,
             severity=p.severity or severity_by_finding.get(p.finding_id, ""),
         )
