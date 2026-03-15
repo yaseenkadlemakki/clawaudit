@@ -200,6 +200,16 @@ class TestConfigPatchApply:
         config_patch.apply_patch(config_file, check_id="CONF-06")
         assert not (tmp_path / "openclaw.tmp").exists()
 
+    def test_apply_multiple_patches_same_file(self, tmp_path):
+        config_file = self._write_config(
+            tmp_path, {"gateway": {"bind": "0.0.0.0"}, "yolo": True},
+        )
+        config_patch.apply_patch(config_file, check_id="CONF-03")
+        config_patch.apply_patch(config_file, check_id="CONF-06")
+        result = json.loads(config_file.read_text())
+        assert result["gateway"]["bind"] == "loopback"
+        assert result["yolo"] is False
+
     def test_apply_patch_unknown_check_raises(self, tmp_path):
         config_file = self._write_config(tmp_path, {})
         with pytest.raises(ValueError, match="No config fix"):

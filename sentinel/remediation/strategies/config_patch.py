@@ -80,8 +80,13 @@ def _get_nested(data: dict, keys: list[str]) -> object:
 
 def _set_nested(data: dict, keys: list[str], value: object) -> None:
     """Set a value in a nested dict, creating intermediate dicts as needed."""
+    if not keys:
+        raise ValueError("key_path must not be empty")
     for k in keys[:-1]:
-        data = data.setdefault(k, {})
+        next_level = data.get(k)
+        if not isinstance(next_level, dict):
+            data[k] = {}
+        data = data[k]
     data[keys[-1]] = value
 
 
@@ -100,7 +105,7 @@ def propose(
         return None
 
     fix = _CONFIG_FIXES[check_id]
-    config_file = skill_path
+    config_file = skill_path / "openclaw.json" if skill_path.is_dir() else skill_path
 
     if not config_file.exists():
         return None
@@ -155,10 +160,13 @@ def apply_patch(skill_path: Path, check_id: str | None = None) -> str:
     if not fix:
         raise ValueError(f"No config fix for check_id={check_id}")
 
-    original = json.loads(config_file.read_text(encoding="utf-8"))
+    try:
+        original = json.loads(config_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ValueError(f"Cannot read or parse {config_file}: {exc}") from exc
     _set_nested(original, fix["key_path"], fix["target"])
 
-    content = json.dumps(original, indent=2)
+    content = json.dumps(original, indent=2) + "\n"
     tmp = config_file.with_suffix(".tmp")
     tmp.write_text(content, encoding="utf-8")
     tmp.replace(config_file)

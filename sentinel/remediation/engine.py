@@ -38,6 +38,8 @@ _STRATEGY_MAP: dict[str, _Strategy] = {
     "PERM-001": permissions,  # type: ignore[dict-item]
     "SKILL-01": permissions,  # type: ignore[dict-item]
     # Config hardening strategies
+    # CONF-00 (config not found) and CONF-05 (credentials in config) are not
+    # auto-remediable and therefore excluded from the strategy map.
     "CONF-01": config_patch,  # type: ignore[dict-item]
     "CONF-02": config_patch,  # type: ignore[dict-item]
     "CONF-03": config_patch,  # type: ignore[dict-item]
@@ -69,8 +71,10 @@ class RemediationEngine:
         skills_dir: Path | None = None,
         dry_run: bool = True,
         extra_protected_paths: list[Path] | None = None,
+        config_dir: Path | None = None,
     ) -> None:
         self._skills_dir = skills_dir or Path.home() / ".openclaw" / "workspace"
+        self._config_dir = config_dir or Path.home() / ".openclaw"
         self._dry_run = dry_run
         self._protected = list(_PROTECTED_PREFIXES) + (extra_protected_paths or [])
 
@@ -96,22 +100,13 @@ class RemediationEngine:
             logger.debug("No strategy for check_id=%s", check_id)
             return []
 
-        # Config strategies need check_id to look up the fix specification.
-        # Skill strategies ignore unexpected kwargs via backward compat.
-        try:
-            proposal = strategy.propose(
-                skill_name=skill_name,
-                skill_path=skill_path,
-                finding_id=finding_id,
-                check_id=check_id,
-            )
-        except TypeError:
-            # Fallback for strategies that don't accept check_id
-            proposal = strategy.propose(
-                skill_name=skill_name,
-                skill_path=skill_path,
-                finding_id=finding_id,
-            )
+        # All strategies accept **kwargs, so check_id is always safe to pass.
+        proposal = strategy.propose(
+            skill_name=skill_name,
+            skill_path=skill_path,
+            finding_id=finding_id,
+            check_id=check_id,
+        )
         return [proposal] if proposal else []
 
     def scan_for_proposals(
@@ -140,17 +135,22 @@ class RemediationEngine:
 
             if check_ids and check_id not in check_ids:
                 continue
-            if skill_names and skill_name not in skill_names:
-                continue
 
-            # Config findings (CONF-xx) have no skill_name — handle separately
-            if check_id.startswith("CONF-"):
-                config_path = Path.home() / ".openclaw" / "openclaw.json"
+            # Config findings have no skill_name — handle before skill_names filter.
+            # Dispatch via strategy map identity rather than string prefix.
+            strategy = _STRATEGY_MAP.get(check_id)
+            if strategy is config_patch:
+                if skill_names and "openclaw-config" not in skill_names:
+                    continue
+                config_path = self._config_dir / "openclaw.json"
                 if config_path.exists():
                     new_proposals = self.proposals_for_finding(
                         fid, check_id, "openclaw-config", config_path,
                     )
                     proposals.extend(new_proposals)
+                continue
+
+            if skill_names and skill_name not in skill_names:
                 continue
 
             # Skill/ADV findings require a skill name to identify the target
@@ -212,10 +212,7 @@ class RemediationEngine:
             if strategy is None:
                 raise ValueError(f"No strategy for check_id={proposal.check_id}")
 
-            try:
-                strategy.apply_patch(proposal.skill_path, check_id=proposal.check_id)
-            except TypeError:
-                strategy.apply_patch(proposal.skill_path)
+            strategy.apply_patch(proposal.skill_path, check_id=proposal.check_id)
             proposal.status = RemediationStatus.APPLIED
             logger.info(
                 "Applied remediation %s for %s (%s)",

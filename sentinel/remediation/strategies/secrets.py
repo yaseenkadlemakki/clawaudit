@@ -47,6 +47,7 @@ def propose(
     skill_name: str,
     skill_path: Path,
     finding_id: str,
+    **kwargs: object,
 ) -> RemediationProposal | None:
     """Propose a remediation for ADV-005 (exposed secrets)."""
     skill_md = skill_path / "SKILL.md"
@@ -95,7 +96,7 @@ def propose(
     )
 
 
-def apply_patch(skill_path: Path) -> str:
+def apply_patch(skill_path: Path, **kwargs: object) -> str:
     """Apply the secret-redaction patch in-place. Returns new file content."""
     skill_md = skill_path / "SKILL.md"
     lines = skill_md.read_text(encoding="utf-8").splitlines(keepends=True)

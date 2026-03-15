@@ -41,16 +41,11 @@ class TestConfigFindingHandling:
         config_file.write_text(json.dumps(config, indent=2))
         return config_file
 
-    def test_config_finding_without_skill_name_not_filtered(self, tmp_path, monkeypatch):
+    def test_config_finding_without_skill_name_not_filtered(self, tmp_path):
         """CONF-xx findings with skill_name='' should produce proposals."""
-        config_dir = tmp_path / ".openclaw"
-        config_dir.mkdir()
-        self._write_config(config_dir, {"gateway": {"bind": "0.0.0.0"}})
-        monkeypatch.setenv("HOME", str(tmp_path))
-        # Patch Path.home() to use tmp_path
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        self._write_config(tmp_path, {"gateway": {"bind": "0.0.0.0"}})
 
-        engine = RemediationEngine(skills_dir=tmp_path / "skills")
+        engine = RemediationEngine(skills_dir=tmp_path / "skills", config_dir=tmp_path)
         proposals = engine.scan_for_proposals([
             {
                 "id": "f1",
@@ -62,14 +57,11 @@ class TestConfigFindingHandling:
         assert len(proposals) == 1
         assert proposals[0].check_id == "CONF-03"
 
-    def test_config_finding_with_none_skill_name(self, tmp_path, monkeypatch):
+    def test_config_finding_with_none_skill_name(self, tmp_path):
         """CONF-xx findings with skill_name=None should produce proposals."""
-        config_dir = tmp_path / ".openclaw"
-        config_dir.mkdir()
-        self._write_config(config_dir, {"yolo": True})
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        self._write_config(tmp_path, {"yolo": True})
 
-        engine = RemediationEngine(skills_dir=tmp_path / "skills")
+        engine = RemediationEngine(skills_dir=tmp_path / "skills", config_dir=tmp_path)
         proposals = engine.scan_for_proposals([
             {
                 "id": "f1",
@@ -81,11 +73,9 @@ class TestConfigFindingHandling:
         assert len(proposals) == 1
         assert proposals[0].check_id == "CONF-06"
 
-    def test_config_finding_no_config_file_returns_empty(self, tmp_path, monkeypatch):
+    def test_config_finding_no_config_file_returns_empty(self, tmp_path):
         """If openclaw.json doesn't exist, no proposals generated."""
-        monkeypatch.setattr(Path, "home", lambda: tmp_path)
-
-        engine = RemediationEngine(skills_dir=tmp_path / "skills")
+        engine = RemediationEngine(skills_dir=tmp_path / "skills", config_dir=tmp_path)
         proposals = engine.scan_for_proposals([
             {
                 "id": "f1",

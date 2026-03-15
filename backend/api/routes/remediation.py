@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 _ALLOWED_SKILL_PARENTS = [
     Path.home() / ".openclaw" / "workspace",
     Path.home() / ".openclaw" / "skills",
+    Path.home() / ".openclaw",  # config_patch proposals target openclaw.json
 ]
 _ALLOWED_SNAPSHOT_DIR = Path.home() / ".openclaw" / "sentinel" / "snapshots"
 
