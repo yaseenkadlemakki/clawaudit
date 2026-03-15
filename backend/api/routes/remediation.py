@@ -67,6 +67,7 @@ class ProposalResponse(BaseModel):
     impact: list[str]
     reversible: bool
     status: str
+    severity: str = ""
 
 
 class ApplyRequest(BaseModel):
@@ -132,9 +133,12 @@ async def get_proposals(
             "check_id": f.check_id,
             "skill_name": f.skill_name or "",
             "location": f.location or "",
+            "severity": f.severity or "",
         }
         for f in findings_orm
     ]
+    # Build severity lookup for enriching proposals
+    severity_by_finding: dict[str, str] = {f["id"]: f["severity"] for f in findings}
 
     engine = _engine(dry_run=True)
     proposals = engine.scan_for_proposals(
@@ -156,6 +160,7 @@ async def get_proposals(
             impact=p.impact,
             reversible=p.reversible,
             status=p.status.value,
+            severity=p.severity or severity_by_finding.get(p.finding_id, ""),
         )
         for p in proposals
     ]

@@ -20,6 +20,7 @@ class ActionType(str, Enum):  # noqa: UP042
     REDACT_SECRET = "redact_secret"
     RESTRICT_PERMISSIONS = "restrict_permissions"
     REMOVE_ENV_VAR = "remove_env_var"
+    CONFIG_PATCH = "config_patch"
 
 
 @dataclass
@@ -37,6 +38,7 @@ class RemediationProposal:
     impact: list[str] = field(default_factory=list)
     reversible: bool = True
     status: RemediationStatus = RemediationStatus.PENDING
+    severity: str = ""
 
     @classmethod
     def create(

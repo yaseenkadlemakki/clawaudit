@@ -11,7 +11,12 @@ from sentinel.remediation.actions import (
     RemediationStatus,
 )
 from sentinel.remediation.rollback import create_snapshot, restore_snapshot
-from sentinel.remediation.strategies import permissions, secrets, shell_access
+from sentinel.remediation.strategies import (
+    config_patch,
+    permissions,
+    secrets,
+    shell_access,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +28,23 @@ class _Strategy:
     apply_patch: staticmethod
 
 
-# Mapping from check_id to strategy module
+# Mapping from check_id to strategy module.
+# Config checks (CONF-xx) target openclaw.json via config_patch.
+# Skill checks use existing strategies.
 _STRATEGY_MAP: dict[str, _Strategy] = {
+    # Skill-level strategies
     "ADV-001": shell_access,  # type: ignore[dict-item]
     "ADV-005": secrets,  # type: ignore[dict-item]
     "PERM-001": permissions,  # type: ignore[dict-item]
+    "SKILL-01": permissions,  # type: ignore[dict-item]
+    # Config hardening strategies
+    "CONF-01": config_patch,  # type: ignore[dict-item]
+    "CONF-02": config_patch,  # type: ignore[dict-item]
+    "CONF-03": config_patch,  # type: ignore[dict-item]
+    "CONF-04": config_patch,  # type: ignore[dict-item]
+    "CONF-06": config_patch,  # type: ignore[dict-item]
+    "CONF-07": config_patch,  # type: ignore[dict-item]
+    "CONF-08": config_patch,  # type: ignore[dict-item]
 }
 
 # Paths that are considered protected (core system skills — never modify)
@@ -79,11 +96,22 @@ class RemediationEngine:
             logger.debug("No strategy for check_id=%s", check_id)
             return []
 
-        proposal = strategy.propose(
-            skill_name=skill_name,
-            skill_path=skill_path,
-            finding_id=finding_id,
-        )
+        # Config strategies need check_id to look up the fix specification.
+        # Skill strategies ignore unexpected kwargs via backward compat.
+        try:
+            proposal = strategy.propose(
+                skill_name=skill_name,
+                skill_path=skill_path,
+                finding_id=finding_id,
+                check_id=check_id,
+            )
+        except TypeError:
+            # Fallback for strategies that don't accept check_id
+            proposal = strategy.propose(
+                skill_name=skill_name,
+                skill_path=skill_path,
+                finding_id=finding_id,
+            )
         return [proposal] if proposal else []
 
     def scan_for_proposals(
@@ -114,11 +142,26 @@ class RemediationEngine:
                 continue
             if skill_names and skill_name not in skill_names:
                 continue
-            if not skill_name or not skill_path_str:
+
+            # Config findings (CONF-xx) have no skill_name — handle separately
+            if check_id.startswith("CONF-"):
+                config_path = Path.home() / ".openclaw" / "openclaw.json"
+                if config_path.exists():
+                    new_proposals = self.proposals_for_finding(
+                        fid, check_id, "openclaw-config", config_path,
+                    )
+                    proposals.extend(new_proposals)
+                continue
+
+            # Skill/ADV findings require a skill name to identify the target
+            if not skill_name:
                 continue
 
             skill_path = Path(skill_path_str)
-            if not skill_path.is_dir():
+            # Location may point to a file (e.g. /path/to/SKILL.md) — use parent
+            if skill_path.is_file():
+                skill_path = skill_path.parent
+            elif not skill_path.is_dir():
                 # Try resolving relative to skills_dir
                 skill_path = self._skills_dir / skill_name
             if not skill_path.is_dir():
@@ -169,7 +212,10 @@ class RemediationEngine:
             if strategy is None:
                 raise ValueError(f"No strategy for check_id={proposal.check_id}")
 
-            strategy.apply_patch(proposal.skill_path)
+            try:
+                strategy.apply_patch(proposal.skill_path, check_id=proposal.check_id)
+            except TypeError:
+                strategy.apply_patch(proposal.skill_path)
             proposal.status = RemediationStatus.APPLIED
             logger.info(
                 "Applied remediation %s for %s (%s)",
