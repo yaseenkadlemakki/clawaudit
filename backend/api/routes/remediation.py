@@ -73,7 +73,7 @@ class ProposalResponse(BaseModel):
     diff_preview: str
     impact: list[str]
     reversible: bool
-    apply_available: bool = True
+    apply_available: bool = False
     status: str
     severity: str = ""
 
@@ -187,6 +187,11 @@ async def apply_proposal(
         action_type = ActionType(req.action_type)
     except ValueError:
         raise HTTPException(status_code=400, detail=f"Unknown action_type: {req.action_type}")
+
+    # Advisory proposals are guidance-only — reject before path validation
+    # and DB persistence to avoid polluting remediation history.
+    if action_type == ActionType.ADVISORY:
+        raise HTTPException(status_code=400, detail="Advisory proposals cannot be applied.")
 
     # Config patches target ~/.openclaw/ — validated via exact match, not the
     # broad skill parents list (which would expose DB, sentinel config, etc.).

@@ -30,20 +30,22 @@ function ProposalCard({
   const colorClass = SEVERITY_COLORS[proposal.check_id] ?? "text-blue-400 bg-blue-400/10 border-blue-400/30"
 
   return (
-    <div className="border border-border rounded-lg p-4 space-y-3 bg-card">
+    <div className={`border rounded-lg p-4 space-y-3 bg-card ${
+      proposal.apply_available === true ? "border-border" : "border-dashed border-muted-foreground/30"
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-mono px-2 py-0.5 rounded border ${colorClass}`}>
             {proposal.check_id}
           </span>
           <span className="text-sm font-medium">{proposal.skill_name}</span>
-          {proposal.reversible && (
+          {proposal.reversible && proposal.apply_available === true && (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <RotateCcw className="h-3 w-3" /> reversible
             </span>
           )}
         </div>
-        {proposal.apply_available !== false ? (
+        {proposal.apply_available === true ? (
           <button
             onClick={() => onApply(proposal)}
             disabled={applying}

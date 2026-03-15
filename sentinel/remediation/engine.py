@@ -184,6 +184,7 @@ class RemediationEngine:
         """Create a guidance-only advisory proposal if text exists for *check_id*."""
         advisory = self._ADVISORY.get(check_id)
         if advisory is None:
+            logger.debug("No advisory text for check_id=%s", check_id)
             return None
         proposal = RemediationProposal.create(
             finding_id=finding_id,
@@ -222,12 +223,21 @@ class RemediationEngine:
         proposal: RemediationProposal | None = None
 
         if strategy is not None:
-            proposal = strategy.propose(
-                skill_name=skill_name,
-                skill_path=skill_path,
-                finding_id=finding_id,
-                check_id=check_id,
-            )
+            try:
+                proposal = strategy.propose(
+                    skill_name=skill_name,
+                    skill_path=skill_path,
+                    finding_id=finding_id,
+                    check_id=check_id,
+                )
+            except Exception:
+                logger.warning(
+                    "Strategy %s failed for %s",
+                    check_id,
+                    skill_name,
+                    exc_info=True,
+                )
+                proposal = None  # fall through to advisory
             if proposal and severity:
                 proposal.severity = severity
 

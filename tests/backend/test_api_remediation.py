@@ -165,6 +165,25 @@ class TestApplyProposal:
         # the path validation itself must succeed.
         assert resp.status_code != 400 or "allowed" not in resp.json().get("detail", "").lower()
 
+    async def test_apply_advisory_returns_400(self, client):
+        """POST /apply with action_type=advisory should return 400 without persisting an event."""
+        from pathlib import Path
+
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "test",
+                "skill_path": str(Path.home() / ".openclaw" / "workspace" / "test"),
+                "check_id": "ADV-002",
+                "action_type": "advisory",
+                "description": "Advisory only",
+            },
+        )
+        assert resp.status_code == 400
+        assert "advisory" in resp.json()["detail"].lower()
+
     async def test_apply_config_patch_rejects_wrong_dir(self, client):
         """Config patches targeting a different directory should be rejected."""
         resp = await client.post(

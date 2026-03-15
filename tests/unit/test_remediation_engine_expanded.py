@@ -484,3 +484,71 @@ class TestAdvisoryFallback:
         result = engine.apply_proposal(proposal)
         assert result.success is False
         assert "Advisory-only" in (result.error or "")
+
+
+@pytest.mark.unit
+class TestStrategyExceptionHandling:
+    """Verify that strategy.propose() exceptions are caught, not propagated."""
+
+    def test_strategy_exception_falls_through_to_advisory(self, tmp_path, monkeypatch):
+        """If strategy.propose() raises, fall through to advisory instead of crashing."""
+        skill_dir = tmp_path / "bad-skill"
+        skill_dir.mkdir()
+        (skill_dir / "SKILL.md").write_text("pty: true\n")
+
+        def _exploding_propose(**kwargs):
+            raise RuntimeError("YAML parse error")
+
+        import sentinel.remediation.engine as eng
+
+        fake_strategy = type("S", (), {"propose": staticmethod(_exploding_propose)})()
+        monkeypatch.setitem(eng._STRATEGY_MAP, "ADV-001", fake_strategy)
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.proposals_for_finding("f1", "ADV-001", "bad-skill", skill_dir)
+        assert len(proposals) == 1
+        assert proposals[0].action_type == ActionType.ADVISORY
+        assert proposals[0].apply_available is False
+
+    def test_strategy_exception_does_not_abort_scan(self, tmp_path, monkeypatch):
+        """An exception in one finding's strategy should not skip remaining findings."""
+        bad_dir = tmp_path / "bad-skill"
+        bad_dir.mkdir()
+        (bad_dir / "SKILL.md").write_text("pty: true\n")
+        good_dir = tmp_path / "good-skill"
+        good_dir.mkdir()
+        (good_dir / "SKILL.md").write_text("pty: true\n")
+
+        import sentinel.remediation.engine as eng
+
+        original_propose = eng._STRATEGY_MAP["ADV-001"].propose
+        call_count = {"n": 0}
+
+        def _propose_that_fails_once(**kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise RuntimeError("boom")
+            return original_propose(**kwargs)
+
+        fake_strategy = type(
+            "S", (), {"propose": staticmethod(_propose_that_fails_once)}
+        )()
+        monkeypatch.setitem(eng._STRATEGY_MAP, "ADV-001", fake_strategy)
+
+        engine = RemediationEngine(skills_dir=tmp_path)
+        proposals = engine.scan_for_proposals([
+            {
+                "id": "f1",
+                "check_id": "ADV-001",
+                "skill_name": "bad-skill",
+                "location": str(bad_dir),
+            },
+            {
+                "id": "f2",
+                "check_id": "ADV-001",
+                "skill_name": "good-skill",
+                "location": str(good_dir),
+            },
+        ])
+        # Both produce proposals: first via advisory fallback, second via strategy
+        assert len(proposals) == 2
