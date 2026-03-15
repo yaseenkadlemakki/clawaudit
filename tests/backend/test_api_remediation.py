@@ -125,6 +125,63 @@ class TestApplyProposal:
         assert resp.status_code == 400
         assert "allowed" in resp.json()["detail"].lower()
 
+    async def test_apply_path_traversal_prefix_bypass_blocked(self, client):
+        """Ensure .openclaw-evil style prefix bypasses are rejected (is_relative_to)."""
+        evil_path = str(
+            __import__("pathlib").Path.home() / ".openclaw-evil" / "payload"
+        )
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "test",
+                "skill_path": evil_path,
+                "check_id": "ADV-001",
+                "action_type": "restrict_shell",
+                "description": "test",
+            },
+        )
+        assert resp.status_code == 400
+        assert "allowed" in resp.json()["detail"].lower()
+
+    async def test_apply_config_patch_accepts_config_dir(self, client):
+        """Config patches targeting ~/.openclaw/ should pass validation."""
+        config_dir = str(__import__("pathlib").Path.home() / ".openclaw")
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "openclaw-config",
+                "skill_path": config_dir,
+                "check_id": "CONF-03",
+                "action_type": "config_patch",
+                "description": "Harden gateway binding",
+            },
+        )
+        # Should not be 400 (validation passed). Actual result depends on
+        # whether the config file exists and the strategy can apply, but
+        # the path validation itself must succeed.
+        assert resp.status_code != 400 or "allowed" not in resp.json().get("detail", "").lower()
+
+    async def test_apply_config_patch_rejects_wrong_dir(self, client):
+        """Config patches targeting a different directory should be rejected."""
+        resp = await client.post(
+            "/api/v1/remediation/apply",
+            json={
+                "proposal_id": "p1",
+                "diff_preview": "",
+                "skill_name": "openclaw-config",
+                "skill_path": "/tmp/evil-config",
+                "check_id": "CONF-03",
+                "action_type": "config_patch",
+                "description": "Harden gateway binding",
+            },
+        )
+        assert resp.status_code == 400
+        assert "config" in resp.json()["detail"].lower()
+
 
 @pytest.mark.asyncio
 class TestRollback:

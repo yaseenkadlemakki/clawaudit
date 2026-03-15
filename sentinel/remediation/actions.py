@@ -20,6 +20,7 @@ class ActionType(str, Enum):  # noqa: UP042
     REDACT_SECRET = "redact_secret"
     RESTRICT_PERMISSIONS = "restrict_permissions"
     REMOVE_ENV_VAR = "remove_env_var"
+    CONFIG_PATCH = "config_patch"
 
 
 @dataclass
@@ -37,6 +38,7 @@ class RemediationProposal:
     impact: list[str] = field(default_factory=list)
     reversible: bool = True
     status: RemediationStatus = RemediationStatus.PENDING
+    severity: str = ""
 
     @classmethod
     def create(
@@ -50,6 +52,7 @@ class RemediationProposal:
         diff_preview: str,
         impact: list[str] | None = None,
         reversible: bool = True,
+        severity: str = "",
     ) -> RemediationProposal:
         return cls(
             proposal_id=str(uuid.uuid4()),
@@ -62,6 +65,7 @@ class RemediationProposal:
             diff_preview=diff_preview,
             impact=impact or [],
             reversible=reversible,
+            severity=severity,
         )
 
 

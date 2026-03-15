@@ -22,6 +22,8 @@ def propose(
     skill_name: str,
     skill_path: Path,
     finding_id: str,
+    check_id: str = "PERM-001",
+    **kwargs: object,
 ) -> RemediationProposal | None:
     """Propose a remediation for overly-broad tool permissions."""
     skill_md = skill_path / "SKILL.md"
@@ -55,7 +57,7 @@ def propose(
 
     return RemediationProposal.create(
         finding_id=finding_id,
-        check_id="PERM-001",
+        check_id=check_id,
         skill_name=skill_name,
         skill_path=skill_path,
         description=(
@@ -72,7 +74,7 @@ def propose(
     )
 
 
-def apply_patch(skill_path: Path) -> str:
+def apply_patch(skill_path: Path, **kwargs: object) -> str:
     """Apply the permissions-restriction patch in-place."""
     skill_md = skill_path / "SKILL.md"
     lines = skill_md.read_text(encoding="utf-8").splitlines(keepends=True)
